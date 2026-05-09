@@ -1,0 +1,38 @@
+
+
+[2026-04-25 20:44:42] STORE CALLED
+DATA: {"id":"2","name":"Air Filter (Toyota Vios\/Hiace)","price":"850","stock_quantity":"4","supplier":null}
+OLD: 10, NEW: 4
+SKIPPED: Quantity Added is 0
+
+
+[2026-04-25 20:46:59] STORE CALLED
+DATA: {"id":"2","name":"Air Filter (Toyota Vios\/Hiace)","price":"850","stock_quantity":"10","supplier":null}
+OLD: 4, NEW: 10
+RECORDING: Qty=6, Cost=5100, User=18
+ERROR: SQLSTATE[01000]: Warning: 1265 Data truncated for column 'category' at row 1 (SQL: insert into `expenses` (`category`, `expense_category`, `description`, `amount`, `date`, `status`, `recorded_by`, `created_by`, `created_at`, `updated_at`) values (Maintenance Supplies, maintenance, PURCHASED: 6 pcs of Air Filter (Toyota Vios/Hiace) from Unspecified Supplier, 5100, 2026-04-25, approved, 18, 18, 2026-04-25 20:46:59, 2026-04-25 20:46:59))
+
+
+[2026-04-25 20:57:37] STORE CALLED
+DATA: {"id":"2","name":"Air Filter (Toyota Vios\/Hiace)","price":"850","stock_quantity":"27","supplier":null}
+OLD: 10, NEW: 27
+RECORDING: Qty=17, Cost=14450, User=18
+SUCCESS: Expense ID 1
+
+
+[2026-04-25 21:20:50] STORE CALLED
+DATA: {"id":"14","name":"ATF \/ CVT Transmission Fluid (1L)","price":"650","stock_quantity":"10","supplier":null}
+OLD: 10, NEW: 10
+SKIPPED: Quantity Added is 0
+
+
+[2026-04-25 21:25:50] STORE CALLED
+DATA: {"id":"2","name":"Air Filter (Toyota Vios\/Hiace)","price":"850","stock_quantity":"2","supplier":null}
+OLD: 27, NEW: 2
+
+
+[2026-04-25 21:26:07] STORE CALLED
+DATA: {"id":"2","name":"Air Filter (Toyota Vios\/Hiace)","price":"850","stock_quantity":"28","supplier":null}
+OLD: 27, NEW: 28
+RECORDING: Qty=1, Cost=850, User=18
+SUCCESS: Expense ID 2

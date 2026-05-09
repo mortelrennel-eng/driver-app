@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "932083063677",
+    "project_id": "eurotaxi-4c240",
+    "storage_bucket": "eurotaxi-4c240.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:932083063677:android:9e0692a5cda615d3b30a14",
+        "android_client_info": {
+          "package_name": "com.eurotaxi.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyADek8a9SP9shob9-ccesxI9PQ72e8kacQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

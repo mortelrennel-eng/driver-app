@@ -1,0 +1,39 @@
+[2026-05-06T19:30:34+08:00] [User:125] [IP:136.158.67.35] Capacitor Push found, initializing bridge | {"user_id":"125"}
+[2026-05-06T19:30:34+08:00] [User:125] [IP:136.158.67.35] initNativePush starting | {"cached_token":null,"currentUserId":"125"}
+[2026-05-06T19:30:34+08:00] [User:125] [IP:136.158.67.35] tryInitCapacitorPush status check | {"retries":0,"hasCapacitor":true,"hasPlugins":true,"hasPush":true,"href":"https:\/\/eurotaxisystem.site\/","user_id":"125"}
+[2026-05-06T19:30:34+08:00] [User:125] [IP:136.158.67.35] Calling PushNotifications.register()... | []
+[2026-05-06T19:30:34+08:00] [User:125] [IP:136.158.67.35] Initial permission status | {"permStatus":{"receive":"granted"}}
+[2026-05-06T19:30:37+08:00] [User:125] [IP:136.158.67.35] tryInitCapacitorPush status check | {"retries":0,"hasCapacitor":true,"hasPlugins":true,"hasPush":true,"href":"https:\/\/eurotaxisystem.site\/my-account","user_id":"125"}
+[2026-05-06T19:30:37+08:00] [User:125] [IP:136.158.67.35] initNativePush starting | {"cached_token":null,"currentUserId":"125"}
+[2026-05-06T19:30:37+08:00] [User:125] [IP:136.158.67.35] Capacitor Push found, initializing bridge | {"user_id":"125"}
+[2026-05-06T19:30:37+08:00] [User:125] [IP:136.158.67.35] Initial permission status | {"permStatus":{"receive":"granted"}}
+[2026-05-06T19:30:37+08:00] [User:125] [IP:136.158.67.35] Calling PushNotifications.register()... | []
+[2026-05-06T19:31:12+08:00] [User:125] [IP:136.158.67.35] tryInitCapacitorPush status check | {"retries":0,"hasCapacitor":true,"hasPlugins":true,"hasPush":true,"href":"https:\/\/eurotaxisystem.site\/","user_id":"125"}
+[2026-05-06T19:31:12+08:00] [User:125] [IP:136.158.67.35] Capacitor Push found, initializing bridge | {"user_id":"125"}
+[2026-05-06T19:31:12+08:00] [User:125] [IP:136.158.67.35] initNativePush starting | {"cached_token":null,"currentUserId":"125"}
+[2026-05-06T19:31:12+08:00] [User:125] [IP:136.158.67.35] Calling PushNotifications.register()... | []
+[2026-05-06T19:31:12+08:00] [User:125] [IP:136.158.67.35] Initial permission status | {"permStatus":{"receive":"granted"}}
+[2026-05-06T19:31:26+08:00] [User:125] [IP:136.158.67.35] tryInitCapacitorPush status check | {"retries":0,"hasCapacitor":true,"hasPlugins":true,"hasPush":true,"href":"https:\/\/eurotaxisystem.site\/my-account","user_id":"125"}
+[2026-05-06T19:31:26+08:00] [User:125] [IP:136.158.67.35] initNativePush starting | {"cached_token":null,"currentUserId":"125"}
+[2026-05-06T19:31:26+08:00] [User:125] [IP:136.158.67.35] Capacitor Push found, initializing bridge | {"user_id":"125"}
+[2026-05-06T19:31:26+08:00] [User:125] [IP:136.158.67.35] Initial permission status | {"permStatus":{"receive":"granted"}}
+[2026-05-06T19:31:26+08:00] [User:125] [IP:136.158.67.35] Calling PushNotifications.register()... | []
+[2026-05-06T19:54:43+08:00] [User:125] [IP:136.158.67.35] tryInitCapacitorPush status check | {"retries":0,"hasCapacitor":true,"hasPlugins":true,"hasPush":true,"href":"https:\/\/eurotaxisystem.site\/","user_id":"125"}
+[2026-05-06T19:54:43+08:00] [User:125] [IP:136.158.67.35] Capacitor Push found, initializing bridge | {"user_id":"125"}
+[2026-05-06T19:54:43+08:00] [User:125] [IP:136.158.67.35] initNativePush starting | {"cached_token":null,"currentUserId":"125"}
+[2026-05-06T19:54:43+08:00] [User:125] [IP:136.158.67.35] Initial permission status | {"permStatus":{"receive":"prompt"}}
+[2026-05-06T19:54:43+08:00] [User:125] [IP:136.158.67.35] Requesting push permissions... | []
+[2026-05-06T19:54:45+08:00] [User:125] [IP:136.158.67.35] Calling PushNotifications.register()... | []
+[2026-05-06T19:54:45+08:00] [User:125] [IP:136.158.67.35] After request permission status | {"permStatus":{"receive":"granted"}}
+[2026-05-06T19:54:45+08:00] [User:125] [IP:136.158.67.35] PushNotifications.register() completed! | []
+[2026-05-06T19:54:48+08:00] [User:125] [IP:136.158.67.35] tryInitCapacitorPush status check | {"retries":0,"hasCapacitor":true,"hasPlugins":true,"hasPush":true,"href":"https:\/\/eurotaxisystem.site\/my-account","user_id":"125"}
+[2026-05-06T19:54:48+08:00] [User:125] [IP:136.158.67.35] Capacitor Push found, initializing bridge | {"user_id":"125"}
+[2026-05-06T19:54:48+08:00] [User:125] [IP:136.158.67.35] initNativePush starting | {"cached_token":null,"currentUserId":"125"}
+[2026-05-06T19:54:48+08:00] [User:125] [IP:136.158.67.35] Initial permission status | {"permStatus":{"receive":"granted"}}
+[2026-05-06T19:54:48+08:00] [User:125] [IP:136.158.67.35] Calling PushNotifications.register()... | []
+[2026-05-06T19:54:48+08:00] [User:125] [IP:136.158.67.35] PushNotifications.register() completed! | []
+[2026-05-06T19:55:12+08:00] [User:125] [IP:136.158.67.35] tryInitCapacitorPush status check | {"retries":0,"hasCapacitor":false,"hasPlugins":false,"hasPush":false,"href":"https:\/\/eurotaxisystem.site\/my-account","user_id":"125"}
+[2026-05-06T19:55:13+08:00] [User:125] [IP:136.158.67.35] tryInitCapacitorPush status check | {"retries":5,"hasCapacitor":false,"hasPlugins":false,"hasPush":false,"href":"https:\/\/eurotaxisystem.site\/my-account","user_id":"125"}
+[2026-05-06T19:55:14+08:00] [User:125] [IP:136.158.67.35] tryInitCapacitorPush status check | {"retries":10,"hasCapacitor":false,"hasPlugins":false,"hasPush":false,"href":"https:\/\/eurotaxisystem.site\/my-account","user_id":"125"}
+[2026-05-06T19:55:14+08:00] [User:125] [IP:136.158.67.35] tryInitCapacitorPush status check | {"retries":14,"hasCapacitor":false,"hasPlugins":false,"hasPush":false,"href":"https:\/\/eurotaxisystem.site\/my-account","user_id":"125"}
+[2026-05-06T19:55:14+08:00] [User:125] [IP:136.158.67.35] tryInitCapacitorPush timed out - Capacitor not detected | []

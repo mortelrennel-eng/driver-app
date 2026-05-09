@@ -1,0 +1,286 @@
+import { useEffect, useState } from 'react';
+import type { FC } from 'react';
+import {
+  IonContent,
+  IonPage,
+  IonIcon,
+  IonHeader,
+  IonToolbar,
+  IonButtons,
+  IonBackButton,
+  IonTitle,
+  IonSpinner,
+  IonRefresher,
+  IonRefresherContent
+} from '@ionic/react';
+import { 
+  trendingUpOutline,
+  statsChartOutline,
+  calendarOutline,
+  starOutline
+} from 'ionicons/icons';
+import axios from 'axios';
+import { endpoints } from '../config/api';
+
+interface PerformanceHistory {
+  date: string;
+  actual_boundary: number;
+  target_boundary: number;
+}
+
+const g = {
+  bg: '#0a0e1a',
+  card: 'linear-gradient(145deg, rgba(30, 41, 59, 0.7), rgba(15, 23, 42, 0.85))',
+  glass: { backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)' } as React.CSSProperties,
+  border: '1px solid rgba(255,255,255,0.06)',
+  gold: '#eab308',
+  blue: '#3b82f6',
+  radius: '24px',
+};
+
+const Performance: FC = () => {
+  const [performanceHistory, setPerformanceHistory] = useState<PerformanceHistory[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const fetchHistory = async () => {
+    try {
+      const response = await axios.get(endpoints.performanceHistory);
+      if (response.data.success) {
+        setPerformanceHistory(response.data.history);
+        localStorage.setItem('cached_performance_history', JSON.stringify(response.data.history));
+      }
+    } catch (e) {
+      console.error('Failed to fetch performance history', e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    const cached = localStorage.getItem('cached_performance_history');
+    if (cached) {
+      try {
+        setPerformanceHistory(JSON.parse(cached));
+        setLoading(false);
+      } catch (e) {}
+    }
+    fetchHistory();
+  }, []);
+
+  const doRefresh = (event: CustomEvent) => {
+    fetchHistory().then(() => event.detail.complete());
+  };
+
+  // Simple SVG Chart Helper
+  const renderChart = () => {
+    if (performanceHistory.length < 1) {
+      return (
+        <div style={{ height: '220px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#475569', fontSize: '14px', border: '1px dashed rgba(255,255,255,0.1)', borderRadius: '16px' }}>
+          Not enough data for chart yet.
+        </div>
+      );
+    }
+
+    const width = 340;
+    const height = 200;
+    const padding = 30;
+    
+    const maxVal = Math.max(...performanceHistory.map(h => Math.max(Number(h.actual_boundary || 0), Number(h.target_boundary || 0))), 1500);
+    const minVal = 0;
+
+    const getX = (index: number) => {
+      if (performanceHistory.length === 1) return width / 2;
+      return (index * (width - padding * 2)) / (performanceHistory.length - 1) + padding;
+    };
+    const getY = (val: number) => height - ((val - minVal) * (height - padding * 2)) / (maxVal - minVal) - padding;
+
+    const actualPoints = performanceHistory.map((h, i) => `${getX(i)},${getY(Number(h.actual_boundary || 0))}`).join(' ');
+    const targetPoints = performanceHistory.map((h, i) => `${getX(i)},${getY(Number(h.target_boundary || 0))}`).join(' ');
+
+    return (
+      <div style={{ background: 'rgba(15, 23, 42, 0.4)', borderRadius: '20px', padding: '20px 5px', border: '1px solid rgba(255,255,255,0.03)' }}>
+        <svg viewBox={`0 0 ${width} ${height}`} style={{ width: '100%', height: 'auto', overflow: 'visible' }}>
+          {/* Grid Lines */}
+          {[0, 0.5, 1].map((p, i) => (
+            <line 
+              key={i} 
+              x1={padding} 
+              y1={getY(maxVal * p)} 
+              x2={width - padding} 
+              y2={getY(maxVal * p)} 
+              stroke="rgba(255,255,255,0.05)" 
+              strokeWidth="1" 
+            />
+          ))}
+
+          {/* Target Line/Dot */}
+          {performanceHistory.length > 1 ? (
+            <polyline
+              fill="none"
+              stroke="rgba(234,179,8,0.3)"
+              strokeWidth="2"
+              strokeDasharray="4"
+              points={targetPoints}
+            />
+          ) : (
+            <circle cx={getX(0)} cy={getY(Number(performanceHistory[0].target_boundary || 0))} r="4" fill="rgba(234,179,8,0.3)" />
+          )}
+
+          {/* Actual Line/Dot */}
+          {performanceHistory.length > 1 ? (
+            <polyline
+              fill="none"
+              stroke={g.blue}
+              strokeWidth="4"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              points={actualPoints}
+              style={{ filter: 'drop-shadow(0 0 8px rgba(59, 130, 246, 0.6))' }}
+            />
+          ) : (
+             <rect 
+               x={getX(0) - 20} 
+               y={getY(Number(performanceHistory[0].actual_boundary || 0))} 
+               width="40" 
+               height={height - getY(Number(performanceHistory[0].actual_boundary || 0)) - padding} 
+               fill={g.blue} 
+               rx="6"
+               style={{ filter: 'drop-shadow(0 0 12px rgba(59, 130, 246, 0.4))' }}
+             />
+          )}
+
+          {/* Data Points & Labels */}
+          {performanceHistory.map((h, i) => (
+            <g key={i}>
+              {performanceHistory.length > 1 && <circle cx={getX(i)} cy={getY(Number(h.actual_boundary || 0))} r="5" fill={g.blue} stroke="#fff" strokeWidth="2" />}
+              <text 
+                x={getX(i)} 
+                y={height - 5} 
+                textAnchor="middle" 
+                fill="#64748b" 
+                fontSize="10" 
+                fontWeight="700"
+              >
+                {new Date(h.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+              </text>
+              <text 
+                x={getX(i)} 
+                y={getY(Number(h.actual_boundary || 0)) - 10} 
+                textAnchor="middle" 
+                fill="#fff" 
+                fontSize="9" 
+                fontWeight="900"
+              >
+                ₱{Number(h.actual_boundary || 0).toLocaleString()}
+              </text>
+            </g>
+          ))}
+        </svg>
+        <div style={{ display: 'flex', justifyContent: 'center', gap: '24px', padding: '15px 10px 0', borderTop: '1px solid rgba(255,255,255,0.05)', marginTop: '15px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: g.blue }}></div>
+            <span style={{ fontSize: '11px', color: '#94a3b8', fontWeight: '800' }}>REMITTANCE</span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div style={{ width: '12px', height: '2px', background: 'rgba(234,179,8,0.5)', borderRadius: '2px' }}></div>
+            <span style={{ fontSize: '11px', color: '#94a3b8', fontWeight: '800' }}>TARGET</span>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <IonPage>
+      <IonHeader className="ion-no-border">
+        <IonToolbar style={{ '--background': g.bg, '--color': '#fff' }}>
+          <IonButtons slot="start">
+            <IonBackButton defaultHref="/dashboard" />
+          </IonButtons>
+          <IonTitle style={{ fontWeight: '800', fontSize: '18px' }}>Performance Insights</IonTitle>
+        </IonToolbar>
+      </IonHeader>
+
+      <IonContent fullscreen style={{ '--background': g.bg }}>
+        <IonRefresher slot="fixed" onIonRefresh={doRefresh}>
+          <IonRefresherContent></IonRefresherContent>
+        </IonRefresher>
+
+        <div style={{ background: g.bg, minHeight: '100%', padding: '20px' }}>
+          
+          <div style={{ marginBottom: '24px' }}>
+            <h1 style={{ color: '#fff', fontSize: '28px', fontWeight: '900', margin: '0 0 8px' }}>Your Trends</h1>
+            <p style={{ color: '#94a3b8', fontSize: '14px', margin: 0 }}>Analyze your consistency over the last 7 days.</p>
+          </div>
+
+          {loading ? (
+            <div style={{ display: 'flex', justifyContent: 'center', padding: '40px' }}>
+              <IonSpinner color="warning" />
+            </div>
+          ) : (
+            <>
+              {/* Chart Section */}
+              <div style={{ padding: '20px', background: g.card, ...g.glass, border: g.border, borderRadius: g.radius, marginBottom: '20px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '20px' }}>
+                  <IonIcon icon={statsChartOutline} style={{ fontSize: '18px', color: g.gold }} />
+                  <span style={{ fontSize: '12px', fontWeight: '800', color: g.gold, textTransform: 'uppercase', letterSpacing: '1.5px' }}>Boundary Trend</span>
+                </div>
+                {renderChart()}
+              </div>
+
+              {/* Weekly Summary Cards */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '20px' }}>
+                <div style={{ padding: '20px', background: g.card, ...g.glass, border: g.border, borderRadius: '20px' }}>
+                  <IonIcon icon={trendingUpOutline} style={{ fontSize: '24px', color: '#22c55e', marginBottom: '12px' }} />
+                  <div style={{ fontSize: '10px', color: '#94a3b8', fontWeight: '700', textTransform: 'uppercase' }}>Avg. Remittance</div>
+                  <div style={{ fontSize: '20px', fontWeight: '900', color: '#fff' }}>
+                    ₱{performanceHistory.length ? (performanceHistory.reduce((a, b) => a + Number(b.actual_boundary || 0), 0) / performanceHistory.length).toLocaleString(undefined, { maximumFractionDigits: 0 }) : 0}
+                  </div>
+                </div>
+                <div style={{ padding: '20px', background: g.card, ...g.glass, border: g.border, borderRadius: '20px' }}>
+                  <IonIcon icon={starOutline} style={{ fontSize: '24px', color: g.gold, marginBottom: '12px' }} />
+                  <div style={{ fontSize: '10px', color: '#94a3b8', fontWeight: '700', textTransform: 'uppercase' }}>Success Rate</div>
+                  <div style={{ fontSize: '20px', fontWeight: '900', color: '#fff' }}>
+                    {performanceHistory.length ? Math.round((performanceHistory.filter(h => h.actual_boundary >= h.target_boundary).length / performanceHistory.length) * 100) : 0}%
+                  </div>
+                </div>
+              </div>
+
+              {/* Daily List */}
+              <div style={{ padding: '20px', background: g.card, ...g.glass, border: g.border, borderRadius: g.radius }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '20px' }}>
+                  <IonIcon icon={calendarOutline} style={{ fontSize: '18px', color: g.gold }} />
+                  <span style={{ fontSize: '12px', fontWeight: '800', color: g.gold, textTransform: 'uppercase', letterSpacing: '1.5px' }}>Daily Breakdown</span>
+                </div>
+                
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  {performanceHistory.slice().reverse().map((day, i) => (
+                    <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px', background: 'rgba(255,255,255,0.03)', borderRadius: '14px' }}>
+                      <div>
+                        <div style={{ fontSize: '13px', fontWeight: '700', color: '#f8fafc' }}>{new Date(day.date).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}</div>
+                        <div style={{ fontSize: '11px', color: '#64748b' }}>Target: ₱{day.target_boundary.toLocaleString()}</div>
+                      </div>
+                      <div style={{ textAlign: 'right' }}>
+                        <div style={{ fontSize: '14px', fontWeight: '900', color: day.actual_boundary >= day.target_boundary ? '#22c55e' : '#ef4444' }}>
+                          ₱{day.actual_boundary.toLocaleString()}
+                        </div>
+                        <div style={{ fontSize: '10px', fontWeight: '700', color: day.actual_boundary >= day.target_boundary ? '#22c55e' : '#ef4444' }}>
+                          {day.actual_boundary >= day.target_boundary ? 'TARGET MET' : `SHORT ₱${(day.target_boundary - day.actual_boundary).toLocaleString()}`}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+
+            </>
+          )}
+        </div>
+
+      </IonContent>
+    </IonPage>
+  );
+};
+
+export default Performance;

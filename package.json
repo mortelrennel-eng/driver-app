@@ -1,0 +1,23 @@
+{
+    "private": true,
+    "type": "module",
+    "scripts": {
+        "dev": "vite",
+        "build": "vite build"
+    },
+    "devDependencies": {
+        "axios": "^1.1.2",
+        "laravel-vite-plugin": "^0.7.2",
+        "lodash": "^4.17.19",
+        "lucide": "^0.460.0",
+        "postcss": "^8.1.14",
+        "tailwindcss": "^3.3.0",
+        "vite": "^4.0.0"
+    },
+    "dependencies": {
+        "autoprefixer": "^10.4.27",
+        "bcryptjs": "^3.0.3",
+        "mysql2": "^3.22.3",
+        "ssh2": "^1.17.0"
+    }
+}
