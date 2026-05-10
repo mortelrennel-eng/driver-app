@@ -14,6 +14,7 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Auth;
 use Carbon\Carbon;
+use Illuminate\Support\Str;
 use App\Services\TracksolidService;
 
 class DriverAppController extends Controller
@@ -37,8 +38,8 @@ class DriverAppController extends Controller
                                 if (trim($value) === '') $fail('The name cannot be just spaces.');
                               }],
             'email'        => ['required', 'string', 'email', 'max:255', 'unique:users,email', function($attribute, $value, $fail) {
-                                if (str_ends_with($value, '@gmail.com')) {
-                                    $prefix = str_before($value, '@gmail.com');
+                                if (Str::endsWith($value, '@gmail.com')) {
+                                    $prefix = Str::before($value, '@gmail.com');
                                     if (strlen($prefix) < 6) $fail('Gmail address must have at least 6 characters before @gmail.com.');
                                 }
                               }],

@@ -8,6 +8,11 @@ use Illuminate\Support\Facades\Hash;
 use App\Models\User;
 use App\Models\LoginAudit;
 use App\Models\SystemSetting;
+use App\Models\IncidentClassification;
+use App\Models\Role;
+use App\Models\Driver;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 
 class SuperAdminController extends Controller
 {
@@ -73,12 +78,12 @@ class SuperAdminController extends Controller
             ->orderByDesc('created_at')
             ->paginate(25);
         // Classifications
-        $classifications = \App\Models\IncidentClassification::orderBy('name')->get();
-        $archivedClassifications = \App\Models\IncidentClassification::onlyTrashed()->orderBy('name')->get();
+        $classifications = IncidentClassification::orderBy('name')->get();
+        $archivedClassifications = IncidentClassification::onlyTrashed()->orderBy('name')->get();
 
         // Roles
-        $roles = \App\Models\Role::orderBy('label')->get();
-        $archivedRoles = \App\Models\Role::onlyTrashed()->orderBy('label')->get();
+        $roles = Role::orderBy('label')->get();
+        $archivedRoles = Role::onlyTrashed()->orderBy('label')->get();
 
         return view('super-admin.index', compact(
             'tab',
@@ -124,9 +129,9 @@ class SuperAdminController extends Controller
             ],
             'recentAudit' => $recentAudit,
             'allUsers' => $allUsers,
-            'archivedUsers' => \App\Models\User::onlyTrashed()->orderBy('deleted_at', 'desc')->get(),
-            'roles' => \App\Models\Role::orderBy('label')->get(),
-            'archivedRoles' => \App\Models\Role::onlyTrashed()->orderBy('label')->get()
+            'archivedUsers' => User::onlyTrashed()->orderBy('deleted_at', 'desc')->get(),
+            'roles' => Role::orderBy('label')->get(),
+            'archivedRoles' => Role::onlyTrashed()->orderBy('label')->get()
         ]);
     }
 
@@ -380,7 +385,7 @@ class SuperAdminController extends Controller
     // ─── CREATE STAFF ACCOUNT (Super Admin only) ──────────────────────────────
     public function storeStaff(Request $request)
     {
-        $validRoles = \App\Models\Role::pluck('name')->toArray();
+        $validRoles = Role::pluck('name')->toArray();
         $roleIn = implode(',', $validRoles);
 
         $request->validate([
@@ -407,8 +412,8 @@ class SuperAdminController extends Controller
             'phone_number' => $request->phone_number,
             'address' => $request->address,
             'role' => $request->role,
-            'password' => \Illuminate\Support\Facades\Hash::make($tempPassword),
-            'password_hash' => \Illuminate\Support\Facades\Hash::make($tempPassword),
+            'password' => Hash::make($tempPassword),
+            'password_hash' => Hash::make($tempPassword),
             'must_change_password' => true,
             'temp_password' => $tempPassword,
             'is_active' => true,
@@ -418,9 +423,9 @@ class SuperAdminController extends Controller
 
         // Send welcome email with temp password
         try {
-            $mailResult = \Mail::to($user->email)->send(new \App\Mail\StaffWelcomeMail($user, $tempPassword));
+            $mailResult = Mail::to($user->email)->send(new \App\Mail\StaffWelcomeMail($user, $tempPassword));
         } catch (\Throwable $e) {
-            \Log::error('StaffWelcomeMail failed: ' . $e->getMessage());
+            Log::error('StaffWelcomeMail failed: ' . $e->getMessage());
         }
 
         LoginAudit::log('created', $user, 'Staff account created by ' . Auth::user()->full_name . ' with role: ' . $user->role);
@@ -453,21 +458,21 @@ class SuperAdminController extends Controller
         $data['auto_ban_trigger'] = (bool) ($data['auto_ban_trigger'] ?? false);
         $data['show_not_at_fault'] = (bool) ($data['show_not_at_fault'] ?? false);
 
-        $item = \App\Models\IncidentClassification::create($data);
+        $item = IncidentClassification::create($data);
 
         return response()->json(['success' => true, 'data' => $item, 'message' => 'New incident classification added!']);
     }
 
     public function getClassificationDetails($id)
     {
-        $item = \App\Models\IncidentClassification::withTrashed()->findOrFail($id);
+        $item = IncidentClassification::withTrashed()->findOrFail($id);
         return response()->json(['success' => true, 'data' => $item]);
     }
 
     public function updateClassification(Request $request, $id)
     {
-        \Log::info("Updating Classification ID: {$id}", $request->all());
-        $item = \App\Models\IncidentClassification::findOrFail($id);
+        Log::info("Updating Classification ID: {$id}", $request->all());
+        $item = IncidentClassification::findOrFail($id);
 
         $data = $request->validate([
             'name' => 'required|string|unique:incident_classifications,name,' . $id,
@@ -495,18 +500,18 @@ class SuperAdminController extends Controller
     public function archiveClassification($id, Request $request)
     {
         try {
-            $item = \App\Models\IncidentClassification::findOrFail($id);
+            $item = IncidentClassification::findOrFail($id);
             $item->delete();
             return response()->json(['success' => true, 'message' => 'Classification moved to Archive.']);
         } catch (\Exception $e) {
-            \Illuminate\Support\Facades\Log::error("Archive Classification Error: " . $e->getMessage());
+            Log::error("Archive Classification Error: " . $e->getMessage());
             return response()->json(['success' => false, 'message' => 'Error: ' . $e->getMessage()], 500);
         }
     }
 
     public function restoreClassification($id)
     {
-        $item = \App\Models\IncidentClassification::withTrashed()->findOrFail($id);
+        $item = IncidentClassification::withTrashed()->findOrFail($id);
         $item->restore();
 
         return response()->json(['success' => true, 'message' => 'Classification restored.']);
@@ -523,14 +528,14 @@ class SuperAdminController extends Controller
             'description' => 'nullable|string',
         ]);
 
-        $role = \App\Models\Role::create($data);
+        $role = Role::create($data);
 
         return response()->json(['success' => true, 'data' => $role, 'message' => 'New system role added!']);
     }
 
     public function updateRoleDetail(Request $request, $id)
     {
-        $role = \App\Models\Role::findOrFail($id);
+        $role = Role::findOrFail($id);
 
         $data = $request->validate([
             'name' => 'required|string|unique:roles,name,' . $id,
@@ -545,7 +550,7 @@ class SuperAdminController extends Controller
 
     public function archiveRole($id)
     {
-        $role = \App\Models\Role::findOrFail($id);
+        $role = Role::findOrFail($id);
         $role->delete();
 
         return response()->json(['success' => true, 'message' => 'Role moved to archive.']);
@@ -553,7 +558,7 @@ class SuperAdminController extends Controller
 
     public function restoreRole($id)
     {
-        $role = \App\Models\Role::withTrashed()->findOrFail($id);
+        $role = Role::withTrashed()->findOrFail($id);
         $role->restore();
 
         return response()->json(['success' => true, 'message' => 'Role restored.']);
@@ -563,7 +568,7 @@ class SuperAdminController extends Controller
     {
         try {
             $this->verifyArchivePassword($request);
-            $role = \App\Models\Role::withTrashed()->findOrFail($id);
+            $role = Role::withTrashed()->findOrFail($id);
             $role->forceDelete();
             return response()->json(['success' => true, 'message' => 'Role permanently deleted.']);
         } catch (\Exception $e) {
@@ -583,7 +588,7 @@ class SuperAdminController extends Controller
         }
 
         // Unlink from Driver record if exists to prevent CASCADE delete from DB
-        \App\Models\Driver::where('user_id', $user->id)->update(['user_id' => null]);
+        Driver::where('user_id', $user->id)->update(['user_id' => null]);
 
         $user->forceDelete();
         return response()->json(['success' => true, 'message' => 'User permanently deleted (Driver record preserved).']);
@@ -610,7 +615,7 @@ class SuperAdminController extends Controller
         try {
             $this->verifyArchivePassword($request);
 
-            $item = \App\Models\IncidentClassification::withTrashed()->findOrFail($id);
+            $item = IncidentClassification::withTrashed()->findOrFail($id);
             $item->forceDelete();
 
             return response()->json(['success' => true, 'message' => 'Classification permanently deleted.']);

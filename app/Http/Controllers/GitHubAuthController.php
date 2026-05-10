@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use Laravel\Socialite\Facades\Socialite;
+use Illuminate\Support\Str;
 use App\Models\User;
 use Illuminate\Support\Facades\Auth;
 
@@ -30,7 +31,7 @@ class GitHubAuthController extends Controller
                 [
                     'full_name' => $githubUser->getName(),
                     'username' => $githubUser->getNickname(),
-                    'password' => bcrypt(str_random(16)),
+                    'password' => bcrypt(Str::random(16)),
                     'github_id' => $githubUser->getId(),
                     'github_token' => $githubUser->token,
                     'is_active' => true,

@@ -137,7 +137,7 @@ const Login: FC = () => {
   useEffect(() => () => { if (timerRef.current) clearInterval(timerRef.current); }, []);
 
   const startResendTimer = () => {
-    setResendCountdown(60);
+    setResendCountdown(180);
     if (timerRef.current) clearInterval(timerRef.current);
     timerRef.current = setInterval(() => {
       setResendCountdown(prev => {
@@ -179,12 +179,13 @@ const Login: FC = () => {
   };
 
   // ── MFA ──
-  const handleVerifyMfa = async () => {
-    if (isLoading || mfaOtp.length !== 6) return;
+  const handleVerifyMfa = async (codeToVerify?: string) => {
+    const code = codeToVerify || mfaOtp;
+    if (isLoading || code.length !== 6) return;
     setIsLoading(true);
     setError(null);
     try {
-      const result = await verifyOtp(mfaToken, mfaOtp);
+      const result = await verifyOtp(mfaToken, code);
       if (result.success) {
         history.push('/dashboard');
       } else {
@@ -430,12 +431,18 @@ const Login: FC = () => {
               <label style={labelStyle}>Verification Code</label>
               <div style={{ ...inputWrap, marginBottom: '24px' }}>
                 <IonIcon icon={keyOutline} style={iconStyle()} />
-                <IonInput value={mfaOtp} onIonInput={(e) => setMfaOtp(e.detail.value!.replace(/[^0-9]/g, ''))}
+                <IonInput value={mfaOtp} onIonInput={(e) => {
+                  const val = e.detail.value!.replace(/[^0-9]/g, '');
+                  setMfaOtp(val);
+                  if (val.length === 6) {
+                    handleVerifyMfa(val);
+                  }
+                }}
                   placeholder="000000" maxlength={6} inputmode="numeric"
                   style={{ ...inputStyle, fontSize: '22px', fontWeight: '800', letterSpacing: '6px', '--padding-start': '48px', textAlign: 'center' } as any} />
               </div>
 
-              <IonButton expand="block" onClick={handleVerifyMfa} disabled={isLoading || mfaOtp.length !== 6} style={primaryBtn}>
+              <IonButton expand="block" onClick={() => handleVerifyMfa()} disabled={isLoading || mfaOtp.length !== 6} style={primaryBtn}>
                 {isLoading ? <IonSpinner name="crescent" /> : 'Verify Code'}
               </IonButton>
 

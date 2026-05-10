@@ -180,7 +180,7 @@ class AuthController extends Controller
         
         $user->update([
             'otp_code' => $otp,
-            'otp_expires_at' => now()->addMinutes(10)
+            'otp_expires_at' => now()->addMinutes(5)
         ]);
 
         if ($request->input('method') === 'email') {
@@ -200,7 +200,8 @@ class AuthController extends Controller
             if (!$phone) {
                 return response()->json(['success' => false, 'message' => 'No phone number found.'], 422);
             }
-            send_sms_otp($phone, $otp);
+            $message = "Your EuroTaxi device verification code is: {$otp}. Valid for 5 minutes.";
+            send_sms_otp($phone, $message, $otp);
         }
 
         return response()->json(['success' => true, 'message' => 'Verification code sent!']);
