@@ -74,9 +74,9 @@ class LiveTrackingController extends Controller
                     $lastUpdateTs = strtotime($unit->last_update . ' UTC');
                     $diff = time() - $lastUpdateTs;
                     
-                    if ($diff < 300) { // Less than 5 minutes
+                    if ($diff < 600) { // Less than 10 minutes
                         if ($unit->ignition_status) {
-                            $status = $unit->speed > 2 ? 'active' : 'idle'; // Speed > 2 to account for GPS jitter
+                            $status = $unit->speed > 2 ? 'active' : 'idle'; 
                         } else {
                             $status = 'stopped';
                         }
@@ -150,7 +150,7 @@ class LiveTrackingController extends Controller
             if ($lastUpdate) {
                 $lastUpdateTs = strtotime($lastUpdate . ' UTC');
                 $diff = time() - $lastUpdateTs;
-                if ($diff < 3600) { // Within 1 hour
+                if ($diff < 600) { // Within 10 minutes
                     if ($ignition) {
                         $status = $speed > 2 ? 'moving' : 'idle';
                     } else {
@@ -220,7 +220,7 @@ class LiveTrackingController extends Controller
                     if ($lastUpdate) {
                         $lastUpdateTs = strtotime($lastUpdate . ' UTC');
                         $diff = time() - $lastUpdateTs;
-                        if ($diff < 3600) { // Within 1 hour
+                        if ($diff < 600) { // Within 10 minutes
                             if ($ignition) {
                                 $status = $speed > 2 ? 'moving' : 'idle';
                             } else {

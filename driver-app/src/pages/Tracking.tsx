@@ -228,7 +228,7 @@ const Tracking: React.FC = () => {
               <Popup>
                 <div style={{ textAlign: 'center', padding: '8px' }}>
                   <strong style={{ color: '#1e3a8a', fontSize: '14px' }}>{data?.unit || 'Taxi Unit'}</strong><br />
-                  <div style={{ fontSize: '12px', color: isOffline ? '#ef4444' : (data?.gps_status === 'Moving' ? '#22c55e' : '#fbbf24'), marginTop: '4px', fontWeight: '800' }}>
+                  <div style={{ fontSize: '12px', color: isOffline ? '#ef4444' : (data?.gps_status === 'Active' ? '#22c55e' : '#fbbf24'), marginTop: '4px', fontWeight: '800' }}>
                     {isOffline ? '⚠️ SIGNAL LOST' : `🟢 ${data?.gps_status?.toUpperCase() || 'ACTIVE'}`}
                   </div>
                   <div style={{ fontSize: '11px', color: '#475569', marginTop: '4px', maxWidth: '150px' }}>
@@ -312,15 +312,15 @@ const Tracking: React.FC = () => {
                     fontWeight: '900',
                     textTransform: 'uppercase',
                     backgroundColor: 
-                      data?.gps_status === 'Moving' ? 'rgba(34,197,94,0.15)' : 
+                      data?.gps_status === 'Active' ? 'rgba(34,197,94,0.15)' : 
                       data?.gps_status === 'Idle' ? 'rgba(234,179,8,0.15)' :
                       data?.gps_status === 'Stopped' ? 'rgba(239,68,68,0.15)' : 'rgba(255,255,255,0.05)',
                     color: 
-                      data?.gps_status === 'Moving' ? '#22c55e' : 
+                      data?.gps_status === 'Active' ? '#22c55e' : 
                       data?.gps_status === 'Idle' ? '#fbbf24' :
                       data?.gps_status === 'Stopped' ? '#ef4444' : '#94a3b8',
                     border: `1px solid ${
-                      data?.gps_status === 'Moving' ? 'rgba(34,197,94,0.3)' : 
+                      data?.gps_status === 'Active' ? 'rgba(34,197,94,0.3)' : 
                       data?.gps_status === 'Idle' ? 'rgba(234,179,8,0.3)' :
                       data?.gps_status === 'Stopped' ? 'rgba(239,68,68,0.3)' : 'rgba(255,255,255,0.1)'
                     }`,
@@ -333,10 +333,10 @@ const Tracking: React.FC = () => {
                       height: '6px', 
                       borderRadius: '50%', 
                       background: 
-                        data?.gps_status === 'Moving' ? '#22c55e' : 
+                        data?.gps_status === 'Active' ? '#22c55e' : 
                         data?.gps_status === 'Idle' ? '#fbbf24' :
                         data?.gps_status === 'Stopped' ? '#ef4444' : '#94a3b8',
-                      boxShadow: data?.gps_status === 'Moving' ? '0 0 8px #22c55e' : 'none'
+                      boxShadow: data?.gps_status === 'Active' ? '0 0 8px #22c55e' : 'none'
                     }}></div>
                     {data?.gps_status || 'OFFLINE'}
                   </div>
@@ -386,11 +386,11 @@ const Tracking: React.FC = () => {
                                 width: '6px',
                                 height: '6px',
                                 borderRadius: '50%',
-                                background: driver.gps_status === 'Moving' ? '#22c55e' : driver.gps_status === 'Idle' ? '#fbbf24' : driver.gps_status === 'Stopped' ? '#ef4444' : '#94a3b8',
-                                boxShadow: driver.gps_status === 'Moving' ? '0 0 4px #22c55e' : 'none'
+                                background: driver.gps_status === 'Active' ? '#22c55e' : driver.gps_status === 'Idle' ? '#fbbf24' : driver.gps_status === 'Stopped' ? '#ef4444' : '#94a3b8',
+                                boxShadow: driver.gps_status === 'Active' ? '0 0 4px #22c55e' : 'none'
                               }}></span>
                               <span style={{ 
-                                color: driver.gps_status === 'Moving' ? '#4ade80' : driver.gps_status === 'Idle' ? '#fde047' : driver.gps_status === 'Stopped' ? '#f87171' : '#94a3b8',
+                                color: driver.gps_status === 'Active' ? '#4ade80' : driver.gps_status === 'Idle' ? '#fde047' : driver.gps_status === 'Stopped' ? '#f87171' : '#94a3b8',
                                 fontWeight: '700',
                                 letterSpacing: '0.5px'
                               }}>

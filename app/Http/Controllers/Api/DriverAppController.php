@@ -14,9 +14,16 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Auth;
 use Carbon\Carbon;
+use App\Services\TracksolidService;
 
 class DriverAppController extends Controller
 {
+    protected $tracksolid;
+
+    public function __construct(TracksolidService $tracksolid)
+    {
+        $this->tracksolid = $tracksolid;
+    }
     /**
      * Step 1: Validate registration data, match driver record, and send SMS OTP.
      * Account is NOT created yet — only after OTP verification.
@@ -432,6 +439,42 @@ class DriverAppController extends Controller
         $age = 'N/A';
 
         if ($unit) {
+            // SYNC CHECK: If local GPS data is older than 30 seconds, fetch live from Tracksolid
+            $lastLocalGps = DB::table('gps_tracking')
+                ->where('unit_id', $unit->id)
+                ->first();
+
+            $needsSync = true;
+            if ($lastLocalGps && $lastLocalGps->updated_at) {
+                $lastSync = Carbon::parse($lastLocalGps->updated_at);
+                if ($lastSync->diffInSeconds(now()) < 30) {
+                    $needsSync = false;
+                }
+            }
+
+            if ($needsSync && $unit->imei) {
+                \Log::info("Auto-syncing GPS for unit {$unit->plate_number} (Driver App Trigger)");
+                $liveData = $this->tracksolid->getLocations([$unit->imei]);
+                if ($liveData && isset($liveData[0])) {
+                    $gps = $liveData[0];
+                    $ignition = ($gps['accStatus'] ?? 0) == 1;
+                    $speed = $ignition ? (float)($gps['speed'] ?? 0) : 0;
+                    
+                    DB::table('gps_tracking')->updateOrInsert(
+                        ['unit_id' => $unit->id],
+                        [
+                            'latitude' => $gps['lat'],
+                            'longitude' => $gps['lng'],
+                            'speed' => $speed,
+                            'heading' => $gps['direction'] ?? 0,
+                            'ignition_status' => $ignition,
+                            'timestamp' => $gps['gpsTime'] ?? now(),
+                            'updated_at' => now()
+                        ]
+                    );
+                }
+            }
+
             $gps = DB::table('gps_tracking')
                 ->where('unit_id', $unit->id)
                 ->orderBy('timestamp', 'desc')
@@ -450,9 +493,9 @@ class DriverAppController extends Controller
                     $lastUpdateTs = strtotime($last_update . ' UTC');
                     $diff = time() - $lastUpdateTs;
 
-                    if ($diff < 3600) { // Within 1 hour
+                    if ($diff < 600) { // Within 10 minutes
                         if ($ignition) {
-                            $gps_status = $speed > 2 ? 'Moving' : 'Idle';
+                            $gps_status = $speed > 2 ? 'Active' : 'Idle';
                         } else {
                             $gps_status = 'Stopped';
                         }
@@ -804,6 +847,39 @@ class DriverAppController extends Controller
              return response()->json(['success' => true, 'nearby' => []]);
         }
 
+        // Global Sync Check: If last global sync was > 2 minutes ago, sync all units
+        $lastGlobalSync = \Cache::get('last_global_gps_sync');
+        if (!$lastGlobalSync || now()->diffInMinutes($lastGlobalSync) >= 2) {
+            \Log::info("Triggering global GPS sync (Driver Nearby Trigger)");
+            $liveData = $this->tracksolid->getAllLocations();
+            if ($liveData) {
+                foreach ($liveData as $gps) {
+                    $imei = $gps['imei'] ?? null;
+                    if (!$imei) continue;
+                    
+                    $unit = Unit::where('imei', $imei)->first();
+                    if ($unit) {
+                        $ignition = ($gps['accStatus'] ?? 0) == 1;
+                        $speed = $ignition ? (float)($gps['speed'] ?? 0) : 0;
+                        
+                        DB::table('gps_tracking')->updateOrInsert(
+                            ['unit_id' => $unit->id],
+                            [
+                                'latitude' => $gps['lat'],
+                                'longitude' => $gps['lng'],
+                                'speed' => $speed,
+                                'heading' => $gps['direction'] ?? 0,
+                                'ignition_status' => $ignition,
+                                'timestamp' => $gps['gpsTime'] ?? now(),
+                                'updated_at' => now()
+                            ]
+                        );
+                    }
+                }
+                \Cache::put('last_global_gps_sync', now(), 120); // Store for 2 mins
+            }
+        }
+
         $nearby = DB::table('units')
             ->join('gps_tracking', 'units.id', '=', 'gps_tracking.unit_id')
             ->leftJoin('drivers', 'units.driver_id', '=', 'drivers.id')
@@ -830,7 +906,7 @@ class DriverAppController extends Controller
             if ($item->timestamp) {
                 $lastUpdateTs = strtotime($item->timestamp . ' UTC');
                 $diff = time() - $lastUpdateTs;
-                if ($diff < 3600) { // Within 1 hour
+                if ($diff < 600) { // Within 10 minutes
                     if ($item->ignition_status) {
                         $gps_status = $item->speed > 2 ? 'Moving' : 'Idle';
                     } else {
