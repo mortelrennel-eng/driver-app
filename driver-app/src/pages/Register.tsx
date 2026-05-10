@@ -139,14 +139,31 @@ const Register: FC = () => {
     }, 1000);
   };
 
-  const validateEmail = (email: string) =>
-    /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  const validateEmail = (email: string) => {
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return { valid: false, message: 'Invalid email format.' };
+    if (email.endsWith('@gmail.com')) {
+      const prefix = email.split('@')[0];
+      if (prefix.length < 6) return { valid: false, message: 'Gmail address must have at least 6 characters before @gmail.com' };
+    }
+    return { valid: true, message: '' };
+  };
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.name.match(/^[a-zA-Z\s]*$/)) { setError('Name must only contain letters.'); return; }
-    if (!validateEmail(formData.email)) { setError('Please enter a valid email address.'); return; }
-    if (formData.phone.length < 11) { setError('Phone number must be at least 11 digits.'); return; }
+    
+    // Name validation
+    if (formData.name.trim() === '') { setError('Name cannot be just spaces.'); return; }
+    if (!formData.name.match(/^[a-zA-ZñÑ\s]*$/)) { setError('Name must only contain letters.'); return; }
+    
+    // Email validation
+    const emailCheck = validateEmail(formData.email);
+    if (!emailCheck.valid) { setError(emailCheck.message); return; }
+    
+    // Phone validation
+    if (!formData.phone.startsWith('09')) { setError('Phone number must start with 09.'); return; }
+    if (formData.phone.length !== 11) { setError('Phone number must be exactly 11 digits.'); return; }
+    
+    // Password validation
     if (formData.password !== formData.password_confirmation) { setError('Passwords do not match.'); return; }
     if (formData.password.length < 8) { setError('Password must be at least 8 characters.'); return; }
 

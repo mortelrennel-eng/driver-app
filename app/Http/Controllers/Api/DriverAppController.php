@@ -26,16 +26,23 @@ class DriverAppController extends Controller
         require_once app_path('Helpers/SemaphoreHelper.php');
 
         $validator = Validator::make($request->all(), [
-            'name'         => 'required|string|max:255',
-            'email'        => 'required|string|email|max:255|unique:users,email',
-            'phone'        => 'required|string|max:20',
+            'name'         => ['required', 'string', 'max:255', 'regex:/^[a-zA-ZñÑ\s]+$/', function($attribute, $value, $fail) {
+                                if (trim($value) === '') $fail('The name cannot be just spaces.');
+                              }],
+            'email'        => ['required', 'string', 'email', 'max:255', 'unique:users,email', function($attribute, $value, $fail) {
+                                if (str_ends_with($value, '@gmail.com')) {
+                                    $prefix = str_before($value, '@gmail.com');
+                                    if (strlen($prefix) < 6) $fail('Gmail address must have at least 6 characters before @gmail.com.');
+                                }
+                              }],
+            'phone'        => 'required|string|regex:/^09\d{9}$/',
             'password'     => 'required|string|min:8|confirmed',
             'plate_number' => 'required|string',
             'license_number' => 'nullable|string|max:50',
             'license_expiry' => 'nullable|date',
-            'address'      => 'nullable|string',
+            'address'      => ['nullable', 'string', 'regex:/^[a-zA-Z0-9].*$/', 'regex:/^(?![0-9]+$).*$/'],
             'emergency_contact' => 'nullable|string|max:100',
-            'emergency_phone'   => 'nullable|string|max:20',
+            'emergency_phone'   => 'nullable|string|regex:/^09\d{9}$/',
         ]);
 
         if ($validator->fails()) {
@@ -110,12 +117,12 @@ class DriverAppController extends Controller
             'driver_id'         => $driver->id,
             'unit_id'           => $unit->id,
             'otp'               => $otp,
-            'otp_expires_at'    => now()->addMinutes(10)->toDateTimeString(),
-        ], now()->addMinutes(10));
+            'otp_expires_at'    => now()->addMinutes(5)->toDateTimeString(),
+        ], now()->addMinutes(5));
 
         // Send SMS OTP
         $smsPhone = $request->phone;
-        $smsMessage = "Your EuroTaxi registration code is: {$otp}. Valid for 10 minutes.";
+        $smsMessage = "Your EuroTaxi registration code is: {$otp}. Valid for 5 minutes.";
         $smsSent = send_sms_otp($smsPhone, $smsMessage, $otp);
 
         if (!$smsSent) {
@@ -848,8 +855,12 @@ class DriverAppController extends Controller
             return response()->json(['success' => false, 'message' => 'Current password is incorrect'], 400);
         }
 
-        if (strlen($request->new_password) < 6) {
-            return response()->json(['success' => false, 'message' => 'New password must be at least 6 characters'], 400);
+        if (strlen($request->new_password) < 8) {
+            return response()->json(['success' => false, 'message' => 'New password must be at least 8 characters'], 400);
+        }
+
+        if ($request->new_password !== $request->new_password_confirmation) {
+            return response()->json(['success' => false, 'message' => 'New password confirmation does not match'], 400);
         }
 
         $user->password = Hash::make($request->new_password);
@@ -885,13 +896,15 @@ class DriverAppController extends Controller
         $driver = $this->resolveDriver($user);
 
         $request->validate([
-            'name' => 'required|string|max:255',
-            'phone' => 'nullable|string|max:20',
+            'name' => ['required', 'string', 'max:255', 'regex:/^[a-zA-ZñÑ\s]+$/', function($attribute, $value, $fail) {
+                        if (trim($value) === '') $fail('The name cannot be just spaces.');
+                      }],
+            'phone' => 'nullable|string|regex:/^09\d{9}$/',
             'license_number' => 'nullable|string|max:50',
             'license_expiry' => 'nullable|date',
-            'address' => 'nullable|string',
+            'address' => ['nullable', 'string', 'regex:/^[a-zA-Z0-9].*$/', 'regex:/^(?![0-9]+$).*$/'],
             'emergency_contact' => 'nullable|string|max:100',
-            'emergency_phone' => 'nullable|string|max:20',
+            'emergency_phone' => 'nullable|string|regex:/^09\d{9}$/',
         ]);
 
         // Update User
