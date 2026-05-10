@@ -123,9 +123,12 @@ class AuthController extends Controller
         // ─── MFA / DEVICE VERIFICATION CHECK ───
         $deviceName = $request->device_name ?? 'Unknown Mobile Device';
         
+        // Use a more unique token that includes the user ID to avoid collisions between users
+        $deviceToken = hash('sha256', $user->id . '|' . $deviceName);
+        
         // We check if this device name (acting as browser token) is recognized
         $isRecognized = $user->verifiedBrowsers()
-            ->where('browser_token', hash('sha256', $deviceName))
+            ->where('browser_token', $deviceToken)
             ->exists();
 
         // If not recognized, trigger MFA
@@ -227,13 +230,26 @@ class AuthController extends Controller
 
         // Verify device
         $deviceName = $request->device_name;
-        $user->verifiedBrowsers()->create([
-            'browser_token' => hash('sha256', $deviceName),
-            'ip_address'    => $request->ip(),
-            'user_agent'    => $request->userAgent() ?? 'Eurotaxi Mobile App',
-            'verified_at'   => now(),
-            'last_active_at'=> now(),
-        ]);
+        $deviceToken = hash('sha256', $user->id . '|' . $deviceName);
+        
+        // Check if already exists to avoid duplicate entry error
+        $existing = $user->verifiedBrowsers()->where('browser_token', $deviceToken)->first();
+        
+        if ($existing) {
+            $existing->update([
+                'ip_address'    => $request->ip(),
+                'user_agent'    => $request->userAgent() ?? 'Eurotaxi Mobile App',
+                'last_active_at'=> now(),
+            ]);
+        } else {
+            $user->verifiedBrowsers()->create([
+                'browser_token' => $deviceToken,
+                'ip_address'    => $request->ip(),
+                'user_agent'    => $request->userAgent() ?? 'Eurotaxi Mobile App',
+                'verified_at'   => now(),
+                'last_active_at'=> now(),
+            ]);
+        }
 
         $user->update(['otp_code' => null, 'otp_expires_at' => null]);
 

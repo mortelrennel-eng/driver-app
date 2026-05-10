@@ -214,13 +214,24 @@ class DriverAppController extends Controller
             $token = $user->createToken($deviceName)->plainTextToken;
 
             // Register this device as verified automatically since they just did OTP
-            $user->verifiedBrowsers()->create([
-                'browser_token' => hash('sha256', $deviceName),
-                'ip_address'    => $request->ip(),
-                'user_agent'    => $request->userAgent() ?? 'Eurotaxi Mobile App',
-                'verified_at'   => now(),
-                'last_active_at'=> now(),
-            ]);
+            $deviceToken = hash('sha256', $user->id . '|' . $deviceName);
+            $existing = $user->verifiedBrowsers()->where('browser_token', $deviceToken)->first();
+
+            if ($existing) {
+                $existing->update([
+                    'ip_address'    => $request->ip(),
+                    'user_agent'    => $request->userAgent() ?? 'Eurotaxi Mobile App',
+                    'last_active_at'=> now(),
+                ]);
+            } else {
+                $user->verifiedBrowsers()->create([
+                    'browser_token' => $deviceToken,
+                    'ip_address'    => $request->ip(),
+                    'user_agent'    => $request->userAgent() ?? 'Eurotaxi Mobile App',
+                    'verified_at'   => now(),
+                    'last_active_at'=> now(),
+                ]);
+            }
 
             return response()->json([
                 'success' => true,

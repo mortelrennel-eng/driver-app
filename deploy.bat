@@ -17,7 +17,7 @@ git push origin main
 
 echo.
 echo [2/2] Syncing to Hostinger Server via SSH...
-ssh -i "%KEY_PATH%" -p %SERVER_PORT% %SERVER_USER%@%SERVER_IP% "cd domains/eurotaxisystem.site/public_html && git fetch origin main && git checkout origin/main -- app/Http/Controllers/MyAccountController.php resources/views/my-account/index.blade.php resources/views/layouts/app.blade.php routes/web.php app/Mail/EmailChangeRequested.php app/Mail/VerifyNewEmail.php resources/views/emails/email-change-requested.blade.php resources/views/emails/verify-new-email.blade.php database/migrations/2026_05_04_141234_add_email_change_fields_to_users_table.php app/Http/Controllers/AuthController.php app/Http/Controllers/Api/AuthController.php && php artisan migrate --force && php artisan optimize"
+ssh -i "%KEY_PATH%" -p %SERVER_PORT% %SERVER_USER%@%SERVER_IP% "cd domains/eurotaxisystem.site/public_html && git fetch origin main && git checkout origin/main -- app/Http/Controllers/MyAccountController.php resources/views/my-account/index.blade.php resources/views/layouts/app.blade.php routes/web.php app/Mail/EmailChangeRequested.php app/Mail/VerifyNewEmail.php resources/views/emails/email-change-requested.blade.php resources/views/emails/verify-new-email.blade.php database/migrations/2026_05_04_141234_add_email_change_fields_to_users_table.php app/Http/Controllers/AuthController.php app/Http/Controllers/Api/AuthController.php app/Http/Controllers/Api/DriverAppController.php && php artisan migrate --force && php artisan optimize"
 
 echo.
 echo ===========================================

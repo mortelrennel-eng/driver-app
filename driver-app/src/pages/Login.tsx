@@ -150,37 +150,51 @@ const Login: FC = () => {
   // ── Login ──
   const handleLogin = async (e: FormEvent) => {
     e.preventDefault();
+    if (isLoading) return; // Prevent double submission
+
     setIsLoading(true);
     setError(null);
-    const result = await login({ login: loginValue, password });
-    if (result.success) {
-      if (result.mfa_required) {
-        setMfaToken(result.user_id);
-        const phone = result.phone || result.email || '';
-        setMaskedPhone(phone);
-        setScreen('mfa');
-        // Auto-send SMS OTP
-        await sendOtp(result.user_id, 'phone');
-        startResendTimer();
+    try {
+      const result = await login({ login: loginValue, password });
+      if (result.success) {
+        if (result.mfa_required) {
+          setMfaToken(result.user_id);
+          const phone = result.phone || result.email || '';
+          setMaskedPhone(phone);
+          setScreen('mfa');
+          // Auto-send SMS OTP
+          await sendOtp(result.user_id, 'phone');
+          startResendTimer();
+        } else {
+          history.push('/dashboard');
+        }
       } else {
-        history.push('/dashboard');
+        setError(result.message || 'Login failed. Please check your credentials.');
       }
-    } else {
-      setError(result.message || 'Login failed. Please check your credentials.');
+    } catch (err: any) {
+      setError('An unexpected error occurred. Please try again.');
+    } finally {
+      setIsLoading(false);
     }
-    setIsLoading(false);
   };
 
   // ── MFA ──
   const handleVerifyMfa = async () => {
+    if (isLoading || mfaOtp.length !== 6) return;
     setIsLoading(true);
-    const result = await verifyOtp(mfaToken, mfaOtp);
-    if (result.success) {
-      history.push('/dashboard');
-    } else {
-      setError(result.message || 'Invalid verification code.');
+    setError(null);
+    try {
+      const result = await verifyOtp(mfaToken, mfaOtp);
+      if (result.success) {
+        history.push('/dashboard');
+      } else {
+        setError(result.message || 'Invalid verification code.');
+      }
+    } catch (err) {
+      setError('Connection error. Please try again.');
+    } finally {
+      setIsLoading(false);
     }
-    setIsLoading(false);
   };
 
   const handleResendMfa = async () => {

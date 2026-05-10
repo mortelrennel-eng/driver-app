@@ -342,15 +342,19 @@ class AuthController extends Controller
         
         // 1. Generate unique device ID
         $deviceId = Str::random(64);
+        $deviceToken = hash('sha256', $deviceId);
         
         // 2. Save to database
-        $user->verifiedBrowsers()->create([
-            'browser_token' => hash('sha256', $deviceId),
-            'ip_address'    => $request->ip(),
-            'user_agent'    => $request->userAgent(),
-            'verified_at'   => now(),
-            'last_active_at'=> now(),
-        ]);
+        // Use updateOrCreate or check existence to be absolutely safe against rare random collisions or double-submission
+        $user->verifiedBrowsers()->updateOrCreate(
+            ['browser_token' => $deviceToken],
+            [
+                'ip_address'    => $request->ip(),
+                'user_agent'    => $request->userAgent(),
+                'verified_at'   => now(),
+                'last_active_at'=> now(),
+            ]
+        );
 
         // 3. Clear OTP
         $user->update(['otp_code' => null, 'otp_expires_at' => null]);

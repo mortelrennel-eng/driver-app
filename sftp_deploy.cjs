@@ -68,6 +68,10 @@ const filesToUpload = [
         local:  'resources/views/support/index.blade.php',
         remote: `${BASE_REMOTE}/resources/views/support/index.blade.php`
     },
+    {
+        local:  'app/Http/Controllers/AuthController.php',
+        remote: `${BASE_REMOTE}/app/Http/Controllers/AuthController.php`
+    },
 ];
 
 // Post-upload commands to clear caches
