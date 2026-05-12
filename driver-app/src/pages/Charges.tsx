@@ -87,7 +87,7 @@ const Charges: React.FC = () => {
           <IonRefresherContent />
         </IonRefresher>
 
-        <div style={{ minHeight: '100vh', background: t.bg, paddingBottom: '40px' }}>
+        <div style={{ minHeight: '100vh', background: t.bg, paddingBottom: '120px' }}>
 
           {/* Tab Switcher */}
           <div style={{ margin: '4px 20px 20px', display: 'grid', gridTemplateColumns: '1fr 1fr', background: t.subtleBg, borderRadius: '14px', padding: '4px', border: t.border }}>

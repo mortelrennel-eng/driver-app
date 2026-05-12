@@ -30,84 +30,86 @@ import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { Device } from '@capacitor/device';
 
-/* ── Shared Styles ── */
-const styles = {
-  sectionCard: {
-    background: 'linear-gradient(145deg, rgba(30, 41, 59, 0.8), rgba(15, 23, 42, 0.9))',
-    backdropFilter: 'blur(10px)',
-    WebkitBackdropFilter: 'blur(10px)',
-    border: '1px solid rgba(255, 255, 255, 0.06)',
-    boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)',
-    borderRadius: '24px',
-    padding: '24px 20px',
-    marginBottom: '16px',
-  } as React.CSSProperties,
-  label: {
-    display: 'block',
-    fontSize: '11px',
-    fontWeight: '700',
-    color: '#94a3b8',
-    textTransform: 'uppercase' as const,
-    letterSpacing: '1.5px',
-    marginBottom: '8px',
-    paddingLeft: '4px',
-  },
-  inputWrap: {
-    position: 'relative' as const,
-    background: 'rgba(15, 23, 42, 0.6)',
-    border: '1px solid rgba(51, 65, 85, 0.8)',
-    borderRadius: '16px',
-    overflow: 'hidden' as const,
-    marginBottom: '16px',
-  },
-  inputIcon: {
-    position: 'absolute' as const,
-    left: '16px',
-    top: '50%',
-    transform: 'translateY(-50%)',
-    fontSize: '18px',
-    color: '#64748b',
-    zIndex: 2,
-  },
-  eyeIcon: {
-    position: 'absolute' as const,
-    right: '16px',
-    top: '50%',
-    transform: 'translateY(-50%)',
-    fontSize: '18px',
-    color: '#64748b',
-    zIndex: 3,
-    cursor: 'pointer',
-  },
-  sectionDot: {
-    width: '8px',
-    height: '8px',
-    borderRadius: '50%',
-    background: 'linear-gradient(135deg, #eab308, #f59e0b)',
-  },
-  sectionLabel: {
-    fontSize: '11px',
-    fontWeight: '800',
-    color: '#eab308',
-    textTransform: 'uppercase' as const,
-    letterSpacing: '2px',
-  },
-};
-
-const inputStyle = {
-  '--padding-start': '48px',
-  '--padding-end': '48px',
-  '--color': '#f8fafc',
-  '--placeholder-color': '#475569',
-  '--background': 'transparent',
-  height: '52px',
-  fontSize: '15px',
-} as any;
+/* ── Shared Styles (now generated inside component to use theme) ── */
 
 const Register: FC = () => {
   const { t, isDark } = useTheme();
   const history = useHistory();
   const { loginFromData } = useAuth();
+
+  const styles = {
+    sectionCard: {
+      background: isDark ? 'linear-gradient(145deg, rgba(30, 41, 59, 0.8), rgba(15, 23, 42, 0.9))' : '#ffffff',
+      backdropFilter: 'blur(10px)',
+      WebkitBackdropFilter: 'blur(10px)',
+      border: isDark ? '1px solid rgba(255, 255, 255, 0.06)' : '1px solid #e2e8f0',
+      boxShadow: isDark ? '0 8px 32px rgba(0, 0, 0, 0.3)' : '0 4px 16px rgba(0, 0, 0, 0.06)',
+      borderRadius: '24px',
+      padding: '24px 20px',
+      marginBottom: '16px',
+    } as React.CSSProperties,
+    label: {
+      display: 'block',
+      fontSize: '11px',
+      fontWeight: '700',
+      color: isDark ? '#94a3b8' : '#64748b',
+      textTransform: 'uppercase' as const,
+      letterSpacing: '1.5px',
+      marginBottom: '8px',
+      paddingLeft: '4px',
+    },
+    inputWrap: {
+      position: 'relative' as const,
+      background: isDark ? 'rgba(15, 23, 42, 0.6)' : '#f1f5f9',
+      border: isDark ? '1px solid rgba(51, 65, 85, 0.8)' : '1px solid #cbd5e1',
+      borderRadius: '16px',
+      overflow: 'hidden' as const,
+      marginBottom: '16px',
+    },
+    inputIcon: {
+      position: 'absolute' as const,
+      left: '16px',
+      top: '50%',
+      transform: 'translateY(-50%)',
+      fontSize: '18px',
+      color: isDark ? '#64748b' : '#94a3b8',
+      zIndex: 2,
+    },
+    eyeIcon: {
+      position: 'absolute' as const,
+      right: '16px',
+      top: '50%',
+      transform: 'translateY(-50%)',
+      fontSize: '18px',
+      color: isDark ? '#64748b' : '#94a3b8',
+      zIndex: 3,
+      cursor: 'pointer',
+    },
+    sectionDot: {
+      width: '8px',
+      height: '8px',
+      borderRadius: '50%',
+      background: 'linear-gradient(135deg, #eab308, #f59e0b)',
+    },
+    sectionLabel: {
+      fontSize: '11px',
+      fontWeight: '800',
+      color: '#eab308',
+      textTransform: 'uppercase' as const,
+      letterSpacing: '2px',
+    },
+  };
+
+  const inputStyle = {
+    '--padding-start': '48px',
+    '--padding-end': '48px',
+    '--color': isDark ? '#f8fafc' : '#1e293b',
+    '--placeholder-color': isDark ? '#475569' : '#94a3b8',
+    '--background': 'transparent',
+    height: '52px',
+    fontSize: '15px',
+  } as any;
+
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
@@ -458,10 +460,10 @@ const Register: FC = () => {
               }}>
                 <IonIcon icon={checkmarkCircleOutline} style={{ fontSize: '36px', color: '#22c55e' }} />
               </div>
-              <h2 style={{ color: '#ffffff', fontSize: '20px', fontWeight: '700', margin: '0 0 8px' }}>
+              <h2 style={{ color: t.textPrimary, fontSize: '20px', fontWeight: '700', margin: '0 0 8px' }}>
                 Welcome to EuroTaxi!
               </h2>
-              <p style={{ color: '#94a3b8', fontSize: '14px', margin: 0 }}>
+              <p style={{ color: t.textSecondary, fontSize: '14px', margin: 0 }}>
                 Your account has been created. Redirecting to dashboard...
               </p>
             </div>

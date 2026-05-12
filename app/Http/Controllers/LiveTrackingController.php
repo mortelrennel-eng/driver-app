@@ -74,11 +74,16 @@ class LiveTrackingController extends Controller
                     $lastUpdateTs = strtotime($unit->last_update . ' UTC');
                     $diff = time() - $lastUpdateTs;
                     
-                    if ($diff < 600) { // Less than 10 minutes
-                        if ($unit->ignition_status) {
+                    if (!$unit->ignition_status) {
+                        // Trackers often sleep when ignition is off. Consider them 'stopped' (parked).
+                        $status = 'stopped';
+                    } else {
+                        // Ignition is ON
+                        if ($diff < 600) { // Signal received within 10 mins
                             $status = $unit->speed > 2 ? 'moving' : 'idle'; 
                         } else {
-                            $status = 'stopped';
+                            // Ignition ON but no signal for 10 mins
+                            $status = 'offline';
                         }
                     }
                 }

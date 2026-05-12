@@ -116,7 +116,7 @@ const Performance: FC = () => {
     const targetPoints = performanceHistory.map((h, i) => `${getX(i)},${getY(Number(h.target_boundary || 0))}`).join(' ');
 
     return (
-      <div style={{ background: 'rgba(15, 23, 42, 0.4)', borderRadius: '20px', padding: '20px 5px', border: '1px solid rgba(255,255,255,0.03)' }}>
+      <div style={{ background: t.subtleBg, borderRadius: '20px', padding: '20px 5px', border: `1px solid ${t.border.split(' ')[2]}` }}>
         <svg viewBox={`0 0 ${width} ${height}`} style={{ width: '100%', height: 'auto', overflow: 'visible' }}>
           {/* Grid Lines */}
           {[0, 0.5, 1].map((p, i) => (
@@ -126,8 +126,9 @@ const Performance: FC = () => {
               y1={getY(maxVal * p)} 
               x2={width - padding} 
               y2={getY(maxVal * p)} 
-              stroke="rgba(255,255,255,0.05)" 
+              stroke={t.border.split(' ')[2]} 
               strokeWidth="1" 
+              strokeDasharray="4"
             />
           ))}
 
@@ -135,13 +136,14 @@ const Performance: FC = () => {
           {performanceHistory.length > 1 ? (
             <polyline
               fill="none"
-              stroke="rgba(234,179,8,0.3)"
+              stroke={t.gold}
               strokeWidth="2"
               strokeDasharray="4"
               points={targetPoints}
+              style={{ opacity: 0.6 }}
             />
           ) : (
-            <circle cx={getX(0)} cy={getY(Number(performanceHistory[0].target_boundary || 0))} r="4" fill="rgba(234,179,8,0.3)" />
+            <circle cx={getX(0)} cy={getY(Number(performanceHistory[0].target_boundary || 0))} r="4" fill={t.gold} style={{ opacity: 0.6 }} />
           )}
 
           {/* Actual Line/Dot */}
@@ -153,7 +155,6 @@ const Performance: FC = () => {
               strokeLinecap="round"
               strokeLinejoin="round"
               points={actualPoints}
-              style={{ filter: 'drop-shadow(0 0 8px rgba(59, 130, 246, 0.6))' }}
             />
           ) : (
              <rect 
@@ -163,19 +164,18 @@ const Performance: FC = () => {
                height={height - getY(Number(performanceHistory[0].actual_boundary || 0)) - padding} 
                fill={g.blue} 
                rx="6"
-               style={{ filter: 'drop-shadow(0 0 12px rgba(59, 130, 246, 0.4))' }}
              />
           )}
 
           {/* Data Points & Labels */}
           {performanceHistory.map((h, i) => (
             <g key={i}>
-              {performanceHistory.length > 1 && <circle cx={getX(i)} cy={getY(Number(h.actual_boundary || 0))} r="5" fill={g.blue} stroke="#fff" strokeWidth="2" />}
+              {performanceHistory.length > 1 && <circle cx={getX(i)} cy={getY(Number(h.actual_boundary || 0))} r="5" fill={g.blue} stroke={t.bg} strokeWidth="2" />}
               <text 
                 x={getX(i)} 
                 y={height - 5} 
                 textAnchor="middle" 
-                fill="#64748b" 
+                fill={t.textSecondary} 
                 fontSize="10" 
                 fontWeight="700"
               >
@@ -185,8 +185,8 @@ const Performance: FC = () => {
                 x={getX(i)} 
                 y={getY(Number(h.actual_boundary || 0)) - 10} 
                 textAnchor="middle" 
-                fill="#fff" 
-                fontSize="9" 
+                fill={t.textPrimary} 
+                fontSize="10" 
                 fontWeight="900"
               >
                 ₱{Number(h.actual_boundary || 0).toLocaleString()}
@@ -194,14 +194,14 @@ const Performance: FC = () => {
             </g>
           ))}
         </svg>
-        <div style={{ display: 'flex', justifyContent: 'center', gap: '24px', padding: '15px 10px 0', borderTop: '1px solid rgba(255,255,255,0.05)', marginTop: '15px' }}>
+        <div style={{ display: 'flex', justifyContent: 'center', gap: '24px', padding: '15px 10px 0', borderTop: `1px solid ${t.border.split(' ')[2]}`, marginTop: '15px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: g.blue }}></div>
-            <span style={{ fontSize: '11px', color: '#94a3b8', fontWeight: '800' }}>REMITTANCE</span>
+            <span style={{ fontSize: '11px', color: t.textSecondary, fontWeight: '800' }}>REMITTANCE</span>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <div style={{ width: '12px', height: '2px', background: 'rgba(234,179,8,0.5)', borderRadius: '2px' }}></div>
-            <span style={{ fontSize: '11px', color: '#94a3b8', fontWeight: '800' }}>TARGET</span>
+            <div style={{ width: '12px', height: '2px', background: t.gold, borderRadius: '2px', opacity: 0.6 }}></div>
+            <span style={{ fontSize: '11px', color: t.textSecondary, fontWeight: '800' }}>TARGET</span>
           </div>
         </div>
       </div>
@@ -246,22 +246,22 @@ const Performance: FC = () => {
                 {renderChart()}
               </div>
 
-              {/* Weekly Summary Cards */}
+              {/* Weekly Summary Cards - Made smaller as requested */}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '20px' }}>
-                <div style={{ padding: '20px', background: t.card, ...t.glass, border: t.border, borderRadius: '20px' }}>
-                  <IonIcon icon={trendingUpOutline} style={{ fontSize: '24px', color: '#22c55e', marginBottom: '12px' }} />
-                  <div style={{ fontSize: '10px', color: t.textSecondary, fontWeight: '700', textTransform: 'uppercase' }}>Avg. Remittance</div>
-                  <div style={{ fontSize: '20px', fontWeight: '900', color: t.textPrimary }}>
+                <div style={{ padding: '12px 16px', background: t.card, ...t.glass, border: t.border, borderRadius: '16px' }}>
+                  <IonIcon icon={trendingUpOutline} style={{ fontSize: '18px', color: '#22c55e', marginBottom: '8px' }} />
+                  <div style={{ fontSize: '9px', color: t.textSecondary, fontWeight: '700', textTransform: 'uppercase' }}>Avg. Remittance</div>
+                  <div style={{ fontSize: '18px', fontWeight: '900', color: t.textPrimary }}>
                     ₱{performanceHistory.length ? (performanceHistory.reduce((a, b) => a + Number(b.actual_boundary || 0), 0) / performanceHistory.length).toLocaleString(undefined, { maximumFractionDigits: 0 }) : 0}
                   </div>
                 </div>
-                <div style={{ padding: '20px', background: t.card, ...t.glass, border: t.border, borderRadius: '20px' }}>
-                  <IonIcon icon={starOutline} style={{ fontSize: '24px', color: t.gold, marginBottom: '12px' }} />
-                  <div style={{ fontSize: '10px', color: t.textSecondary, fontWeight: '700', textTransform: 'uppercase' }}>Performance Rating</div>
-                  <div style={{ fontSize: '18px', fontWeight: '900', color: t.textPrimary, marginBottom: '4px' }}>
-                    {performanceRating?.label || (loading ? 'Calculating...' : 'No Rating')}
+                <div style={{ padding: '12px 16px', background: t.card, ...t.glass, border: t.border, borderRadius: '16px' }}>
+                  <IonIcon icon={starOutline} style={{ fontSize: '18px', color: t.gold, marginBottom: '8px' }} />
+                  <div style={{ fontSize: '9px', color: t.textSecondary, fontWeight: '700', textTransform: 'uppercase' }}>Performance Rating</div>
+                  <div style={{ fontSize: '16px', fontWeight: '900', color: t.textPrimary, marginBottom: '2px' }}>
+                    {performanceRating?.label || (loading ? 'Wait...' : 'No Rating')}
                   </div>
-                  <div style={{ fontSize: '14px', color: t.gold }}>
+                  <div style={{ fontSize: '12px', color: t.gold }}>
                     {performanceRating ? (
                       <>
                         {'★'.repeat(performanceRating.stars)}{'☆'.repeat(5 - performanceRating.stars)}

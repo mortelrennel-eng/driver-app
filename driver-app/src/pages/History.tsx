@@ -93,7 +93,7 @@ const History: React.FC = () => {
           <IonRefresherContent />
         </IonRefresher>
 
-        <div style={{ minHeight: '100vh', background: t.bg, paddingBottom: '40px' }}>
+        <div style={{ minHeight: '100vh', background: t.bg, paddingBottom: '120px' }}>
 
           {/* Summary Hero Card (Enhanced from Earnings) */}
           <div style={{ margin: '4px 20px 20px', padding: '24px', background: t.card, ...t.glass, border: t.border, borderRadius: '20px', boxShadow: t.shadow }}>

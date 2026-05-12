@@ -7,7 +7,9 @@ import {
   IonRefresher,
   IonRefresherContent,
   IonHeader,
-  IonToolbar
+  IonToolbar,
+  IonModal,
+  IonSpinner
 } from '@ionic/react';
 import {
   alertCircle,
@@ -18,7 +20,11 @@ import {
   cashOutline,
   warningOutline,
   chevronForwardOutline,
-  ribbonOutline
+  ribbonOutline,
+  closeOutline,
+  timeOutline,
+  alertCircleOutline,
+  megaphoneOutline
 } from 'ionicons/icons';
 import { useHistory } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
@@ -60,6 +66,17 @@ interface PerformanceData {
   unit_make?: string;
 }
 
+interface DriverNotification {
+  id: string;
+  type: 'remittance' | 'incident' | 'system';
+  title: string;
+  message: string;
+  timestamp: string;
+  time_display: string;
+  severity: 'success' | 'warning' | 'danger' | 'info';
+  icon: string;
+}
+
 const Dashboard: FC = () => {
   const { user, logout, refreshUser } = useAuth();
   const { t, isDark } = useTheme();
@@ -67,8 +84,49 @@ const Dashboard: FC = () => {
   const [data, setData] = useState<PerformanceData | null>(null);
   const [apiError, setApiError] = useState<string | null>(null);
   const [_isLoadingData, setIsLoadingData] = useState(true);
+  const [showNotifModal, setShowNotifModal] = useState(false);
+  const [notifications, setNotifications] = useState<DriverNotification[]>([]);
+  const [notifLoading, setNotifLoading] = useState(false);
 
   useGpsTracking(60000);
+
+  const fetchNotifications = async () => {
+    setNotifLoading(true);
+    try {
+      const response = await axios.get(endpoints.notifications);
+      if (response.data.success) {
+        setNotifications(response.data.notifications);
+      }
+    } catch (e) {
+      console.error('Failed to fetch notifications', e);
+    } finally {
+      setNotifLoading(false);
+    }
+  };
+
+  const getNotifIcon = (iconName: string) => {
+    switch(iconName) {
+      case 'cash-outline': return cashOutline;
+      case 'alert-circle-outline': return alertCircleOutline;
+      case 'megaphone-outline': return megaphoneOutline;
+      default: return notificationsOutline;
+    }
+  };
+
+  const getNotifColor = (severity: string) => {
+    switch(severity) {
+      case 'success': return '#22c55e';
+      case 'danger': return '#ef4444';
+      case 'warning': return '#eab308';
+      default: return '#3b82f6';
+    }
+  };
+
+  const getNotifRoute = (notif: DriverNotification) => {
+    if (notif.type === 'remittance') return '/history';
+    if (notif.type === 'incident') return '/incidents';
+    return '/dashboard';
+  };
 
   useEffect(() => {
     // Load cached data for "Instant Load" / Offline Support
@@ -175,7 +233,7 @@ const Dashboard: FC = () => {
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
               <button 
-                onClick={() => history.push('/notifications')} 
+                onClick={() => { setShowNotifModal(true); fetchNotifications(); }} 
                 style={{ background: t.backBtnBg, border: t.borderSubtle, borderRadius: '14px', padding: '10px', cursor: 'pointer', position: 'relative' }}
               >
                 <IonIcon icon={notificationsOutline} style={{ fontSize: '20px', color: t.textPrimary }} />
@@ -228,15 +286,15 @@ const Dashboard: FC = () => {
 
           {/* ── Coding Banner ── */}
           {data && (
-            <div style={{ margin: '0 20px 16px', padding: '20px 18px', borderRadius: '20px', background: data.is_coding ? 'linear-gradient(135deg, rgba(239,68,68,0.2) 0%, rgba(239,68,68,0.1) 100%)' : 'linear-gradient(135deg, rgba(34,197,94,0.15) 0%, rgba(34,197,94,0.05) 100%)', border: `1px solid ${data.is_coding ? 'rgba(239,68,68,0.4)' : 'rgba(34,197,94,0.25)'}`, display: 'flex', alignItems: 'center', gap: '14px', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}>
+            <div style={{ margin: '0 20px 16px', padding: '20px 18px', borderRadius: '20px', background: data.is_coding ? (isDark ? 'linear-gradient(135deg, rgba(239,68,68,0.2) 0%, rgba(239,68,68,0.1) 100%)' : 'linear-gradient(135deg, rgba(239,68,68,0.12) 0%, rgba(239,68,68,0.05) 100%)') : (isDark ? 'linear-gradient(135deg, rgba(34,197,94,0.15) 0%, rgba(34,197,94,0.05) 100%)' : 'linear-gradient(135deg, rgba(34,197,94,0.12) 0%, rgba(34,197,94,0.04) 100%)'), border: `1px solid ${data.is_coding ? 'rgba(239,68,68,0.4)' : 'rgba(34,197,94,0.3)'}`, display: 'flex', alignItems: 'center', gap: '14px', boxShadow: '0 4px 12px rgba(0,0,0,0.06)' }}>
               <div style={{ width: '12px', height: '12px', borderRadius: '50%', background: data.is_coding ? '#ef4444' : '#22c55e', boxShadow: `0 0 12px ${data.is_coding ? '#ef4444' : '#22c55e'}`, animation: 'pulse 2s infinite' }}></div>
               <div style={{ flex: 1 }}>
-                <div style={{ fontSize: '15px', fontWeight: '800', color: data.is_coding ? '#fca5a5' : '#86efac', letterSpacing: '0.3px' }}>
+                <div style={{ fontSize: '15px', fontWeight: '800', color: data.is_coding ? (isDark ? '#fca5a5' : '#b91c1c') : (isDark ? '#86efac' : '#15803d'), letterSpacing: '0.3px' }}>
                   {data.is_coding ? data.coding_message : 'No Coding Today — Drive Freely!'}
                 </div>
                 {data.coding_day_name && (
-                  <div style={{ fontSize: '11px', color: t.textSecondary, marginTop: '4px', fontWeight: '600', opacity: 0.8 }}>
-                    Your Schedule: <span style={{ color: t.textPrimary }}>{data.coding_day_name}</span> {data.next_coding_date && `• Next: ${new Date(data.next_coding_date).toLocaleDateString()}`}
+                  <div style={{ fontSize: '11px', color: isDark ? t.textSecondary : '#374151', marginTop: '4px', fontWeight: '600' }}>
+                    Your Schedule: <span style={{ color: isDark ? t.textPrimary : '#111827', fontWeight: '800' }}>{data.coding_day_name}</span> {data.next_coding_date && `• Next: ${new Date(data.next_coding_date).toLocaleDateString()}`}
                   </div>
                 )}
               </div>
@@ -344,34 +402,33 @@ const Dashboard: FC = () => {
             </div>
           </div>
 
-          {/* ── Driver Tools Grid (Clean & Organized) ── */}
+          {/* ── Driver Tools (GCash-style Icon Grid) ── */}
           <div style={{ margin: '0 20px 8px' }}>
-             <h3 style={{ fontSize: '11px', fontWeight: '800', color: t.textMuted, textTransform: 'uppercase', letterSpacing: '1.5px', marginBottom: '12px', paddingLeft: '4px' }}>Driver Toolbox</h3>
-             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px' }}>
+             <h3 style={{ fontSize: '11px', fontWeight: '800', color: t.textMuted, textTransform: 'uppercase', letterSpacing: '1.5px', marginBottom: '10px', paddingLeft: '4px' }}>Driver Toolbox</h3>
+             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '6px', padding: '8px 0' }}>
                 {[
-                  { label: 'Stats', icon: statsChartOutline, color: '#8b5cf6', route: '/performance' },
-                  { label: 'Vehicle', icon: carSportOutline, color: '#06b6d4', route: '/vehicle' },
-                  { label: 'History', icon: cashOutline, color: '#22c55e', route: '/history' },
-                  { label: 'Incidents', icon: alertCircle, color: '#ef4444', route: '/incidents' },
-                  { label: 'Charges', icon: ribbonOutline, color: '#f59e0b', route: '/charges' }
+                  { label: 'Stats', icon: statsChartOutline, color: '#8b5cf6', bg: '#8b5cf6', route: '/performance' },
+                  { label: 'Vehicle', icon: carSportOutline, color: '#06b6d4', bg: '#06b6d4', route: '/vehicle' },
+                  { label: 'History', icon: cashOutline, color: '#22c55e', bg: '#22c55e', route: '/history' },
+                  { label: 'Incidents', icon: alertCircle, color: '#ef4444', bg: '#ef4444', route: '/incidents' },
+                  { label: 'Charges', icon: ribbonOutline, color: '#f59e0b', bg: '#f59e0b', route: '/charges' }
                 ].map((item, i) => (
                   <div key={i} onClick={() => history.push(item.route)} style={{ 
-                    padding: '16px 8px', 
-                    background: t.card, 
-                    ...t.glass, 
-                    border: t.border, 
-                    borderRadius: '16px', 
                     display: 'flex', 
                     flexDirection: 'column', 
                     alignItems: 'center', 
-                    gap: '8px',
-                    textAlign: 'center',
-                    cursor: 'pointer'
+                    gap: '6px',
+                    cursor: 'pointer',
+                    padding: '8px 4px'
                   }}>
-                    <div style={{ width: '32px', height: '32px', borderRadius: '10px', background: `${item.color}15`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <IonIcon icon={item.icon} style={{ fontSize: '18px', color: item.color }} />
+                    <div style={{ 
+                      width: '40px', height: '40px', borderRadius: '14px', 
+                      background: `${item.bg}18`, 
+                      display: 'flex', alignItems: 'center', justifyContent: 'center'
+                    }}>
+                      <IonIcon icon={item.icon} style={{ fontSize: '20px', color: item.color }} />
                     </div>
-                    <span style={{ fontSize: '10px', fontWeight: '700', color: t.textSecondary }}>{item.label}</span>
+                    <span style={{ fontSize: '10px', fontWeight: '700', color: t.textSecondary, textAlign: 'center', lineHeight: '1.2' }}>{item.label}</span>
                   </div>
                 ))}
              </div>
@@ -383,6 +440,81 @@ const Dashboard: FC = () => {
           </div>
 
         </div>
+
+        {/* ── Notification Modal ── */}
+        <IonModal
+          isOpen={showNotifModal}
+          onDidDismiss={() => setShowNotifModal(false)}
+          style={{ '--height': 'auto', '--max-height': '75vh', '--width': '92%', '--border-radius': '24px' } as any}
+        >
+          <div style={{ background: t.bg, padding: '20px', maxHeight: '75vh', overflowY: 'auto' }}>
+            {/* Modal Header */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <IonIcon icon={notificationsOutline} style={{ fontSize: '20px', color: t.gold }} />
+                <span style={{ fontSize: '16px', fontWeight: '900', color: t.textPrimary }}>Notifications</span>
+              </div>
+              <button onClick={() => setShowNotifModal(false)} style={{ background: t.subtleBg, border: 'none', borderRadius: '10px', padding: '8px', cursor: 'pointer', display: 'flex' }}>
+                <IonIcon icon={closeOutline} style={{ fontSize: '18px', color: t.textPrimary }} />
+              </button>
+            </div>
+
+            {/* Notification List */}
+            {notifLoading && notifications.length === 0 ? (
+              <div style={{ display: 'flex', justifyContent: 'center', padding: '30px' }}>
+                <IonSpinner color="warning" />
+              </div>
+            ) : notifications.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '30px 10px' }}>
+                <IonIcon icon={notificationsOutline} style={{ fontSize: '40px', color: t.textMuted, opacity: 0.3, marginBottom: '12px' }} />
+                <div style={{ fontSize: '14px', fontWeight: '700', color: t.textSecondary }}>No notifications yet</div>
+                <div style={{ fontSize: '12px', color: t.textMuted, marginTop: '4px' }}>Activity will appear here.</div>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                {notifications.map(notif => {
+                  const color = getNotifColor(notif.severity);
+                  return (
+                    <div 
+                      key={notif.id} 
+                      onClick={() => { setShowNotifModal(false); history.push(getNotifRoute(notif)); }}
+                      style={{ 
+                        padding: '12px', 
+                        background: t.subtleBg, 
+                        borderRadius: '14px', 
+                        display: 'flex', 
+                        alignItems: 'flex-start', 
+                        gap: '12px', 
+                        cursor: 'pointer',
+                        border: isDark ? '1px solid rgba(255,255,255,0.04)' : '1px solid rgba(0,0,0,0.04)'
+                      }}
+                    >
+                      <div style={{ 
+                        width: '32px', height: '32px', borderRadius: '10px', 
+                        background: `${color}15`, 
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 
+                      }}>
+                        <IonIcon icon={getNotifIcon(notif.icon)} style={{ fontSize: '16px', color }} />
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2px' }}>
+                          <span style={{ fontSize: '13px', fontWeight: '800', color: t.textPrimary }}>{notif.title}</span>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '3px', flexShrink: 0 }}>
+                            <IonIcon icon={timeOutline} style={{ fontSize: '9px', color: t.textMuted }} />
+                            <span style={{ fontSize: '9px', color: t.textMuted, fontWeight: '600' }}>{notif.time_display}</span>
+                          </div>
+                        </div>
+                        <div style={{ fontSize: '11px', color: t.textSecondary, lineHeight: '1.4', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{notif.message}</div>
+                      </div>
+                      <IonIcon icon={chevronForwardOutline} style={{ fontSize: '14px', color: t.textMuted, flexShrink: 0, marginTop: '8px' }} />
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </IonModal>
+
       </IonContent>
     </IonPage>
   );

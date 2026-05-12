@@ -33,8 +33,8 @@ const BottomNav: React.FC = () => {
       }
     };
     checkUnread();
-    // Check every 10 seconds to avoid hitting the server too hard but still stay responsive
-    const interval = setInterval(checkUnread, 10000);
+    // Check every 3 seconds for near-instant notification badge updates
+    const interval = setInterval(checkUnread, 3000);
     return () => clearInterval(interval);
   }, []);
 

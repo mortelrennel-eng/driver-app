@@ -539,11 +539,13 @@ class DriverAppController extends Controller
                     $lastUpdateTs = strtotime($gps->timestamp . ' UTC');
                     $diff = time() - $lastUpdateTs;
                     
-                    if ($diff < 600) { // Within 10 minutes
-                        if ($ignition) {
+                    if (!$ignition) {
+                        $gps_status = 'Stopped';
+                    } else {
+                        if ($diff < 600) { 
                             $gps_status = $speed > 2 ? 'Moving' : 'Idle';
                         } else {
-                            $gps_status = 'Stopped';
+                            $gps_status = 'Offline';
                         }
                     }
                 }

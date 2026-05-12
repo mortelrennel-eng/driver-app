@@ -78,7 +78,7 @@ const Incidents: React.FC = () => {
           <IonRefresherContent />
         </IonRefresher>
 
-        <div style={{ minHeight: '100%', background: t.bg, padding: '20px' }}>
+        <div style={{ minHeight: '100%', background: t.bg, padding: '20px 20px 120px 20px' }}>
           
           <div style={{ marginBottom: '24px' }}>
             <h1 style={{ color: t.textPrimary, fontSize: '28px', fontWeight: '900', margin: '0 0 8px' }}>My Incidents</h1>
