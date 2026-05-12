@@ -374,6 +374,17 @@ class DriverBehaviorController extends Controller
         $driverName = DB::table('drivers')->where('id', $data['driver_id'])->select(DB::raw("CONCAT(first_name, ' ', last_name) as name"))->value('name');
         $plate = DB::table('units')->where('id', $data['unit_id'])->value('plate_number');
         ActivityLogController::log('Recorded Incident', "Driver: {$driverName}\nUnit: {$plate}\nType: {$data['incident_type']}\nSeverity: " . ucfirst($data['severity']));
+        
+        // Notify Driver via Push
+        try {
+            $chargeMsg = $totalCharge > 0 ? " and a charge of ₱" . number_format($totalCharge, 2) . " was added." : ".";
+            app(\App\Services\NotificationService::class)->notifyDriver(
+                $data['driver_id'],
+                'Incident Recorded: ' . $data['incident_type'],
+                "A new " . strtolower($data['severity']) . " severity incident was recorded" . $chargeMsg,
+                'incident'
+            );
+        } catch (\Exception $e) {}
 
         return redirect()->route('driver-behavior.index', ['tab' => 'incidents'])
             ->with('success', 'Incident recorded successfully.' . ($shouldAutoBan ? ' Driver has been automatically BANNED due to contracting violation.' : ''));
@@ -550,7 +561,7 @@ class DriverBehaviorController extends Controller
             ->whereNull('incentive_released_at')
             ->count();
 
-        $total_charges = DB::table('driver_behavior')
+        $totalCharges = DB::table('driver_behavior')
             ->where('driver_id', $driver_id)
             ->sum('total_charge_to_driver');
 
@@ -562,7 +573,7 @@ class DriverBehaviorController extends Controller
             'incidents'        => $incidents,
             'boundaries_count' => $boundaries_count,
             'valid_days'       => $valid_days,
-            'total_charges'    => $total_charges,
+            'total_charges'    => $totalCharges,
             'incentive'        => $incentive,
         ]);
     }

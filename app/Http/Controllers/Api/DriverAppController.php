@@ -17,8 +17,11 @@ use Carbon\Carbon;
 use Illuminate\Support\Str;
 use App\Services\TracksolidService;
 
+use App\Traits\CalculatesDriverPerformance;
+
 class DriverAppController extends Controller
 {
+    use CalculatesDriverPerformance;
     protected $tracksolid;
 
     public function __construct(TracksolidService $tracksolid)
@@ -315,8 +318,10 @@ class DriverAppController extends Controller
         $today = now()->timezone('Asia/Manila')->toDateString();
 
         // Get assigned unit
-        $unit = Unit::where('driver_id', $driver->id)
-            ->orWhere('secondary_driver_id', $driver->id)
+        $unit = Unit::where(function($q) use ($driver) {
+                $q->where('driver_id', $driver->id)
+                  ->orWhere('secondary_driver_id', $driver->id);
+            })
             ->whereNull('deleted_at')
             ->first();
 
@@ -426,6 +431,55 @@ class DriverAppController extends Controller
         $attendance_rate = $daysCount > 0 ? round(($paidDays / 30) * 100, 1) : 0;
         $efficiency_rate = $totalTarget > 0 ? round(($totalActual / $totalTarget) * 100, 1) : 0;
 
+        // Calculate Performance Rating (Stars & Label) matching Web System
+        $netShortage = DB::table('boundaries')
+            ->where('driver_id', $driver->id)
+            ->whereNull('deleted_at')
+            ->select(DB::raw("GREATEST(0, COALESCE(SUM(shortage),0) - COALESCE(SUM(excess),0)) as net_shortage"))
+            ->value('net_shortage') ?? 0;
+
+        $totalPendingDebt = DB::table('driver_behavior')
+            ->where('driver_id', $driver->id)
+            ->where('charge_status', 'pending')
+            ->sum('remaining_balance') ?? 0;
+
+        $missedIncentiveCount = DB::table('boundaries')
+            ->where('driver_id', $driver->id)
+            ->where('has_incentive', 0)
+            ->whereNull('deleted_at')
+            ->where('date', '>=', now()->subDays(30))
+            ->count();
+
+        $absentCount = DB::table('boundaries')
+            ->where('expected_driver_id', $driver->id)
+            ->where('driver_id', '!=', $driver->id)
+            ->whereNull('deleted_at')
+            ->where('date', '>=', now()->subDays(30))
+            ->count();
+
+        $incidentsCount = DB::table('driver_behavior')
+            ->where('driver_id', $driver->id)
+            ->where('created_at', '>=', now()->subDays(30))
+            ->whereRaw($this->getViolationQuerySnippet())
+            ->count();
+
+        $totalPaidCountHistory = DB::table('boundaries')
+            ->where('driver_id', $driver->id)
+            ->whereIn('status', ['paid', 'excess'])
+            ->whereNull('deleted_at')
+            ->count();
+
+        $performance_rating = $this->calculatePerformanceRating((object)[
+            'shifts_count' => $daysCount,
+            'paid_shifts_count' => $paidDays,
+            'total_paid_count' => $totalPaidCountHistory,
+            'incidents_count' => $incidentsCount,
+            'missed_incentive_count' => $missedIncentiveCount,
+            'absent_count' => $absentCount,
+            'net_shortage' => $netShortage,
+            'total_pending_debt' => $totalPendingDebt
+        ]);
+
         // GPS Data
         $gps_status = 'Offline';
         $location = 'Unknown';
@@ -440,20 +494,10 @@ class DriverAppController extends Controller
         $age = 'N/A';
 
         if ($unit) {
-            // SYNC CHECK: If local GPS data is older than 30 seconds, fetch live from Tracksolid
-            $lastLocalGps = DB::table('gps_tracking')
-                ->where('unit_id', $unit->id)
-                ->first();
-
+            // ALWAYS fetch live GPS from Tracksolid (same as web dashboard)
             $needsSync = true;
-            if ($lastLocalGps && $lastLocalGps->updated_at) {
-                $lastSync = Carbon::parse($lastLocalGps->updated_at);
-                if ($lastSync->diffInSeconds(now()) < 30) {
-                    $needsSync = false;
-                }
-            }
 
-            if ($needsSync && $unit->imei) {
+            if ($needsSync && $unit->imei && !$request->has('skip_gps')) {
                 \Log::info("Auto-syncing GPS for unit {$unit->plate_number} (Driver App Trigger)");
                 $liveData = $this->tracksolid->getLocations([$unit->imei]);
                 if ($liveData && isset($liveData[0])) {
@@ -489,23 +533,25 @@ class DriverAppController extends Controller
                 $heading = (float) $gps->heading;
                 $last_update = $gps->timestamp;
 
-                // Determine Status (Matching LiveTrackingController logic)
-                if ($last_update) {
-                    $lastUpdateTs = strtotime($last_update . ' UTC');
+                // Determine Status based on ignition/speed and time difference (matching web dashboard)
+                $gps_status = 'Offline';
+                if ($gps->timestamp) {
+                    $lastUpdateTs = strtotime($gps->timestamp . ' UTC');
                     $diff = time() - $lastUpdateTs;
-
+                    
                     if ($diff < 600) { // Within 10 minutes
                         if ($ignition) {
-                            $gps_status = $speed > 2 ? 'Active' : 'Idle';
+                            $gps_status = $speed > 2 ? 'Moving' : 'Idle';
                         } else {
                             $gps_status = 'Stopped';
                         }
-                    } else {
-                        $gps_status = 'Offline';
                     }
                 }
+                
+                // Use the actual GPS fix time for display, matching web dashboard
+                $last_update = $gps->timestamp;
 
-                $location = $gps->address ?? ($gps_status !== 'Offline' ? 'Active' : 'Signal Lost');
+                $location = $gps->address ?? ($gps_status !== 'Offline' ? 'Locating...' : 'Signal Lost');
                 $total_odo = (float) ($gps->odo ?? 0);
 
                 // Calculate Daily Distance (Today's Distance)
@@ -528,12 +574,21 @@ class DriverAppController extends Controller
             $profile_incomplete = true;
         }
 
+        // Check unread support messages
+        $unread_support_messages = \App\Models\SupportMessage::where('driver_id', $user->id)
+            ->where('sender_type', 'admin')
+            ->where('is_read', false)
+            ->count();
+
         return response()->json([
             'success' => true,
             'data' => [
+                'unread_support_messages' => $unread_support_messages,
                 'driver_name' => $driver->first_name . ' ' . $driver->last_name,
-                'unit' => $unit ? $unit->plate_number : 'NO UNIT',
-                'license_number' => $driver->license_number,
+                'unit' => ($unit ? ($unit->make ? $unit->make . ' ' : '') . $unit->model . ' (' . $unit->plate_number . ')' : 'No Unit'),
+                'plate_number' => $unit ? $unit->plate_number : '',
+                'unit_model' => $unit ? $unit->model : '',
+                'unit_make' => $unit ? $unit->make : '',
                 'phone' => $driver->contact_number,
                 'address' => $driver->address,
                 'emergency_contact' => $driver->emergency_contact,
@@ -557,6 +612,7 @@ class DriverAppController extends Controller
                 'message' => $message,
                 'attendance_rate' => $attendance_rate,
                 'efficiency_rate' => $efficiency_rate,
+                'performance_rating' => $performance_rating,
                 'is_coding' => $is_coding,
                 'coding_message' => $coding_message,
                 'next_coding_date' => $next_coding_date,
@@ -565,6 +621,7 @@ class DriverAppController extends Controller
                 'total_odo' => round($total_odo, 1),
                 'age' => $age,
                 'profile_incomplete' => $profile_incomplete,
+                'license_number' => $driver->license_number,
             ]
         ]);
     }
@@ -599,8 +656,10 @@ class DriverAppController extends Controller
             'notes' => 'nullable|string',
         ]);
 
-        $unit = Unit::where('driver_id', $driver->id)
-            ->orWhere('secondary_driver_id', $driver->id)
+        $unit = Unit::where(function($q) use ($driver) {
+                $q->where('driver_id', $driver->id)
+                  ->orWhere('secondary_driver_id', $driver->id);
+            })
             ->whereNull('deleted_at')
             ->first();
 
@@ -636,8 +695,10 @@ class DriverAppController extends Controller
             'heading' => 'nullable|string',
         ]);
 
-        $unit = Unit::where('driver_id', $driver->id)
-            ->orWhere('secondary_driver_id', $driver->id)
+        $unit = Unit::where(function($q) use ($driver) {
+                $q->where('driver_id', $driver->id)
+                  ->orWhere('secondary_driver_id', $driver->id);
+            })
             ->whereNull('deleted_at')
             ->first();
 
@@ -705,8 +766,10 @@ class DriverAppController extends Controller
             return response()->json(['success' => false, 'message' => 'Driver record not found.'], 404);
         }
 
-        $unit = Unit::where('driver_id', $driver->id)
-            ->orWhere('secondary_driver_id', $driver->id)
+        $unit = Unit::where(function($q) use ($driver) {
+                $q->where('driver_id', $driver->id)
+                  ->orWhere('secondary_driver_id', $driver->id);
+            })
             ->whereNull('deleted_at')
             ->first();
 
@@ -717,12 +780,15 @@ class DriverAppController extends Controller
         return response()->json([
             'success' => true,
             'data' => [
-                'plate_number' => $unit->plate_number,
-                'model' => $unit->model,
-                'brand' => $unit->brand,
-                'odo' => $unit->current_gps_odo ?: $unit->current_odo,
-                'maintenance_status' => $unit->status,
-                'registration_date' => $unit->registration_date
+                'plate_number' => (string) $unit->plate_number,
+                'model' => (string) $unit->model,
+                'brand' => (string) ($unit->make ?: 'Unknown'),
+                'year' => (int) $unit->year,
+                'odo' => (float) ($unit->current_gps_odo ?: 0),
+                'maintenance_status' => (string) $unit->status,
+                'registration_date' => (string) ($unit->purchase_date ?: ($unit->created_at ? $unit->created_at->toDateString() : '')),
+                'driver_id' => (string) ($driver->license_number ?: 'N/A'),
+                'license_id' => (string) ($driver->license_number ?: 'N/A')
             ]
         ]);
     }
@@ -1018,16 +1084,90 @@ class DriverAppController extends Controller
             return response()->json(['success' => false, 'message' => 'Driver record not found.'], 404);
         }
 
-        // Fetch last 7 days of boundaries
-        $history = \App\Models\Boundary::where('driver_id', $driver->id)
-            ->where('date', '>=', now()->subDays(7)->toDateString())
-            ->whereNull('deleted_at')
-            ->orderBy('date', 'asc')
-            ->get(['date', 'actual_boundary', 'boundary_amount as target_boundary']);
+        // Fetch last 7 days of boundaries with unit plate numbers
+        $history = \App\Models\Boundary::where('boundaries.driver_id', $driver->id)
+            ->leftJoin('units', 'boundaries.unit_id', '=', 'units.id')
+            ->where('boundaries.date', '>=', now()->subDays(7)->toDateString())
+            ->whereNull('boundaries.deleted_at')
+            ->orderBy('boundaries.date', 'asc')
+            ->get([
+                'boundaries.date', 
+                'boundaries.actual_boundary', 
+                'boundaries.boundary_amount as target_boundary',
+                'units.plate_number',
+                DB::raw("IF(boundaries.expected_driver_id != boundaries.driver_id AND boundaries.expected_driver_id IS NOT NULL, 1, boundaries.is_extra_driver) as is_extra")
+            ]);
+
+        // Include the official rating so Performance.tsx gets it in one call
+        $rating = $this->getDriverRatingObject($driver);
 
         return response()->json([
             'success' => true,
-            'history' => $history
+            'history' => $history,
+            'rating' => $rating
+        ]);
+    }
+
+    /**
+     * Helper to get the structured rating object matching web system.
+     */
+    private function getDriverRatingObject($driver)
+    {
+        $history = DB::table('boundaries')
+            ->where('driver_id', $driver->id)
+            ->where('date', '>=', Carbon::now()->subDays(30))
+            ->whereNull('deleted_at')
+            ->get();
+
+        $daysCount = $history->count();
+        $paidDays = $history->where('status', 'paid')->count();
+        
+        $totalPaidCountHistory = DB::table('boundaries')
+            ->where('driver_id', $driver->id)
+            ->whereIn('status', ['paid', 'excess'])
+            ->whereNull('deleted_at')
+            ->count();
+
+        $netShortage = DB::table('boundaries')
+            ->where('driver_id', $driver->id)
+            ->whereNull('deleted_at')
+            ->select(DB::raw("GREATEST(0, COALESCE(SUM(shortage),0) - COALESCE(SUM(excess),0)) as net_shortage"))
+            ->value('net_shortage') ?? 0;
+
+        $totalPendingDebt = DB::table('driver_behavior')
+            ->where('driver_id', $driver->id)
+            ->where('charge_status', 'pending')
+            ->sum('remaining_balance') ?? 0;
+
+        $missedIncentiveCount = DB::table('boundaries')
+            ->where('driver_id', $driver->id)
+            ->where('has_incentive', 0)
+            ->whereNull('deleted_at')
+            ->where('date', '>=', now()->subDays(30))
+            ->count();
+
+        $absentCount = DB::table('boundaries')
+            ->where('expected_driver_id', $driver->id)
+            ->where('driver_id', '!=', $driver->id)
+            ->whereNull('deleted_at')
+            ->where('date', '>=', now()->subDays(30))
+            ->count();
+
+        $incidentsCount = DB::table('driver_behavior')
+            ->where('driver_id', $driver->id)
+            ->where('created_at', '>=', now()->subDays(30))
+            ->whereRaw($this->getViolationQuerySnippet())
+            ->count();
+
+        return $this->calculatePerformanceRating((object)[
+            'shifts_count' => $daysCount,
+            'paid_shifts_count' => $paidDays,
+            'total_paid_count' => $totalPaidCountHistory,
+            'incidents_count' => $incidentsCount,
+            'missed_incentive_count' => $missedIncentiveCount,
+            'absent_count' => $absentCount,
+            'net_shortage' => $netShortage,
+            'total_pending_debt' => $totalPendingDebt
         ]);
     }
 

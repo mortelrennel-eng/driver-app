@@ -37,6 +37,7 @@ class Unit extends Model
         'longitude',
         'current_location',
         'last_location_update',
+        'unit_driver_id',
     ];
 
     protected $casts = [

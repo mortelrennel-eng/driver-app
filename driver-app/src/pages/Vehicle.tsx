@@ -1,31 +1,28 @@
 import { useState, useEffect } from 'react';
 import type { FC } from 'react';
-import { IonContent, IonPage, IonIcon, IonSpinner } from '@ionic/react';
-import { arrowBackOutline, carSportOutline, constructOutline, documentTextOutline, speedometerOutline, checkmarkCircleOutline, alertCircleOutline } from 'ionicons/icons';
+import { IonContent, IonPage, IonIcon, IonSpinner, IonHeader, IonToolbar } from '@ionic/react';
+import { arrowBackOutline, carSportOutline } from 'ionicons/icons';
 import { useHistory } from 'react-router-dom';
 import axios from 'axios';
 import { endpoints } from '../config/api';
+import { useTheme } from '../context/ThemeContext';
 
 interface VehicleData {
   plate_number: string;
   model: string;
   brand: string;
+  year: number;
   odo: number;
   maintenance_status: string;
   registration_date: string;
+  license_id: string;
 }
 
-const g = {
-  bg: '#0a0e1a',
-  card: 'linear-gradient(145deg, rgba(30, 41, 59, 0.7), rgba(15, 23, 42, 0.85))',
-  glass: { backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)' } as React.CSSProperties,
-  border: '1px solid rgba(255,255,255,0.06)',
-  gold: '#eab308',
-  goldGrad: 'linear-gradient(135deg, #eab308, #f59e0b)',
-};
+
 
 const Vehicle: FC = () => {
   const history = useHistory();
+  const { t, isDark } = useTheme();
   const [vehicle, setVehicle] = useState<VehicleData | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -34,8 +31,14 @@ const Vehicle: FC = () => {
     const cached = localStorage.getItem('cached_vehicle_data');
     if (cached) {
       try {
-        setVehicle(JSON.parse(cached));
-        setLoading(false); // Hide spinner if we have cache
+        const parsed = JSON.parse(cached);
+        // Force refresh if brand is missing or unknown
+        if (!parsed.brand || parsed.brand === 'Unknown' || !parsed.year || parsed.year === 0) {
+            localStorage.removeItem('cached_vehicle_data');
+        } else {
+            setVehicle(parsed);
+            setLoading(false);
+        }
       } catch (e) {}
     }
 
@@ -51,23 +54,25 @@ const Vehicle: FC = () => {
       .finally(() => setLoading(false));
   }, []);
 
-  const maintenanceOk = vehicle?.maintenance_status === 'good' || vehicle?.maintenance_status === 'none';
 
   return (
     <IonPage>
-      <IonContent fullscreen scrollY>
-        <div style={{ minHeight: '100vh', background: g.bg, paddingBottom: '40px' }}>
-
-          {/* Header */}
-          <div style={{ padding: '16px 20px 12px', display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <button onClick={() => history.goBack()} style={{ background: 'rgba(255,255,255,0.06)', border: 'none', borderRadius: '12px', padding: '10px', cursor: 'pointer' }}>
-              <IonIcon icon={arrowBackOutline} style={{ fontSize: '20px', color: '#94a3b8' }} />
+      <IonHeader className="ion-no-border">
+        <IonToolbar style={{ '--background': t.bg, '--padding-top': '8px', '--padding-bottom': '4px' }}>
+          <div style={{ padding: '8px 20px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <button onClick={() => history.goBack()} style={{ background: t.backBtnBg, border: 'none', borderRadius: '12px', padding: '10px', cursor: 'pointer' }}>
+              <IonIcon icon={arrowBackOutline} style={{ fontSize: '20px', color: t.backBtnColor }} />
             </button>
             <div>
-              <div style={{ fontSize: '18px', fontWeight: '800', color: '#f8fafc' }}>Vehicle Info</div>
-              <div style={{ fontSize: '11px', color: '#64748b' }}>Assigned unit details</div>
+              <div style={{ fontSize: '18px', fontWeight: '800', color: t.textPrimary }}>Vehicle Info</div>
+              <div style={{ fontSize: '11px', color: t.textMuted }}>Assigned unit details</div>
             </div>
           </div>
+        </IonToolbar>
+      </IonHeader>
+
+      <IonContent fullscreen scrollY>
+        <div style={{ minHeight: '100vh', background: t.bg, paddingBottom: '40px' }}>
 
           {loading ? (
             <div style={{ display: 'flex', justifyContent: 'center', padding: '80px' }}>
@@ -84,48 +89,73 @@ const Vehicle: FC = () => {
           ) : (
             <>
               {/* Vehicle Hero Card */}
-              <div style={{ margin: '4px 20px 20px', padding: '28px 20px', background: g.card, ...g.glass, border: g.border, borderRadius: '20px', boxShadow: '0 8px 32px rgba(0,0,0,0.4)', textAlign: 'center' }}>
-                <div style={{ width: '80px', height: '80px', borderRadius: '20px', background: g.goldGrad, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px', boxShadow: '0 8px 24px rgba(234,179,8,0.25)' }}>
-                  <IonIcon icon={carSportOutline} style={{ fontSize: '40px', color: '#0a0e1a' }} />
+              <div style={{ margin: '4px 20px 20px', padding: '28px 20px', background: t.card, ...t.glass, border: t.border, borderRadius: '20px', boxShadow: t.shadow, textAlign: 'center' }}>
+                <div style={{ width: '80px', height: '80px', borderRadius: '20px', background: t.goldGrad, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px', boxShadow: '0 8px 24px rgba(234,179,8,0.25)' }}>
+                  <IonIcon icon={carSportOutline} style={{ fontSize: '40px', color: t.textInverse }} />
                 </div>
-                <div style={{ fontSize: '28px', fontWeight: '900', color: '#f8fafc', letterSpacing: '-0.5px' }}>{vehicle.plate_number}</div>
-                <div style={{ fontSize: '14px', color: '#94a3b8', marginTop: '4px' }}>{vehicle.brand} {vehicle.model}</div>
+                <div style={{ fontSize: '28px', fontWeight: '900', color: t.textPrimary, letterSpacing: '-0.5px' }}>{vehicle.plate_number}</div>
+                <div style={{ fontSize: '14px', color: t.textSecondary, marginTop: '4px' }}>
+                  {vehicle.brand && vehicle.brand !== 'Unknown' ? vehicle.brand : ''} {vehicle.model}
+                </div>
               </div>
 
               {/* Details */}
               <div style={{ padding: '0 20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
                 {[
                   {
-                    label: 'Maintenance Status',
-                    value: vehicle.maintenance_status || 'Good',
-                    icon: constructOutline,
-                    color: maintenanceOk ? '#22c55e' : '#ef4444',
-                    badge: maintenanceOk ? checkmarkCircleOutline : alertCircleOutline
+                    label: 'Plate Number',
+                    value: vehicle.plate_number,
+                    badge: true
+                  },
+                  {
+                    label: 'Vehicle',
+                    value: `${vehicle.brand && vehicle.brand !== 'Unknown' ? vehicle.brand : ''} ${vehicle.model || ''}`.trim() || 'N/A',
+                    badge: false
+                  },
+                  {
+                    label: 'Year',
+                    value: vehicle.year && vehicle.year > 0 ? vehicle.year : (vehicle.registration_date ? new Date(vehicle.registration_date).getFullYear() : 'N/A'),
+                    badge: false
+                  },
+                  {
+                    label: 'Status',
+                    value: (vehicle.maintenance_status || 'N/A').toUpperCase(),
+                    badge: true,
+                    color: vehicle.maintenance_status === 'active' ? '#22c55e' : '#64748b'
+                  },
+                  {
+                    label: 'License ID',
+                    value: vehicle.license_id || 'N/A',
+                    badge: false
                   },
                   {
                     label: 'Odometer',
                     value: `${Number(vehicle.odo).toLocaleString()} km`,
-                    icon: speedometerOutline,
-                    color: '#3b82f6',
-                    badge: null
-                  },
-                  {
-                    label: 'Registration Date',
-                    value: vehicle.registration_date ? new Date(vehicle.registration_date).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) : 'N/A',
-                    icon: documentTextOutline,
-                    color: '#8b5cf6',
-                    badge: null
+                    badge: false
                   }
                 ].map((item, i) => (
-                  <div key={i} style={{ padding: '16px', background: g.card, ...g.glass, border: g.border, borderRadius: '16px', display: 'flex', alignItems: 'center', gap: '14px' }}>
-                    <div style={{ width: '44px', height: '44px', borderRadius: '14px', background: `${item.color}15`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                      <IonIcon icon={item.icon} style={{ fontSize: '22px', color: item.color }} />
+                  <div key={i} style={{ 
+                    padding: '18px 20px', 
+                    background: t.card, 
+                    ...t.glass, 
+                    border: t.border, 
+                    borderRadius: '16px', 
+                    display: 'flex', 
+                    justifyContent: 'space-between', 
+                    alignItems: 'center' 
+                  }}>
+                    <div style={{ fontSize: '11px', fontWeight: '800', color: t.textMuted, textTransform: 'uppercase', letterSpacing: '1px' }}>{item.label}</div>
+                    <div style={{ 
+                      fontSize: '15px', 
+                      fontWeight: '900', 
+                      color: item.color || t.textPrimary,
+                      padding: item.badge ? '4px 12px' : '0',
+                      background: item.badge ? (isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)') : 'none',
+                      borderRadius: item.badge ? '8px' : '0',
+                      textTransform: item.badge ? 'uppercase' : 'none'
+                    }}>
+                      {item.value}
                     </div>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: '10px', fontWeight: '700', color: '#64748b', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '4px' }}>{item.label}</div>
-                      <div style={{ fontSize: '14px', fontWeight: '700', color: '#f8fafc', textTransform: 'capitalize' }}>{item.value}</div>
-                    </div>
-                    {item.badge && <IonIcon icon={item.badge} style={{ fontSize: '22px', color: item.color }} />}
                   </div>
                 ))}
               </div>

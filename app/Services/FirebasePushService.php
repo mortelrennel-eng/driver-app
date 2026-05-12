@@ -95,7 +95,7 @@ class FirebasePushService
     /**
      * Send Push Notification using Firebase FCM HTTP v1 API.
      */
-    public static function sendPush($title, $body, $fcmToken, $type = 'system_alert')
+    public static function sendPush($title, $body, $fcmToken, $type = 'system_alert', $data = [])
     {
         $accessToken = self::getAccessToken();
         if (!$accessToken) {
@@ -103,7 +103,7 @@ class FirebasePushService
             return false;
         }
 
-        $projectId = 'eurotaxi-4c240';
+        $projectId = 'edutrackrfid';
         $url = "https://fcm.googleapis.com/v1/projects/{$projectId}/messages:send";
 
         $payload = [
@@ -113,28 +113,40 @@ class FirebasePushService
                     'title' => $title,
                     'body' => $body,
                 ],
-                'data' => [
-                    'click_action' => 'FLUTTER_NOTIFICATION_CLICK',
-                    'type' => $type,
-                    'screen' => 'notifications',
-                    'sent_at' => now()->toIso8601String(),
-                ],
                 'android' => [
                     'priority' => 'HIGH',
                     'notification' => [
-                        'sound' => 'default',
-                        'default_sound' => true,
-                        'notification_priority' => 'PRIORITY_HIGH',
+                        'sound' => 'driver_alert',
+                        'notification_priority' => 'PRIORITY_MAX',
+                        'channel_id' => 'driver_alerts_v7',
+                        'visibility' => 'PUBLIC',
                     ]
                 ],
                 'apns' => [
+                    'headers' => [
+                        'apns-priority' => '10',
+                    ],
                     'payload' => [
                         'aps' => [
+                            'alert' => [
+                                'title' => $title,
+                                'body' => $body,
+                            ],
                             'sound' => 'default',
                             'badge' => 1,
+                            'content-available' => 1,
                         ]
                     ]
-                ]
+                ],
+                'data' => array_merge($data, [
+                    'type' => $type,
+                    'channel_id' => 'driver_alerts_v7',
+                    'sound' => 'driver_alert',
+                    'screen' => 'notifications',
+                    'sent_at' => now()->toIso8601String(),
+                    'title' => $title,
+                    'message' => $body,
+                ]),
             ]
         ];
 

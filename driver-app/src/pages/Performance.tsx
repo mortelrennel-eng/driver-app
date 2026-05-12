@@ -21,11 +21,19 @@ import {
 } from 'ionicons/icons';
 import axios from 'axios';
 import { endpoints } from '../config/api';
+import { useTheme } from '../context/ThemeContext';
 
 interface PerformanceHistory {
   date: string;
   actual_boundary: number;
   target_boundary: number;
+  plate_number?: string;
+  is_extra?: number;
+}
+
+interface PerformanceRating {
+  label: string;
+  stars: number;
 }
 
 const g = {
@@ -39,7 +47,9 @@ const g = {
 };
 
 const Performance: FC = () => {
+  const { t } = useTheme();
   const [performanceHistory, setPerformanceHistory] = useState<PerformanceHistory[]>([]);
+  const [performanceRating, setPerformanceRating] = useState<PerformanceRating | null>(null);
   const [loading, setLoading] = useState(true);
 
   const fetchHistory = async () => {
@@ -48,22 +58,30 @@ const Performance: FC = () => {
       if (response.data.success) {
         setPerformanceHistory(response.data.history);
         localStorage.setItem('cached_performance_history', JSON.stringify(response.data.history));
+        
+        if (response.data.rating) {
+            setPerformanceRating(response.data.rating);
+            localStorage.setItem('cached_perf_rating', JSON.stringify(response.data.rating));
+        }
       }
     } catch (e) {
-      console.error('Failed to fetch performance history', e);
+      console.error('Failed to fetch performance data', e);
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    const cached = localStorage.getItem('cached_performance_history');
-    if (cached) {
-      try {
-        setPerformanceHistory(JSON.parse(cached));
-        setLoading(false);
-      } catch (e) {}
+    const cachedHist = localStorage.getItem('cached_performance_history');
+    if (cachedHist) {
+      try { setPerformanceHistory(JSON.parse(cachedHist)); } catch (e) {}
     }
+    const cachedRating = localStorage.getItem('cached_perf_rating');
+    if (cachedRating) {
+      try { setPerformanceRating(JSON.parse(cachedRating)); } catch (e) {}
+    }
+    
+    if (cachedHist) setLoading(false);
     fetchHistory();
   }, []);
 
@@ -193,7 +211,7 @@ const Performance: FC = () => {
   return (
     <IonPage>
       <IonHeader className="ion-no-border">
-        <IonToolbar style={{ '--background': g.bg, '--color': '#fff' }}>
+        <IonToolbar style={{ '--background': t.headerBg, '--color': t.headerText }}>
           <IonButtons slot="start">
             <IonBackButton defaultHref="/dashboard" />
           </IonButtons>
@@ -201,16 +219,16 @@ const Performance: FC = () => {
         </IonToolbar>
       </IonHeader>
 
-      <IonContent fullscreen style={{ '--background': g.bg }}>
+      <IonContent fullscreen style={{ '--background': t.bg }}>
         <IonRefresher slot="fixed" onIonRefresh={doRefresh}>
           <IonRefresherContent></IonRefresherContent>
         </IonRefresher>
 
-        <div style={{ background: g.bg, minHeight: '100%', padding: '20px' }}>
+        <div style={{ background: t.bg, minHeight: '100%', padding: '20px' }}>
           
           <div style={{ marginBottom: '24px' }}>
-            <h1 style={{ color: '#fff', fontSize: '28px', fontWeight: '900', margin: '0 0 8px' }}>Your Trends</h1>
-            <p style={{ color: '#94a3b8', fontSize: '14px', margin: 0 }}>Analyze your consistency over the last 7 days.</p>
+            <h1 style={{ color: t.textPrimary, fontSize: '28px', fontWeight: '900', margin: '0 0 8px' }}>Your Trends</h1>
+            <p style={{ color: t.textSecondary, fontSize: '14px', margin: 0 }}>Analyze your consistency over the last 7 days.</p>
           </div>
 
           {loading ? (
@@ -220,45 +238,58 @@ const Performance: FC = () => {
           ) : (
             <>
               {/* Chart Section */}
-              <div style={{ padding: '20px', background: g.card, ...g.glass, border: g.border, borderRadius: g.radius, marginBottom: '20px' }}>
+              <div style={{ padding: '20px', background: t.card, ...t.glass, border: t.border, borderRadius: g.radius, marginBottom: '20px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '20px' }}>
-                  <IonIcon icon={statsChartOutline} style={{ fontSize: '18px', color: g.gold }} />
-                  <span style={{ fontSize: '12px', fontWeight: '800', color: g.gold, textTransform: 'uppercase', letterSpacing: '1.5px' }}>Boundary Trend</span>
+                  <IonIcon icon={statsChartOutline} style={{ fontSize: '18px', color: t.gold }} />
+                  <span style={{ fontSize: '12px', fontWeight: '800', color: t.gold, textTransform: 'uppercase', letterSpacing: '1.5px' }}>Boundary Trend</span>
                 </div>
                 {renderChart()}
               </div>
 
               {/* Weekly Summary Cards */}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '20px' }}>
-                <div style={{ padding: '20px', background: g.card, ...g.glass, border: g.border, borderRadius: '20px' }}>
+                <div style={{ padding: '20px', background: t.card, ...t.glass, border: t.border, borderRadius: '20px' }}>
                   <IonIcon icon={trendingUpOutline} style={{ fontSize: '24px', color: '#22c55e', marginBottom: '12px' }} />
-                  <div style={{ fontSize: '10px', color: '#94a3b8', fontWeight: '700', textTransform: 'uppercase' }}>Avg. Remittance</div>
-                  <div style={{ fontSize: '20px', fontWeight: '900', color: '#fff' }}>
+                  <div style={{ fontSize: '10px', color: t.textSecondary, fontWeight: '700', textTransform: 'uppercase' }}>Avg. Remittance</div>
+                  <div style={{ fontSize: '20px', fontWeight: '900', color: t.textPrimary }}>
                     ₱{performanceHistory.length ? (performanceHistory.reduce((a, b) => a + Number(b.actual_boundary || 0), 0) / performanceHistory.length).toLocaleString(undefined, { maximumFractionDigits: 0 }) : 0}
                   </div>
                 </div>
-                <div style={{ padding: '20px', background: g.card, ...g.glass, border: g.border, borderRadius: '20px' }}>
-                  <IonIcon icon={starOutline} style={{ fontSize: '24px', color: g.gold, marginBottom: '12px' }} />
-                  <div style={{ fontSize: '10px', color: '#94a3b8', fontWeight: '700', textTransform: 'uppercase' }}>Success Rate</div>
-                  <div style={{ fontSize: '20px', fontWeight: '900', color: '#fff' }}>
-                    {performanceHistory.length ? Math.round((performanceHistory.filter(h => h.actual_boundary >= h.target_boundary).length / performanceHistory.length) * 100) : 0}%
+                <div style={{ padding: '20px', background: t.card, ...t.glass, border: t.border, borderRadius: '20px' }}>
+                  <IonIcon icon={starOutline} style={{ fontSize: '24px', color: t.gold, marginBottom: '12px' }} />
+                  <div style={{ fontSize: '10px', color: t.textSecondary, fontWeight: '700', textTransform: 'uppercase' }}>Performance Rating</div>
+                  <div style={{ fontSize: '18px', fontWeight: '900', color: t.textPrimary, marginBottom: '4px' }}>
+                    {performanceRating?.label || (loading ? 'Calculating...' : 'No Rating')}
+                  </div>
+                  <div style={{ fontSize: '14px', color: t.gold }}>
+                    {performanceRating ? (
+                      <>
+                        {'★'.repeat(performanceRating.stars)}{'☆'.repeat(5 - performanceRating.stars)}
+                      </>
+                    ) : (
+                      '☆☆☆☆☆'
+                    )}
                   </div>
                 </div>
               </div>
 
               {/* Daily List */}
-              <div style={{ padding: '20px', background: g.card, ...g.glass, border: g.border, borderRadius: g.radius }}>
+              <div style={{ padding: '20px', background: t.card, ...t.glass, border: t.border, borderRadius: g.radius }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '20px' }}>
-                  <IonIcon icon={calendarOutline} style={{ fontSize: '18px', color: g.gold }} />
-                  <span style={{ fontSize: '12px', fontWeight: '800', color: g.gold, textTransform: 'uppercase', letterSpacing: '1.5px' }}>Daily Breakdown</span>
+                  <IonIcon icon={calendarOutline} style={{ fontSize: '18px', color: t.gold }} />
+                  <span style={{ fontSize: '12px', fontWeight: '800', color: t.gold, textTransform: 'uppercase', letterSpacing: '1.5px' }}>Daily Breakdown</span>
                 </div>
                 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                   {performanceHistory.slice().reverse().map((day, i) => (
-                    <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px', background: 'rgba(255,255,255,0.03)', borderRadius: '14px' }}>
+                    <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px', background: t.subtleBg, borderRadius: '14px' }}>
                       <div>
-                        <div style={{ fontSize: '13px', fontWeight: '700', color: '#f8fafc' }}>{new Date(day.date).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}</div>
-                        <div style={{ fontSize: '11px', color: '#64748b' }}>Target: ₱{day.target_boundary.toLocaleString()}</div>
+                        <div style={{ fontSize: '13px', fontWeight: '700', color: t.textPrimary }}>{new Date(day.date).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}</div>
+                        <div style={{ fontSize: '11px', color: t.textMuted, fontWeight: '600' }}>
+                          Target: ₱{day.target_boundary.toLocaleString()} 
+                          {day.plate_number && <span style={{ color: t.textPrimary }}> • {day.plate_number}</span>}
+                          {day.is_extra == 1 && <span style={{ color: t.gold, fontWeight: '800', marginLeft: '4px' }}> (EXTRA)</span>}
+                        </div>
                       </div>
                       <div style={{ textAlign: 'right' }}>
                         <div style={{ fontSize: '14px', fontWeight: '900', color: day.actual_boundary >= day.target_boundary ? '#22c55e' : '#ef4444' }}>

@@ -104,6 +104,12 @@ class ArchiveController extends Controller
 
         $item = $model::withTrashed()->findOrFail($id);
         $name = $item->plate_number ?? ($item->full_name ?? ($item->name ?? ($item->case_no ?? ($item->description ?? ("ID# " . $item->id)))));
+
+        // Safety: Unlink any driver records before permanently deleting a User
+        if ($type === 'user') {
+            Driver::where('user_id', $item->id)->update(['user_id' => null]);
+        }
+
         $item->forceDelete();
 
         system_log("Permanently Deleted " . ucfirst($type), "Item: {$name} was permanently wiped from the database.");

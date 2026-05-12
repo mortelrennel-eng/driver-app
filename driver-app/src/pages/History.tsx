@@ -1,9 +1,20 @@
 import React, { useEffect, useState } from 'react';
-import { IonPage, IonContent, IonIcon, IonRefresher, IonRefresherContent, IonSpinner } from '@ionic/react';
-import { arrowBackOutline, statsChartOutline, checkmarkCircleOutline, alertCircleOutline, timeOutline, carOutline } from 'ionicons/icons';
+import { IonPage, IonContent, IonIcon, IonRefresher, IonRefresherContent, IonSpinner, IonHeader, IonToolbar } from '@ionic/react';
+import { 
+  arrowBackOutline, 
+  checkmarkCircleOutline, 
+  alertCircleOutline, 
+  timeOutline, 
+  calendarOutline,
+  trendingUpOutline,
+  cashOutline,
+  chevronBackOutline,
+  chevronForwardOutline
+} from 'ionicons/icons';
 import { useHistory } from 'react-router-dom';
 import axios from 'axios';
 import { endpoints } from '../config/api';
+import { useTheme } from '../context/ThemeContext';
 
 interface BoundaryRecord {
   id: number;
@@ -13,78 +24,102 @@ interface BoundaryRecord {
   actual_boundary: number;
   status: string;
   is_extra: number;
+  shortage?: number;
+  excess?: number;
 }
 
-const g = {
-  bg: '#0a0e1a',
-  card: 'linear-gradient(145deg, rgba(30, 41, 59, 0.7), rgba(15, 23, 42, 0.85))',
-  glass: { backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)' } as React.CSSProperties,
-  border: '1px solid rgba(255,255,255,0.06)',
-  gold: '#eab308',
-};
-
 const statusConfig = (status: string) => {
-  if (status === 'paid' || status === 'excess') return { color: '#22c55e', icon: checkmarkCircleOutline, bg: 'rgba(34,197,94,0.12)' };
-  if (status === 'shortage') return { color: '#ef4444', icon: alertCircleOutline, bg: 'rgba(239,68,68,0.12)' };
+  const s = status?.toLowerCase();
+  if (s === 'paid' || s === 'excess') return { color: '#22c55e', icon: checkmarkCircleOutline, bg: 'rgba(34,197,94,0.12)' };
+  if (s === 'shortage') return { color: '#ef4444', icon: alertCircleOutline, bg: 'rgba(239,68,68,0.12)' };
   return { color: '#f59e0b', icon: timeOutline, bg: 'rgba(245,158,11,0.12)' };
 };
 
 const History: React.FC = () => {
   const history = useHistory();
+  const { t } = useTheme();
   const [records, setRecords] = useState<BoundaryRecord[]>([]);
   const [loading, setLoading] = useState(true);
+
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 10;
 
   const fetchHistory = async () => {
     try {
       const response = await axios.get(endpoints.boundaryHistory);
-      if (response.data.success) setRecords(response.data.data);
+      if (response.data.success) {
+        const data = Array.isArray(response.data.data) ? response.data.data : [];
+        setRecords(data);
+        setCurrentPage(1); // Reset to page 1 on refresh
+      }
     } catch (e) {
-      console.error('Failed to fetch history', e);
+      console.error(e);
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => { fetchHistory(); }, []);
+  useEffect(() => { 
+    fetchHistory(); 
+  }, []);
 
-  const totalCollected = records.reduce((a, r) => a + Number(r.actual_boundary), 0);
-  const totalTarget = records.reduce((a, r) => a + Number(r.boundary_amount), 0);
+  const totalPages = Math.ceil((Array.isArray(records) ? records.length : 0) / ITEMS_PER_PAGE);
+  const paginatedRecords = (Array.isArray(records) ? records : []).slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
+
+  const safeRecords = Array.isArray(records) ? records : [];
+  const totalCollected = safeRecords.reduce((a, r) => a + Number(r.actual_boundary || 0), 0);
+  const totalTarget = safeRecords.reduce((a, r) => a + Number(r.boundary_amount || 0), 0);
+  const paidCount = safeRecords.filter(r => ['paid', 'excess'].includes(r.status?.toLowerCase())).length;
+  const shortCount = safeRecords.filter(r => r.status?.toLowerCase() === 'shortage').length;
 
   return (
     <IonPage>
+      <IonHeader className="ion-no-border">
+        <IonToolbar style={{ '--background': t.bg, '--padding-top': '8px', '--padding-bottom': '4px' }}>
+          <div style={{ padding: '8px 20px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <button onClick={() => history.goBack()} style={{ background: t.backBtnBg, border: 'none', borderRadius: '12px', padding: '10px', cursor: 'pointer' }}>
+              <IonIcon icon={arrowBackOutline} style={{ fontSize: '20px', color: t.backBtnColor }} />
+            </button>
+            <div>
+              <div style={{ fontSize: '18px', fontWeight: '800', color: t.textPrimary }}>Payment History</div>
+              <div style={{ fontSize: '11px', color: t.textMuted }}>Collection & boundary records</div>
+            </div>
+          </div>
+        </IonToolbar>
+      </IonHeader>
+
       <IonContent fullscreen scrollY>
         <IonRefresher slot="fixed" onIonRefresh={e => fetchHistory().then(() => e.detail.complete())}>
           <IonRefresherContent />
         </IonRefresher>
 
-        <div style={{ minHeight: '100vh', background: g.bg, paddingBottom: '40px' }}>
-          {/* Header */}
-          <div style={{ padding: '16px 20px 12px', display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <button onClick={() => history.goBack()} style={{ background: 'rgba(255,255,255,0.06)', border: 'none', borderRadius: '12px', padding: '10px', cursor: 'pointer' }}>
-              <IonIcon icon={arrowBackOutline} style={{ fontSize: '20px', color: '#94a3b8' }} />
-            </button>
-            <div>
-              <div style={{ fontSize: '18px', fontWeight: '800', color: '#f8fafc' }}>Boundary History</div>
-              <div style={{ fontSize: '11px', color: '#64748b' }}>{records.length} records found</div>
-            </div>
-          </div>
+        <div style={{ minHeight: '100vh', background: t.bg, paddingBottom: '40px' }}>
 
-          {/* Summary */}
-          <div style={{ margin: '4px 20px 20px', padding: '20px', background: g.card, ...g.glass, border: g.border, borderRadius: '20px', boxShadow: '0 8px 32px rgba(0,0,0,0.4)', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-            <div>
-              <div style={{ fontSize: '10px', fontWeight: '800', color: '#64748b', textTransform: 'uppercase', letterSpacing: '1.5px', marginBottom: '6px' }}>Total Collected</div>
-              <div style={{ fontSize: '26px', fontWeight: '900', color: '#22c55e' }}>₱{totalCollected.toLocaleString()}</div>
-            </div>
-            <div>
-              <div style={{ fontSize: '10px', fontWeight: '800', color: '#64748b', textTransform: 'uppercase', letterSpacing: '1.5px', marginBottom: '6px' }}>Total Target</div>
-              <div style={{ fontSize: '26px', fontWeight: '900', color: '#f8fafc' }}>₱{totalTarget.toLocaleString()}</div>
+          {/* Summary Hero Card (Enhanced from Earnings) */}
+          <div style={{ margin: '4px 20px 20px', padding: '24px', background: t.card, ...t.glass, border: t.border, borderRadius: '20px', boxShadow: t.shadow }}>
+            <div style={{ fontSize: '11px', fontWeight: '800', color: t.textMuted, textTransform: 'uppercase', letterSpacing: '2px', marginBottom: '8px' }}>Total Collected</div>
+            <div style={{ fontSize: '38px', fontWeight: '900', color: t.textPrimary, lineHeight: 1, marginBottom: '4px' }}>₱{totalCollected.toLocaleString()}</div>
+            <div style={{ fontSize: '12px', color: t.textMuted, marginBottom: '20px' }}>of ₱{totalTarget.toLocaleString()} target</div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px' }}>
+              {[
+                { label: 'Records', value: records.length, icon: calendarOutline, color: '#3b82f6' },
+                { label: 'Paid', value: paidCount, icon: checkmarkCircleOutline, color: '#22c55e' },
+                { label: 'Short', value: shortCount, icon: alertCircleOutline, color: '#ef4444' }
+              ].map((stat, i) => (
+                <div key={i} style={{ padding: '12px', background: t.subtleBg, borderRadius: '12px', textAlign: 'center' }}>
+                  <IonIcon icon={stat.icon} style={{ fontSize: '18px', color: stat.color }} />
+                  <div style={{ fontSize: '20px', fontWeight: '800', color: t.textPrimary, margin: '4px 0 2px' }}>{stat.value}</div>
+                  <div style={{ fontSize: '9px', color: t.textMuted, textTransform: 'uppercase', letterSpacing: '1px' }}>{stat.label}</div>
+                </div>
+              ))}
             </div>
           </div>
 
           {/* Section Label */}
           <div style={{ padding: '0 20px', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <IonIcon icon={statsChartOutline} style={{ fontSize: '16px', color: g.gold }} />
-            <span style={{ fontSize: '13px', fontWeight: '800', color: g.gold, textTransform: 'uppercase', letterSpacing: '1.5px' }}>All Records</span>
+            <IonIcon icon={trendingUpOutline} style={{ fontSize: '16px', color: t.gold }} />
+            <span style={{ fontSize: '13px', fontWeight: '800', color: t.gold, textTransform: 'uppercase', letterSpacing: '1.5px' }}>Recent Collections</span>
           </div>
 
           {/* List */}
@@ -95,44 +130,68 @@ const History: React.FC = () => {
               </div>
             ) : records.length === 0 ? (
               <div style={{ textAlign: 'center', padding: '60px 20px' }}>
-                <IonIcon icon={statsChartOutline} style={{ fontSize: '48px', color: '#1e293b' }} />
-                <div style={{ color: '#475569', fontSize: '13px', marginTop: '12px' }}>No boundary history found.</div>
+                <IonIcon icon={cashOutline} style={{ fontSize: '48px', color: '#1e293b' }} />
+                <div style={{ color: '#475569', fontSize: '13px', marginTop: '12px' }}>No records found.</div>
               </div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                {records.map(record => {
+                {paginatedRecords.map(record => {
                   const sc = statusConfig(record.status);
                   return (
-                    <div key={record.id} style={{ padding: '16px', background: g.card, ...g.glass, border: g.border, borderRadius: '16px' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '10px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                          <div style={{ width: '40px', height: '40px', borderRadius: '12px', background: sc.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                            <IonIcon icon={sc.icon} style={{ fontSize: '20px', color: sc.color }} />
-                          </div>
-                          <div>
-                            <div style={{ fontSize: '13px', fontWeight: '700', color: '#f8fafc' }}>
-                              {new Date(record.date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}
-                            </div>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '2px' }}>
-                              <IonIcon icon={carOutline} style={{ fontSize: '11px', color: '#64748b' }} />
-                              <span style={{ fontSize: '11px', color: '#64748b' }}>{record.plate_number || 'N/A'}</span>
-                              {record.is_extra === 1 && (
-                                <span style={{ padding: '1px 6px', background: 'rgba(139,92,246,0.15)', color: '#a78bfa', borderRadius: '6px', fontSize: '9px', fontWeight: '700' }}>EXTRA</span>
-                              )}
-                            </div>
-                          </div>
+                    <div key={record.id} style={{ padding: '16px', background: t.card, ...t.glass, border: t.border, borderRadius: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                        <div style={{ width: '44px', height: '44px', borderRadius: '14px', background: sc.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                          <IonIcon icon={cashOutline} style={{ fontSize: '20px', color: sc.color }} />
                         </div>
-                        <div style={{ textAlign: 'right' }}>
-                          <div style={{ fontSize: '16px', fontWeight: '900', color: sc.color }}>₱{Number(record.actual_boundary).toLocaleString()}</div>
-                          <div style={{ fontSize: '10px', color: '#475569', marginTop: '2px' }}>/ ₱{Number(record.boundary_amount).toLocaleString()}</div>
+                        <div>
+                          <div style={{ fontSize: '13px', fontWeight: '700', color: t.textPrimary }}>
+                            {new Date(record.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                          </div>
+                          <div style={{ fontSize: '11px', marginTop: '2px', display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                            <span style={{ color: sc.color, fontWeight: '700', textTransform: 'uppercase' }}>{record.status}</span>
+                            {record.plate_number && <span style={{ color: t.textPrimary, fontWeight: '800' }}>• UNIT: {record.plate_number}</span>}
+                            {record.is_extra === 1 && <span style={{ color: t.gold, fontWeight: '800' }}>• EXTRA</span>}
+                          </div>
                         </div>
                       </div>
-                      <div style={{ padding: '6px 10px', background: sc.bg, borderRadius: '8px', display: 'inline-block' }}>
-                        <span style={{ fontSize: '10px', fontWeight: '800', color: sc.color, textTransform: 'uppercase', letterSpacing: '1px' }}>{record.status}</span>
+                      <div style={{ textAlign: 'right' }}>
+                        <div style={{ fontSize: '16px', fontWeight: '900', color: sc.color }}>₱{Number(record.actual_boundary).toLocaleString()}</div>
+                        <div style={{ fontSize: '10px', color: t.textMuted, marginTop: '2px' }}>/ ₱{Number(record.boundary_amount).toLocaleString()}</div>
                       </div>
                     </div>
                   );
                 })}
+
+                {/* Pagination Controls */}
+                {totalPages > 1 && (
+                  <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '16px', marginTop: '12px', padding: '10px' }}>
+                    <button 
+                      onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                      disabled={currentPage === 1}
+                      style={{ 
+                        background: t.subtleBg, border: t.border, borderRadius: '10px', padding: '8px', 
+                        opacity: currentPage === 1 ? 0.4 : 1, cursor: 'pointer', display: 'flex', alignItems: 'center' 
+                      }}
+                    >
+                      <IonIcon icon={chevronBackOutline} style={{ fontSize: '18px', color: t.textPrimary }} />
+                    </button>
+                    
+                    <span style={{ fontSize: '12px', fontWeight: '800', color: t.textSecondary }}>
+                      Page {currentPage} of {totalPages}
+                    </span>
+
+                    <button 
+                      onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                      disabled={currentPage === totalPages}
+                      style={{ 
+                        background: t.subtleBg, border: t.border, borderRadius: '10px', padding: '8px', 
+                        opacity: currentPage === totalPages ? 0.4 : 1, cursor: 'pointer', display: 'flex', alignItems: 'center' 
+                      }}
+                    >
+                      <IonIcon icon={chevronForwardOutline} style={{ fontSize: '18px', color: t.textPrimary }} />
+                    </button>
+                  </div>
+                )}
               </div>
             )}
           </div>

@@ -16,13 +16,28 @@ use App\Models\SystemAlert;
 use App\Models\FranchiseCase;
 use App\Models\DriverBehavior;
 use App\Traits\CalculatesDriverPerformance;
+use App\Services\NotificationService;
 use Carbon\Carbon;
 
 class DashboardController extends Controller
 {
     use CalculatesDriverPerformance;
+    protected $notificationService;
+
+    public function __construct(NotificationService $notificationService)
+    {
+        $this->notificationService = $notificationService;
+    }
+
     public function index(Request $request)
     {
+        // AUTO-TRIGGER: Daily Coding Alerts (runs once per day when first staff visits dashboard)
+        $cacheKey = 'daily_coding_alerts_sent_' . now()->toDateString();
+        if (!Cache::has($cacheKey)) {
+            $this->notificationService->dispatchDailyCodingNotifications();
+            Cache::put($cacheKey, true, now()->endOfDay());
+        }
+
         // Get dashboard statistics using centralized method
         $stats = $this->getDashboardStats();
         

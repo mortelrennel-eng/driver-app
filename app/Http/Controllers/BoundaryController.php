@@ -403,10 +403,10 @@ class BoundaryController extends Controller
                             $comp_note = "";
                             
                             if ($unit->last_swapping_at) {
-                                $swap_time = \Carbon\Carbon::parse($unit->last_swapping_at);
+                                $swap_time = Carbon::parse($unit->last_swapping_at);
                             } else {
                                 // Fallback: Assume start was 10:00 AM of the record date (or yesterday if currently past 10AM)
-                                $swap_time = \Carbon\Carbon::parse($date . ' 10:00:00');
+                                $swap_time = Carbon::parse($date . ' 10:00:00');
                                 if ($swap_time->isFuture()) {
                                     $swap_time->subDay();
                                 }
@@ -562,11 +562,26 @@ class BoundaryController extends Controller
                     $plate = DB::table('units')->where('id', $unit_id)->value('plate_number');
                     $driverName = DB::table('drivers')->where('id', $driver_id)->select(DB::raw("CONCAT(first_name, ' ', last_name) as name"))->value('name');
                     ActivityLogController::log('Boundary Remittance', "Unit: {$plate}\nDriver: {$driverName}\nDate: {$date}\nCollected: ₱" . number_format($actual_boundary, 2) . "\nStatus: " . ucfirst($status));
+                    
+                    // Notify Driver via Push
+                    try {
+                        app(\App\Services\NotificationService::class)->notifyDriver(
+                            $driver_id, 
+                            'Boundary Remittance', 
+                            "Your remittance of ₱" . number_format($actual_boundary, 2) . " for " . Carbon::parse($date)->format('M d, Y') . " has been processed. Status: " . strtoupper($status),
+                            'remittance'
+                        );
+                    } catch (\Exception $e) {}
 
                     return redirect()->route('boundaries.index')->with('success', 'Boundary record added successfully');
                 }
             } else {
-                return back()->with('error', 'Please fill in all required fields');
+                $missing = [];
+                if ($unit_id <= 0) $missing[] = 'Unit';
+                if ($driver_id <= 0) $missing[] = 'Driver';
+                if (!$is_valid_amount) $missing[] = 'Valid Amount';
+                
+                return back()->with('error', 'Please fill in all required fields: ' . implode(', ', $missing));
             }
         }
 

@@ -3,14 +3,14 @@ import { IonApp, IonRouterOutlet, setupIonicReact } from '@ionic/react';
 import { IonReactRouter } from '@ionic/react-router';
 import { Suspense, lazy } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { ThemeProvider } from './context/ThemeContext';
 
 // Lazy load pages for performance (Code Splitting)
 const Login = lazy(() => import('./pages/Login'));
 const Register = lazy(() => import('./pages/Register'));
 const Dashboard = lazy(() => import('./pages/Dashboard'));
-const Earnings = lazy(() => import('./pages/Earnings'));
 const Vehicle = lazy(() => import('./pages/Vehicle'));
-const Announcements = lazy(() => import('./pages/Announcements'));
+const Notifications = lazy(() => import('./pages/Notifications'));
 const Tracking = lazy(() => import('./pages/Tracking'));
 const History = lazy(() => import('./pages/History'));
 const Charges = lazy(() => import('./pages/Charges'));
@@ -59,9 +59,22 @@ const PrivateRoute: React.FC<{ component: React.FC; path: string; exact?: boolea
   );
 };
 
+import BottomNav from './components/BottomNav';
+import { useLocation } from 'react-router-dom';
+
+const NavigationWrapper: React.FC = () => {
+  const location = useLocation();
+  const hiddenPages = ['/login', '/register', '/welcome', '/', '/support'];
+  if (!hiddenPages.includes(location.pathname)) {
+    return <BottomNav />;
+  }
+  return null;
+};
+
 const App: React.FC = () => {
   return (
     <IonApp>
+      <ThemeProvider>
       <AuthProvider>
         <IonReactRouter>
           <IonRouterOutlet>
@@ -76,9 +89,9 @@ const App: React.FC = () => {
                 <Register />
               </Route>
               <PrivateRoute exact path="/dashboard" component={Dashboard} />
-              <PrivateRoute exact path="/earnings" component={Earnings} />
+
               <PrivateRoute exact path="/vehicle" component={Vehicle} />
-              <PrivateRoute exact path="/announcements" component={Announcements} />
+              <PrivateRoute exact path="/notifications" component={Notifications} />
               <PrivateRoute exact path="/tracking" component={Tracking} />
               <PrivateRoute exact path="/history" component={History} />
               <PrivateRoute exact path="/charges" component={Charges} />
@@ -91,8 +104,10 @@ const App: React.FC = () => {
               </Route>
             </Suspense>
           </IonRouterOutlet>
+          <NavigationWrapper />
       </IonReactRouter>
     </AuthProvider>
+      </ThemeProvider>
   </IonApp>
   );
 };

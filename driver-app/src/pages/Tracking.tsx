@@ -7,11 +7,12 @@ import {
   useIonToast,
   IonSpinner
 } from '@ionic/react';
-import { locate, people, locationOutline, arrowBackOutline, speedometerOutline, trendingUpOutline } from 'ionicons/icons';
-import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
+import { locate, people, locationOutline, arrowBackOutline, speedometerOutline, trendingUpOutline, closeOutline } from 'ionicons/icons';
+import { MapContainer, TileLayer, Marker, Popup, useMap, Polyline } from 'react-leaflet';
 import L from 'leaflet';
 import axios from 'axios';
 import { endpoints } from '../config/api';
+import { useTheme } from '../context/ThemeContext';
 import { useHistory } from 'react-router-dom';
 
 // Fix for Leaflet marker icon issue in React
@@ -19,14 +20,7 @@ import markerIcon from 'leaflet/dist/images/marker-icon.png';
 import markerIconRetina from 'leaflet/dist/images/marker-icon-2x.png';
 import markerShadow from 'leaflet/dist/images/marker-shadow.png';
 
-const g = {
-  bg: '#0a0e1a',
-  card: 'linear-gradient(145deg, rgba(30, 41, 59, 0.8), rgba(15, 23, 42, 0.95))',
-  glass: { backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)' } as React.CSSProperties,
-  border: '1px solid rgba(255,255,255,0.08)',
-  gold: '#eab308',
-  goldGrad: 'linear-gradient(135deg, #eab308, #f59e0b)',
-};
+
 
 const DefaultIcon = L.icon({
   iconUrl: markerIcon,
@@ -81,18 +75,34 @@ const LocateButton: React.FC<{ position: [number, number] }> = ({ position }) =>
 
 const Tracking: React.FC = () => {
   const history = useHistory();
+  const { t } = useTheme();
   const [data, setData] = useState<any>(null);
+  const [pos, setPos] = useState<{lat:number;lng:number}|null>(null);
   const [position, setPosition] = useState<[number, number]>(() => {
     const saved = localStorage.getItem('last_known_pos');
     return saved ? JSON.parse(saved) : [14.5995, 120.9842];
   });
   const [isOffline, setIsOffline] = useState(false);
+  const [path, setPath] = useState<[number, number][]>(() => {
+    const savedData = localStorage.getItem('tracking_path_history');
+    if (savedData) {
+      try {
+        const parsed = JSON.parse(savedData);
+        // Check if the saved path belongs to today
+        const today = new Date().toLocaleDateString('en-PH', { timeZone: 'Asia/Manila' });
+        if (parsed.date === today && Array.isArray(parsed.path)) {
+          return parsed.path;
+        }
+      } catch(e) {}
+    }
+    return [];
+  });
   const [nearbyDrivers, setNearbyDrivers] = useState<any[]>([]);
   const [presentToast] = useIonToast();
   const [loading, setLoading] = useState(true);
   const [address, setAddress] = useState<string>('');
   const [isSearching, setIsSearching] = useState(false);
-  const [modalBreakpoint, setModalBreakpoint] = useState(0.15);
+  const [showModal, setShowModal] = useState(false);
 
   const geoAxios = axios.create({
     transformRequest: [(data, headers) => {
@@ -104,7 +114,6 @@ const Tracking: React.FC = () => {
   const [lastGeocodedPos, setLastGeocodedPos] = useState<[number, number] | null>(null);
 
   const fetchAddress = async (lat: number, lon: number) => {
-    // Prevent spamming Nominatim if position hasn't changed
     if (lastGeocodedPos && lastGeocodedPos[0] === lat && lastGeocodedPos[1] === lon) {
       return;
     }
@@ -131,14 +140,42 @@ const Tracking: React.FC = () => {
       if (response.data.success) {
         const perfData = response.data.data;
         setData(perfData);
-        setIsOffline(perfData.gps_status === 'Offline' || !perfData.latitude);
+        
+        // Determine offline status:
+        const status = (perfData.gps_status || '').toLowerCase();
+        const hasCoords = perfData.latitude && perfData.longitude && parseFloat(perfData.latitude) !== 0;
+        const isReallyOffline = (!status || status === 'offline') && !hasCoords;
+        setIsOffline(isReallyOffline);
 
-          if (perfData.latitude && perfData.longitude && parseFloat(perfData.latitude) !== 0) {
+          if (hasCoords) {
             const newPos: [number, number] = [parseFloat(perfData.latitude), parseFloat(perfData.longitude)];
             setPosition(newPos);
+            setPos({lat: newPos[0], lng: newPos[1]});
             localStorage.setItem('last_known_pos', JSON.stringify(newPos));
 
-            // Force live OSM reverse-geocoding every 5 secs instead of relying on stale backend address
+            setPath(prev => {
+              let newPath = prev;
+              if (prev.length === 0) {
+                newPath = [newPos];
+              } else {
+                const last = prev[prev.length - 1];
+                // Only add if the position actually changed
+                if (last[0] !== newPos[0] || last[1] !== newPos[1]) {
+                  newPath = [...prev, newPos];
+                }
+              }
+              // Keep only the last 500 points to prevent localStorage from getting too heavy
+              if (newPath.length > 500) newPath = newPath.slice(-500);
+              
+              const today = new Date().toLocaleDateString('en-PH', { timeZone: 'Asia/Manila' });
+              localStorage.setItem('tracking_path_history', JSON.stringify({
+                date: today,
+                path: newPath
+              }));
+              
+              return newPath;
+            });
+
             fetchAddress(newPos[0], newPos[1]);
           }
       }
@@ -167,8 +204,7 @@ const Tracking: React.FC = () => {
           color: 'success',
           position: 'top'
         });
-        // Expand modal to show list
-        setModalBreakpoint(0.45);
+        setShowModal(true);
       } else {
         presentToast({
           message: 'No active drivers found nearby.',
@@ -194,17 +230,17 @@ const Tracking: React.FC = () => {
 
   return (
     <IonPage>
-      {/* Absolute Transparent Header */}
-      <div style={{ position: 'absolute', top: 0, left: 0, right: 0, zIndex: 10000, padding: '16px 20px', display: 'flex', alignItems: 'center', gap: '12px', pointerEvents: 'none' }}>
-        <button
-          onClick={() => history.goBack()}
-          style={{ pointerEvents: 'auto', background: 'rgba(255, 255, 255, 0.9)', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '12px', padding: '10px', cursor: 'pointer', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
-        >
-          <IonIcon icon={arrowBackOutline} style={{ fontSize: '20px', color: '#000' }} />
+      <div style={{ 
+        position: 'absolute', top: 0, left: 0, right: 0, zIndex: 10000, 
+        padding: 'calc(env(safe-area-inset-top) + 16px) 20px 16px', 
+        display: 'flex', alignItems: 'center', gap: '12px', pointerEvents: 'none'
+      }}>
+        <button onClick={() => history.goBack()} style={{ pointerEvents: 'auto', background: 'rgba(255,255,255,0.95)', border: 'none', borderRadius: '12px', padding: '10px', cursor: 'pointer', boxShadow: '0 2px 8px rgba(0,0,0,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <IonIcon icon={arrowBackOutline} style={{ fontSize: '20px', color: '#1e293b' }} />
         </button>
-        <div style={{ pointerEvents: 'none' }}>
-          <div style={{ fontSize: '18px', fontWeight: '800', color: '#0f172a', textShadow: '0 1px 2px rgba(255,255,255,0.8)' }}>Live Tracking</div>
-          <div style={{ fontSize: '11px', color: '#475569', fontWeight: '700' }}>System Online</div>
+        <div style={{ pointerEvents: 'none', background: 'rgba(255,255,255,0.95)', padding: '8px 14px', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,0.15)' }}>
+          <div style={{ fontSize: '16px', fontWeight: '800', color: '#0f172a' }}>Live Tracking</div>
+          <div style={{ fontSize: '10px', color: '#64748b', fontWeight: '600' }}>GPS position & location</div>
         </div>
       </div>
 
@@ -224,12 +260,28 @@ const Tracking: React.FC = () => {
               url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
             />
 
+            {path.length > 1 && (
+              <Polyline 
+                positions={path} 
+                pathOptions={{ color: '#3b82f6', weight: 5, opacity: 0.8, lineCap: 'round', lineJoin: 'round' }} 
+              />
+            )}
+
             <Marker position={position}>
               <Popup>
                 <div style={{ textAlign: 'center', padding: '8px' }}>
                   <strong style={{ color: '#1e3a8a', fontSize: '14px' }}>{data?.unit || 'Taxi Unit'}</strong><br />
-                  <div style={{ fontSize: '12px', color: isOffline ? '#ef4444' : (data?.gps_status === 'Active' ? '#22c55e' : '#fbbf24'), marginTop: '4px', fontWeight: '800' }}>
-                    {isOffline ? '⚠️ SIGNAL LOST' : `🟢 ${data?.gps_status?.toUpperCase() || 'ACTIVE'}`}
+                  <div style={{ 
+                    fontSize: '12px', 
+                    color: isOffline ? '#94a3b8' : (
+                      ['active', 'moving'].includes(data?.gps_status?.toLowerCase()) ? '#22c55e' : 
+                      data?.gps_status?.toLowerCase() === 'idle' ? '#fbbf24' : 
+                      data?.gps_status?.toLowerCase() === 'stopped' ? '#ef4444' : '#94a3b8'
+                    ), 
+                    marginTop: '4px', 
+                    fontWeight: '800' 
+                  }}>
+                    {isOffline ? '⚠️ SIGNAL LOST' : `● ${data?.gps_status?.toLowerCase() === 'idle' ? 'PARKED' : (data?.gps_status?.toUpperCase() || 'N/A')}`}
                   </div>
                   <div style={{ fontSize: '11px', color: '#475569', marginTop: '4px', maxWidth: '150px' }}>
                     {address || 'Detecting place...'}
@@ -272,7 +324,7 @@ const Tracking: React.FC = () => {
                 <Popup>
                   <div style={{ textAlign: 'center', padding: '5px' }}>
                     <strong style={{ color: '#b45309' }}>{driver.plate_number}</strong><br />
-                    <span style={{ fontSize: '11px', color: '#64748b' }}>{driver.distance} km away</span>
+                    <span style={{ fontSize: '11px', color: t.textMuted }}>{pos ? `${pos.lat.toFixed(6)}, ${pos.lng.toFixed(6)}` : 'N/A'}</span>
                   </div>
                 </Popup>
               </Marker>
@@ -281,26 +333,58 @@ const Tracking: React.FC = () => {
             <LocateButton position={position} />
           </MapContainer>
 
-          {/* Sliding Bottom Sheet Modal */}
+          {/* Floating Action Button to Open Stats */}
+          {!showModal && (
+            <div 
+              onClick={() => setShowModal(true)}
+              style={{
+                position: 'absolute',
+                bottom: '100px',
+                right: '20px',
+                zIndex: 1000,
+                background: t.gold,
+                color: '#000',
+                padding: '14px 20px',
+                borderRadius: '24px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                fontWeight: '800',
+                fontSize: '13px',
+                boxShadow: '0 8px 24px rgba(234, 179, 8, 0.4)',
+                cursor: 'pointer'
+              }}
+            >
+              <IonIcon icon={speedometerOutline} style={{ fontSize: '18px' }} />
+              Trip Info
+            </div>
+          )}
+
           <IonModal
-            isOpen={true}
-            initialBreakpoint={modalBreakpoint}
-            breakpoints={[0.15, 0.45, 0.9]}
-            backdropBreakpoint={0.5}
-            backdropDismiss={false}
-            keyboardClose={false}
-            onIonBreakpointDidChange={(e) => setModalBreakpoint(e.detail.breakpoint)}
-            style={{ '--background': g.bg, '--border-radius': '24px 24px 0 0', zIndex: 20000 }}
+            isOpen={showModal}
+            onDidDismiss={() => setShowModal(false)}
+            style={{ 
+              '--height': 'auto', 
+              '--max-height': '80vh', 
+              '--width': '90%', 
+              '--border-radius': '24px', 
+              zIndex: 20000 
+            }}
           >
-            <div style={{ background: g.bg, height: '100%', padding: '24px 20px', overflowY: 'auto' }}>
+            <div style={{ background: t.bg, padding: '24px 20px', overflowY: 'auto', maxHeight: '80vh' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                <h2 style={{ fontSize: '18px', fontWeight: '900', color: t.textPrimary, margin: 0 }}>Trip Info</h2>
+                <IonIcon 
+                  icon={closeOutline} 
+                  onClick={() => setShowModal(false)} 
+                  style={{ fontSize: '24px', color: t.textMuted, cursor: 'pointer', background: t.subtleBg, padding: '6px', borderRadius: '50%' }} 
+                />
+              </div>
 
-              <div style={{ width: '40px', height: '4px', background: 'rgba(255,255,255,0.1)', borderRadius: '2px', margin: '-12px auto 20px' }}></div>
-
-              {/* Main Info */}
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
                 <div>
-                  <div style={{ fontSize: '10px', fontWeight: '800', color: '#64748b', textTransform: 'uppercase', letterSpacing: '2px', marginBottom: '4px' }}>Assigned Unit</div>
-                  <h2 style={{ fontSize: '28px', fontWeight: '900', color: '#f8fafc', margin: 0, letterSpacing: '-0.5px' }}>
+                  <div style={{ fontSize: '10px', fontWeight: '800', color: t.textMuted, textTransform: 'uppercase', letterSpacing: '2px', marginBottom: '4px' }}>Assigned Unit</div>
+                  <h2 style={{ fontSize: '18px', fontWeight: '900', color: t.textPrimary, margin: 0, letterSpacing: '-0.3px' }}>
                     {data?.unit || '---'}
                   </h2>
                 </div>
@@ -310,37 +394,38 @@ const Tracking: React.FC = () => {
                     borderRadius: '12px',
                     fontSize: '11px',
                     fontWeight: '900',
-                    textTransform: 'uppercase',
+                    textTransform: 'uppercase' as const,
                     backgroundColor: 
-                      data?.gps_status === 'Active' ? 'rgba(34,197,94,0.15)' : 
-                      data?.gps_status === 'Idle' ? 'rgba(234,179,8,0.15)' :
-                      data?.gps_status === 'Stopped' ? 'rgba(239,68,68,0.15)' : 'rgba(255,255,255,0.05)',
+                      isOffline ? 'rgba(239,68,68,0.15)' :
+                      ['active', 'moving'].includes(data?.gps_status?.toLowerCase()) ? 'rgba(34,197,94,0.15)' : 
+                      data?.gps_status?.toLowerCase() === 'idle' ? 'rgba(234,179,8,0.15)' :
+                      data?.gps_status?.toLowerCase() === 'stopped' ? 'rgba(249,115,22,0.15)' : 'rgba(148,163,184,0.15)',
                     color: 
-                      data?.gps_status === 'Active' ? '#22c55e' : 
-                      data?.gps_status === 'Idle' ? '#fbbf24' :
-                      data?.gps_status === 'Stopped' ? '#ef4444' : '#94a3b8',
+                      isOffline ? '#ef4444' :
+                      ['active', 'moving'].includes(data?.gps_status?.toLowerCase()) ? '#22c55e' : 
+                      data?.gps_status?.toLowerCase() === 'idle' ? '#fbbf24' :
+                      data?.gps_status?.toLowerCase() === 'stopped' ? '#f97316' : '#94a3b8',
                     border: `1px solid ${
-                      data?.gps_status === 'Active' ? 'rgba(34,197,94,0.3)' : 
-                      data?.gps_status === 'Idle' ? 'rgba(234,179,8,0.3)' :
-                      data?.gps_status === 'Stopped' ? 'rgba(239,68,68,0.3)' : 'rgba(255,255,255,0.1)'
+                      isOffline ? 'rgba(239,68,68,0.3)' :
+                      ['active', 'moving'].includes(data?.gps_status?.toLowerCase()) ? 'rgba(34,197,94,0.3)' : 
+                      data?.gps_status?.toLowerCase() === 'idle' ? 'rgba(234,179,8,0.3)' :
+                      data?.gps_status?.toLowerCase() === 'stopped' ? 'rgba(249,115,22,0.3)' : 'rgba(148,163,184,0.2)'
                     }`,
                     display: 'flex',
                     alignItems: 'center',
                     gap: '6px'
                   }}>
                     <div style={{ 
-                      width: '6px', 
-                      height: '6px', 
-                      borderRadius: '50%', 
-                      background: 
-                        data?.gps_status === 'Active' ? '#22c55e' : 
-                        data?.gps_status === 'Idle' ? '#fbbf24' :
-                        data?.gps_status === 'Stopped' ? '#ef4444' : '#94a3b8',
-                      boxShadow: data?.gps_status === 'Active' ? '0 0 8px #22c55e' : 'none'
+                      width: '6px', height: '6px', borderRadius: '50%', 
+                      background: isOffline ? '#ef4444' :
+                        ['active', 'moving'].includes(data?.gps_status?.toLowerCase()) ? '#22c55e' : 
+                        data?.gps_status?.toLowerCase() === 'idle' ? '#fbbf24' :
+                        data?.gps_status?.toLowerCase() === 'stopped' ? '#f97316' : '#94a3b8',
+                      boxShadow: ['active', 'moving'].includes(data?.gps_status?.toLowerCase()) ? '0 0 8px #22c55e' : 'none'
                     }}></div>
-                    {data?.gps_status || 'OFFLINE'}
+                    {isOffline ? 'OFFLINE' : (data?.gps_status?.toLowerCase() === 'idle' ? 'PARKED' : (data?.gps_status?.toUpperCase() || 'N/A'))}
                   </div>
-                  <div style={{ fontSize: '10px', color: '#475569', marginTop: '6px', fontWeight: '600' }}>
+                  <div style={{ fontSize: '10px', color: t.textMuted, marginTop: '6px', fontWeight: '600' }}>
                     {data?.last_update || 'Syncing...'}
                   </div>
                 </div>
@@ -352,62 +437,18 @@ const Tracking: React.FC = () => {
                   { label: 'Live Speed', value: data?.speed || '0', unit: 'km/h', icon: speedometerOutline, color: '#22c55e' },
                   { label: 'Trip Dist.', value: data?.today_dist || '0.0', unit: 'km', icon: trendingUpOutline, color: '#3b82f6' }
                 ].map((stat, i) => (
-                  <div key={i} style={{ background: 'rgba(255,255,255,0.03)', padding: '16px', borderRadius: '16px', border: g.border }}>
+                  <div key={i} style={{ background: t.card, ...t.glass, padding: '16px', borderRadius: '16px', border: t.border }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
                       <IonIcon icon={stat.icon} style={{ fontSize: '14px', color: stat.color }} />
-                      <span style={{ fontSize: '10px', fontWeight: '700', color: '#64748b', textTransform: 'uppercase' }}>{stat.label}</span>
+                      <span style={{ fontSize: '10px', fontWeight: '700', color: t.textMuted, textTransform: 'uppercase' }}>{stat.label}</span>
                     </div>
                     <div style={{ display: 'flex', alignItems: 'baseline', gap: '4px' }}>
-                      <span style={{ fontSize: '22px', fontWeight: '900', color: '#f8fafc' }}>{stat.value}</span>
-                      {stat.unit && <span style={{ fontSize: '11px', fontWeight: '700', color: '#475569' }}>{stat.unit}</span>}
+                      <span style={{ fontSize: '22px', fontWeight: '900', color: t.textPrimary }}>{stat.value}</span>
+                      {stat.unit && <span style={{ fontSize: '11px', fontWeight: '700', color: t.textMuted }}>{stat.unit}</span>}
                     </div>
                   </div>
                 ))}
               </div>
-
-              {/* Nearby Drivers Section (Top 5) */}
-              {nearbyDrivers.length > 0 && (
-                <div style={{ marginBottom: '24px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
-                    <IonIcon icon={people} style={{ fontSize: '16px', color: g.gold }} />
-                    <span style={{ fontSize: '12px', fontWeight: '800', color: g.gold, textTransform: 'uppercase', letterSpacing: '1px' }}>Top 5 Closest Drivers</span>
-                  </div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                    {nearbyDrivers.slice(0, 5).map((driver, i) => (
-                      <div key={i} style={{ background: 'rgba(255,255,255,0.03)', padding: '12px 16px', borderRadius: '14px', border: g.border, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                          <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: 'rgba(234,179,8,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                            <span style={{ fontSize: '14px', fontWeight: '900', color: g.gold }}>{i + 1}</span>
-                          </div>
-                          <div>
-                            <div style={{ fontSize: '14px', fontWeight: '800', color: '#f8fafc' }}>{driver.plate_number}</div>
-                            <div style={{ fontSize: '11px', display: 'flex', alignItems: 'center', gap: '6px', marginTop: '2px' }}>
-                              <span style={{
-                                width: '6px',
-                                height: '6px',
-                                borderRadius: '50%',
-                                background: driver.gps_status === 'Active' ? '#22c55e' : driver.gps_status === 'Idle' ? '#fbbf24' : driver.gps_status === 'Stopped' ? '#ef4444' : '#94a3b8',
-                                boxShadow: driver.gps_status === 'Active' ? '0 0 4px #22c55e' : 'none'
-                              }}></span>
-                              <span style={{ 
-                                color: driver.gps_status === 'Active' ? '#4ade80' : driver.gps_status === 'Idle' ? '#fde047' : driver.gps_status === 'Stopped' ? '#f87171' : '#94a3b8',
-                                fontWeight: '700',
-                                letterSpacing: '0.5px'
-                              }}>
-                                {driver.gps_status?.toUpperCase() || 'OFFLINE'}
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-                        <div style={{ textAlign: 'right' }}>
-                          <div style={{ fontSize: '13px', fontWeight: '900', color: '#3b82f6' }}>{driver.distance} km</div>
-                          <div style={{ fontSize: '9px', color: '#475569', textTransform: 'uppercase' }}>Distance</div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
 
               {/* Location Bar */}
               <div style={{ background: 'rgba(59,130,246,0.1)', padding: '14px 16px', borderRadius: '16px', border: '1px solid rgba(59,130,246,0.2)', display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '24px' }}>
@@ -416,17 +457,58 @@ const Tracking: React.FC = () => {
                 </div>
                 <div style={{ flex: 1, overflow: 'hidden' }}>
                   <div style={{ fontSize: '10px', fontWeight: '800', color: '#3b82f6', textTransform: 'uppercase', letterSpacing: '1px' }}>Current Address</div>
-                  <div style={{ fontSize: '12px', fontWeight: '700', color: '#e2e8f0', whiteSpace: 'normal', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-                    {address || 'Detecting accurate location...'}
+                  <div style={{ fontSize: '12px', fontWeight: '700', color: t.textPrimary, whiteSpace: 'normal' }}>
+                    {address || data?.location || 'Detecting accurate location...'}
                   </div>
                 </div>
               </div>
+
+              {/* Nearby Drivers */}
+              {nearbyDrivers.length > 0 && (
+                <div style={{ marginBottom: '24px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+                    <IonIcon icon={people} style={{ fontSize: '16px', color: t.gold }} />
+                    <span style={{ fontSize: '12px', fontWeight: '800', color: t.gold, textTransform: 'uppercase', letterSpacing: '1px' }}>Top 5 Closest Drivers</span>
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    {nearbyDrivers.slice(0, 5).map((driver, i) => (
+                      <div key={i} style={{ background: t.card, ...t.glass, padding: '12px 16px', borderRadius: '14px', border: t.border, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                          <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: 'rgba(234,179,8,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <span style={{ fontSize: '14px', fontWeight: '900', color: t.gold }}>{i + 1}</span>
+                          </div>
+                          <div>
+                            <div style={{ fontSize: '14px', fontWeight: '800', color: t.textPrimary }}>{driver.plate_number}</div>
+                            <div style={{ fontSize: '11px', display: 'flex', alignItems: 'center', gap: '6px', marginTop: '2px' }}>
+                              <span style={{
+                                width: '6px', height: '6px', borderRadius: '50%',
+                                background: ['active', 'moving'].includes(driver.gps_status?.toLowerCase()) ? '#22c55e' : driver.gps_status?.toLowerCase() === 'idle' ? '#fbbf24' : driver.gps_status?.toLowerCase() === 'stopped' ? '#ef4444' : '#94a3b8',
+                                boxShadow: ['active', 'moving'].includes(driver.gps_status?.toLowerCase()) ? '0 0 4px #22c55e' : 'none'
+                              }}></span>
+                              <span style={{ 
+                                color: ['active', 'moving'].includes(driver.gps_status?.toLowerCase()) ? '#22c55e' : driver.gps_status?.toLowerCase() === 'idle' ? '#fbbf24' : driver.gps_status?.toLowerCase() === 'stopped' ? '#ef4444' : '#94a3b8',
+                                fontWeight: '700', letterSpacing: '0.5px'
+                              }}>
+                                {driver.gps_status?.toLowerCase() === 'idle' ? 'PARKED' : (driver.gps_status?.toUpperCase() || 'N/A')}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                        <div style={{ textAlign: 'right' }}>
+                          <div style={{ fontSize: '13px', fontWeight: '900', color: '#3b82f6' }}>{driver.distance} km</div>
+                          <div style={{ fontSize: '9px', color: t.textMuted, textTransform: 'uppercase' }}>Distance</div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {/* Action Button */}
               <button
                 onClick={(e) => { e.stopPropagation(); findNearbyDrivers(); }}
                 disabled={isSearching}
-                style={{ width: '100%', padding: '18px', background: g.goldGrad, border: 'none', borderRadius: '16px', color: '#000', fontWeight: '900', fontSize: '15px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', cursor: 'pointer', boxShadow: '0 8px 24px rgba(234,179,8,0.2)', letterSpacing: '0.5px' }}
+                style={{ width: '100%', padding: '18px', background: 'linear-gradient(135deg, #eab308, #f59e0b)', border: 'none', borderRadius: '16px', color: '#000', fontWeight: '900', fontSize: '15px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', cursor: 'pointer', boxShadow: '0 8px 24px rgba(234,179,8,0.2)', letterSpacing: '0.5px' }}
               >
                 {isSearching ? <IonSpinner name="crescent" style={{ width: '20px', height: '20px', '--color': '#000' }} /> : <IonIcon icon={people} style={{ fontSize: '20px' }} />}
                 {isSearching ? 'SEARCHING...' : 'FIND NEARBY DRIVERS'}
@@ -436,9 +518,9 @@ const Tracking: React.FC = () => {
           </IonModal>
 
           {loading && (
-            <div style={{ position: 'absolute', inset: 0, background: g.bg, zIndex: 100000, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+            <div style={{ position: 'absolute', inset: 0, background: t.bg, zIndex: 100000, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
               <IonSpinner name="crescent" color="warning" />
-              <div style={{ marginTop: '16px', fontSize: '13px', color: '#64748b', fontWeight: '600' }}>Initializing Tracking...</div>
+              <div style={{ marginTop: '16px', fontSize: '13px', color: t.textMuted, fontWeight: '600' }}>Initializing Tracking...</div>
             </div>
           )}
         </div>

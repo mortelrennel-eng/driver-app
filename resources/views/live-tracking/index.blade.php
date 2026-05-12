@@ -420,7 +420,7 @@
             <select id="statusFilterSelect"
                 class="block w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 transition-all outline-none bg-white">
                 <option value="">All Fleet Units</option>
-                <option value="active">Active (On/Idle)</option>
+                <option value="moving">Moving / Active</option>
                 <option value="offline">Offline / Stopped</option>
             </select>
         </div>

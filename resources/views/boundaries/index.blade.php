@@ -157,13 +157,8 @@
                             
                             <!-- Driver Dropdown -->
                             <div id="driver_dropdown" class="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-xl shadow-xl max-h-48 overflow-y-auto hidden">
-                                <div class="driver-option px-3 py-2 hover:bg-yellow-50 cursor-pointer border-b border-gray-100"
-                                     data-id="all"
-                                     data-name="All Drivers"
-                                     data-unit=""
-                                     data-plate="">
-                                    <div class="font-black text-sm text-gray-900">All Drivers</div>
-                                    <div class="text-[11px] font-bold text-gray-500">Show all available drivers</div>
+                                <div class="px-3 py-2 bg-gray-50 border-b border-gray-100">
+                                    <div class="font-black text-[10px] text-gray-400 uppercase tracking-widest">All Available Drivers</div>
                                 </div>
                                 <div class="all-drivers-list">
                                     @foreach ($all_drivers as $driver)
@@ -802,6 +797,10 @@ function initializeUnitDropdown() {
         
         // Filter units on input
         unitDisplay.addEventListener('input', function() {
+            // Clear the hidden ID when the user types. 
+            // They MUST select from the dropdown to get a valid ID.
+            document.getElementById('unitId').value = '';
+            
             const searchTerm = this.value.toLowerCase();
             filterUnits(searchTerm);
         });
@@ -920,8 +919,38 @@ function initializeDriverDropdown() {
         
         // Filter drivers on input
         driverDisplay.addEventListener('input', function() {
+            // Clear the hidden ID when the user types. 
+            // They MUST select from the dropdown to get a valid ID.
+            document.getElementById('driverId').value = '';
+            
             const searchTerm = this.value.toLowerCase();
             filterDrivers(searchTerm);
+            
+            // Hide alerts since driver changed
+            const extraAlert = document.getElementById('extraDriverAlert');
+            if (extraAlert) extraAlert.classList.add('hidden');
+        });
+
+        // Form Validation before submission
+        const form = document.getElementById('boundaryForm');
+        form.addEventListener('submit', function(e) {
+            const unitId = document.getElementById('unitId').value;
+            const driverId = document.getElementById('driverId').value;
+            const driverName = document.getElementById('driverDisplay').value;
+
+            if (!unitId || unitId <= 0) {
+                e.preventDefault();
+                alert('Please select a valid Unit from the list.');
+                document.getElementById('unitDisplay').focus();
+                return;
+            }
+
+            if (!driverId || driverId <= 0) {
+                e.preventDefault();
+                alert('Please select a valid Driver from the dropdown list. You cannot just type the name; you must click the driver in the list.');
+                document.getElementById('driverDisplay').focus();
+                return;
+            }
         });
         
         // Close dropdown when clicking outside
@@ -1121,12 +1150,6 @@ function filterDrivers(searchTerm) {
         
         if (driverName.includes(searchTerm) || driverUnit.includes(searchTerm) || driverPlate.includes(searchTerm)) {
             option.style.display = 'block';
-            
-            // Don't modify "All Drivers" styling
-            if (option.getAttribute('data-id') === 'all') {
-                hasResults = true;
-                return;
-            }
             
             // Match via primary or secondary driver ID for strict suggestion
             const isSuggested = driverIdAttr && (driverIdAttr == primaryId || driverIdAttr == secondaryId);

@@ -11,12 +11,9 @@ const config = {
 
 const BASE_REMOTE = '/home/u747826271/domains/eurotaxisystem.site/public_html';
 
-const command = [
-    `cd ${BASE_REMOTE}`,
-    `php artisan tinker --execute="\\$d = \\\\App\\\\Models\\\\Driver::create(['first_name' => 'Almar', 'last_name' => 'Monarba', 'full_name' => 'Almar Monarba', 'contact_number' => '09911275418', 'status' => 'active']); \\$u = \\\\App\\\\Models\\\\Unit::where('plate_number', 'LIKE', '%DCQ 1551%')->first(); if (\\$u) { \\$u->driver_id = \\$d->id; \\$u->save(); echo 'SUCCESS: Driver created (ID: ' . \\$d->id . ') and assigned to Unit (ID: ' . \\$u->id . ')'; } else { echo 'ERROR: Unit DCQ 1551 not found'; }"`
-].join(' && ');
+const command = process.argv[2] || 'ls -la';
 
-console.log('--- CHECKING HOSTINGER CONTROLLER VERSION ---');
+console.log('--- EXECUTING REMOTE COMMAND ---');
 const conn = new Client();
 
 conn.on('ready', () => {

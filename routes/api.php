@@ -31,6 +31,7 @@ Route::post('/reset-password', [AuthController::class, 'resetPassword']);
 Route::post('/driver/register', [\App\Http\Controllers\Api\DriverAppController::class, 'register']);
 Route::post('/driver/register/verify-otp', [\App\Http\Controllers\Api\DriverAppController::class, 'verifyRegistrationOtp']);
 Route::post('/driver/register/resend-otp', [\App\Http\Controllers\Api\DriverAppController::class, 'resendRegistrationOtp']);
+Route::get('/cron/trigger-daily-coding', [NotificationController::class, 'triggerDailyCodingAlerts']);
 
 
 // Protected routes
@@ -45,9 +46,11 @@ Route::middleware('auth:sanctum')->group(function () {
     
     // Unified Mobile Notifications & Push Simulations
     Route::get('/notifications', [NotificationController::class, 'index']);
+    Route::get('/driver/notifications', [NotificationController::class, 'index']); // Mobile app alias
     Route::post('/notifications/dismiss', [NotificationController::class, 'dismiss']);
     Route::post('/notifications/simulate-push', [NotificationController::class, 'simulatePushNotification']);
     Route::post('/notifications/save-token', [NotificationController::class, 'saveToken']);
+    Route::post('/driver/notifications/save-token', [NotificationController::class, 'saveToken']); // Mobile app alias
 
     Route::get('/units', [UnitController::class, 'index']);
     Route::post('/units', [UnitController::class, 'store']);
@@ -122,8 +125,10 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/charges-incentives', [\App\Http\Controllers\Api\DriverAppController::class, 'chargesIncentives']);
         Route::get('/profile', [\App\Http\Controllers\Api\DriverAppController::class, 'getProfile']);
         Route::get('/nearby', [\App\Http\Controllers\Api\DriverAppController::class, 'nearby']);
-
+        Route::get('/feed', [NotificationController::class, 'index']);
+        
         Route::post('/rescue', [\App\Http\Controllers\Api\DriverAppController::class, 'requestRescue']);
+        Route::post('/save-token', [\App\Http\Controllers\Api\DriverAppController::class, 'saveNotificationToken']);
         Route::post('/location', [\App\Http\Controllers\Api\DriverAppController::class, 'updateLocation']);
         Route::post('/account/delete', [\App\Http\Controllers\Api\DriverAppController::class, 'deleteAccount']);
         Route::post('/change-password', [\App\Http\Controllers\Api\DriverAppController::class, 'changePassword']);
@@ -135,6 +140,7 @@ Route::middleware('auth:sanctum')->group(function () {
         });
 
         Route::prefix('support')->group(function () {
+            Route::get('/unread-count', [\App\Http\Controllers\Api\SupportController::class, 'getUnreadCount']);
             Route::get('/tickets', [\App\Http\Controllers\Api\SupportController::class, 'index']);
             Route::post('/tickets', [\App\Http\Controllers\Api\SupportController::class, 'store']);
             Route::get('/messages', [\App\Http\Controllers\Api\SupportController::class, 'getMessages']);

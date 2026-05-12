@@ -21,6 +21,7 @@ import {
   eyeOffOutline,
 } from 'ionicons/icons';
 import { useAuth } from '../context/AuthContext';
+import { useTheme } from '../context/ThemeContext';
 import { useHistory } from 'react-router-dom';
 import axios from 'axios';
 import { endpoints } from '../config/api';
@@ -48,17 +49,18 @@ const iconStyle = (extra?: any) => ({
   ...extra,
 });
 
-const cardStyle = {
+// cardStyle is now a function to support theming
+const getCardStyle = (isDark: boolean) => ({
   width: '100%',
   maxWidth: '400px',
-  background: 'linear-gradient(145deg, rgba(30, 41, 59, 0.8), rgba(15, 23, 42, 0.9))',
+  background: isDark ? 'linear-gradient(145deg, rgba(30, 41, 59, 0.8), rgba(15, 23, 42, 0.9))' : 'linear-gradient(145deg, rgba(255,255,255,0.95), rgba(248,250,252,0.9))',
   backdropFilter: 'blur(10px)',
   WebkitBackdropFilter: 'blur(10px)',
-  border: '1px solid rgba(255, 255, 255, 0.06)',
-  boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)',
+  border: isDark ? '1px solid rgba(255, 255, 255, 0.06)' : '1px solid rgba(0,0,0,0.08)',
+  boxShadow: isDark ? '0 8px 32px rgba(0, 0, 0, 0.3)' : '0 4px 24px rgba(0,0,0,0.06)',
   borderRadius: '24px',
   padding: '32px 24px',
-} as any;
+} as any);
 
 const inputWrap = {
   position: 'relative' as const,
@@ -92,6 +94,7 @@ const primaryBtn = {
 
 const Login: FC = () => {
   const { login, verifyOtp, sendOtp, token } = useAuth();
+  const { t, isDark } = useTheme();
   const history = useHistory();
 
   useState(() => { if (token) history.replace('/dashboard'); });
@@ -316,7 +319,7 @@ const Login: FC = () => {
       <IonContent fullscreen scrollY={false}>
         <div style={{
           minHeight: '100%',
-          background: 'linear-gradient(180deg, #0f172a 0%, #1e293b 100%)',
+          background: isDark ? 'linear-gradient(180deg, #0f172a 0%, #1e293b 100%)' : 'linear-gradient(180deg, #f1f5f9 0%, #e2e8f0 100%)',
           display: 'flex', flexDirection: 'column',
           alignItems: 'center', justifyContent: 'center',
           padding: '24px 20px',
@@ -334,18 +337,18 @@ const Login: FC = () => {
             }}>
               <IonIcon icon={carSportOutline} style={{ fontSize: '40px', color: '#020617' }} />
             </div>
-            <h1 style={{ fontSize: '28px', fontWeight: '800', color: '#ffffff', margin: '0 0 4px', letterSpacing: '-0.5px' }}>EuroTaxi</h1>
-            <p style={{ color: '#94a3b8', fontSize: '14px', fontWeight: '500', margin: 0 }}>Driver Portal</p>
+            <h1 style={{ fontSize: '28px', fontWeight: '800', color: t.textPrimary, margin: '0 0 4px', letterSpacing: '-0.5px' }}>EuroTaxi</h1>
+            <p style={{ color: t.textSecondary, fontSize: '14px', fontWeight: '500', margin: 0 }}>Driver Portal</p>
             {screen === 'login' && (
               <div style={{ marginTop: '16px', maxWidth: '300px', margin: '16px auto 0' }}>
-                <p style={{ color: '#64748b', fontSize: '13px', fontStyle: 'italic', lineHeight: '1.5', margin: 0 }}>"{quote}"</p>
+                <p style={{ color: t.textMuted, fontSize: '13px', fontStyle: 'italic', lineHeight: '1.5', margin: 0 }}>"{quote}"</p>
               </div>
             )}
           </div>
 
           {/* ── LOGIN SCREEN ── */}
           {screen === 'login' && (
-            <div style={cardStyle}>
+            <div style={getCardStyle(isDark)}>
               <form onSubmit={handleLogin}>
                 <div style={{ marginBottom: '20px' }}>
                   <label style={labelStyle}>Account</label>
@@ -419,7 +422,7 @@ const Login: FC = () => {
 
           {/* ── MFA SCREEN ── */}
           {screen === 'mfa' && (
-            <div style={cardStyle}>
+            <div style={getCardStyle(isDark)}>
               <BackBtn to="login" />
               <div style={{ textAlign: 'center', marginBottom: '24px' }}>
                 <h2 style={{ fontSize: '20px', fontWeight: '700', color: '#ffffff', margin: '0 0 8px' }}>Verify Identity</h2>
@@ -452,7 +455,7 @@ const Login: FC = () => {
 
           {/* ── FORGOT: ENTER PHONE ── */}
           {screen === 'forgot_phone' && (
-            <div style={cardStyle}>
+            <div style={getCardStyle(isDark)}>
               <BackBtn to="login" />
               <div style={{ marginBottom: '24px' }}>
                 <h2 style={{ fontSize: '20px', fontWeight: '700', color: '#ffffff', margin: '0 0 8px' }}>Forgot Password</h2>
@@ -478,7 +481,7 @@ const Login: FC = () => {
 
           {/* ── FORGOT: ENTER OTP ── */}
           {screen === 'forgot_otp' && (
-            <div style={cardStyle}>
+            <div style={getCardStyle(isDark)}>
               <BackBtn to="forgot_phone" />
               <div style={{ marginBottom: '24px' }}>
                 <h2 style={{ fontSize: '20px', fontWeight: '700', color: '#ffffff', margin: '0 0 8px' }}>Enter Reset Code</h2>
@@ -507,7 +510,7 @@ const Login: FC = () => {
 
           {/* ── FORGOT: NEW PASSWORD ── */}
           {screen === 'forgot_reset' && (
-            <div style={cardStyle}>
+            <div style={getCardStyle(isDark)}>
               <div style={{ marginBottom: '24px' }}>
                 <h2 style={{ fontSize: '20px', fontWeight: '700', color: '#ffffff', margin: '0 0 8px' }}>New Password</h2>
                 <p style={{ fontSize: '13px', color: '#94a3b8', margin: 0 }}>Create a new password for your account.</p>

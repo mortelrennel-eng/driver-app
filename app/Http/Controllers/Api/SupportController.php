@@ -65,12 +65,40 @@ class SupportController extends Controller
     }
 
     /**
+     * Get unread chat messages count for the authenticated driver.
+     */
+    public function getUnreadCount()
+    {
+        $count = \App\Models\SupportMessage::where('driver_id', Auth::id())
+            ->where('sender_type', 'admin')
+            ->where('is_read', false)
+            ->count();
+
+        return response()->json([
+            'success' => true,
+            'count' => $count
+        ]);
+    }
+
+    /**
      * Get chat messages for the authenticated driver.
      */
     public function getMessages()
     {
+        // Mark unread admin messages as read since the driver is opening the chat
+        \App\Models\SupportMessage::where('driver_id', Auth::id())
+            ->where('sender_type', 'admin')
+            ->where('is_read', false)
+            ->update(['is_read' => true]);
+
         $messages = \App\Models\SupportMessage::where('driver_id', Auth::id())
-            ->orderBy('created_at', 'asc')
+            ->leftJoin('users', 'support_messages.sender_id', '=', 'users.id')
+            ->select(
+                'support_messages.*',
+                'users.full_name as sender_name',
+                'users.role as sender_role'
+            )
+            ->orderBy('support_messages.created_at', 'asc')
             ->get();
 
         return response()->json([

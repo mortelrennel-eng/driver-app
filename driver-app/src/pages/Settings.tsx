@@ -23,85 +23,91 @@ import {
   documentTextOutline,
   logOutOutline,
   arrowBackOutline,
-  chevronForwardOutline
+  chevronForwardOutline,
+  sunnyOutline,
+  moonOutline
 } from 'ionicons/icons';
 import React, { useState } from 'react';
 import type { FC } from 'react';
 import axios from 'axios';
 import { endpoints } from '../config/api';
 import { useAuth } from '../context/AuthContext';
+import { useTheme } from '../context/ThemeContext';
 
-/* ── Shared Styles ── */
-const styles = {
-  sectionCard: {
-    background: 'linear-gradient(145deg, rgba(30, 41, 59, 0.8), rgba(15, 23, 42, 0.9))',
-    backdropFilter: 'blur(10px)',
-    WebkitBackdropFilter: 'blur(10px)',
-    border: '1px solid rgba(255, 255, 255, 0.06)',
-    boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)',
-    borderRadius: '24px',
-    padding: '20px',
-    marginBottom: '16px',
-  } as React.CSSProperties,
-  label: {
-    display: 'block',
-    fontSize: '11px',
-    fontWeight: '700',
-    color: '#94a3b8',
-    textTransform: 'uppercase' as const,
-    letterSpacing: '1.5px',
-    marginBottom: '8px',
-    paddingLeft: '4px',
-  },
-  inputWrap: {
-    position: 'relative' as const,
-    background: 'rgba(15, 23, 42, 0.6)',
-    border: '1px solid rgba(51, 65, 85, 0.8)',
-    borderRadius: '16px',
-    overflow: 'hidden' as const,
-    marginBottom: '16px',
-  },
-  inputIcon: {
-    position: 'absolute' as const,
-    left: '16px',
-    top: '50%',
-    transform: 'translateY(-50%)',
-    fontSize: '18px',
-    color: '#eab308',
-    zIndex: 2,
-  },
-  sectionDot: {
-    width: '8px',
-    height: '8px',
-    borderRadius: '50%',
-    background: 'linear-gradient(135deg, #eab308, #f59e0b)',
-  },
-  sectionLabel: {
-    fontSize: '11px',
-    fontWeight: '800',
-    color: '#eab308',
-    textTransform: 'uppercase' as const,
-    letterSpacing: '2px',
-  },
-};
-
-const inputStyle = {
-  paddingLeft: '48px',
-  paddingRight: '16px',
-  color: '#f8fafc',
-  background: 'transparent',
-  height: '52px',
-  fontSize: '15px',
-  border: 'none',
-  width: '100%',
-  outline: 'none',
-  fontWeight: '500'
-} as any;
+/* ── Shared Styles moved inside component ── */
 
 const Settings: FC = () => {
   const [presentToast] = useIonToast();
   const ionRouter = useIonRouter();
   const { refreshUser, logout } = useAuth();
+  const { t, isDark, toggleTheme } = useTheme();
+
+  /* ── Dynamic Theme Styles ── */
+  const styles = {
+    sectionCard: {
+      background: t.card,
+      backdropFilter: 'blur(10px)',
+      WebkitBackdropFilter: 'blur(10px)',
+      border: t.border,
+      boxShadow: t.cardShadow,
+      borderRadius: '24px',
+      padding: '20px',
+      marginBottom: '16px',
+    } as React.CSSProperties,
+    label: {
+      display: 'block',
+      fontSize: '11px',
+      fontWeight: '700',
+      color: t.textMuted,
+      textTransform: 'uppercase' as const,
+      letterSpacing: '1.5px',
+      marginBottom: '8px',
+      paddingLeft: '4px',
+    },
+    inputWrap: {
+      position: 'relative' as const,
+      background: t.inputBg,
+      border: `1px solid ${t.inputBorder}`,
+      borderRadius: '16px',
+      overflow: 'hidden' as const,
+      marginBottom: '16px',
+    },
+    inputIcon: {
+      position: 'absolute' as const,
+      left: '16px',
+      top: '50%',
+      transform: 'translateY(-50%)',
+      fontSize: '18px',
+      color: t.gold,
+      zIndex: 2,
+    },
+    sectionDot: {
+      width: '8px',
+      height: '8px',
+      borderRadius: '50%',
+      background: t.goldGrad,
+    },
+    sectionLabel: {
+      fontSize: '11px',
+      fontWeight: '800',
+      color: t.gold,
+      textTransform: 'uppercase' as const,
+      letterSpacing: '2px',
+    },
+  };
+
+  const inputStyle = {
+    paddingLeft: '48px',
+    paddingRight: '16px',
+    color: t.textPrimary,
+    background: 'transparent',
+    height: '52px',
+    fontSize: '15px',
+    border: 'none',
+    width: '100%',
+    outline: 'none',
+    fontWeight: '500'
+  } as any;
   
   const [view, setView] = useState<'main' | 'profile' | 'password'>('main');
 
@@ -371,7 +377,7 @@ const Settings: FC = () => {
   return (
     <IonPage>
       <IonHeader className="ion-no-border">
-        <IonToolbar style={{ '--background': '#0f172a', '--color': 'white' }}>
+        <IonToolbar style={{ '--background': t.headerBg, '--color': t.headerText }}>
           <IonButtons slot="start">
             <IonButton 
               color="warning" 
@@ -389,8 +395,8 @@ const Settings: FC = () => {
       <IonContent fullscreen>
         <div style={{
           minHeight: '100%',
-          background: 'linear-gradient(180deg, #0f172a 0%, #1e293b 100%)',
-          padding: '16px 20px 40px',
+          background: isDark ? 'linear-gradient(180deg, #0f172a 0%, #1e293b 100%)' : 'linear-gradient(180deg, #f1f5f9 0%, #e2e8f0 100%)',
+          padding: '16px 20px 100px',
         }}>
           
           {fetching ? (
@@ -404,30 +410,67 @@ const Settings: FC = () => {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                   
                   {/* Account Identity Card */}
-                  <div style={{ ...styles.sectionCard, textAlign: 'center', padding: '40px 20px' }}>
+                  <div style={{ ...styles.sectionCard, background: t.sectionCardBg, border: t.border, boxShadow: t.cardShadow, textAlign: 'center', padding: '40px 20px' }}>
                     <div style={{ 
                       width: '84px', height: '84px', borderRadius: '50%', 
-                      background: 'linear-gradient(135deg, #eab308, #f59e0b)',
+                      background: t.goldGrad,
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      margin: '0 auto 16px', border: '4px solid rgba(255,255,255,0.05)',
+                      margin: '0 auto 16px', border: isDark ? '4px solid rgba(255,255,255,0.05)' : '4px solid rgba(0,0,0,0.05)',
                       boxShadow: '0 8px 24px rgba(234, 179, 8, 0.2)'
                     }}>
-                      <IonIcon icon={personOutline} style={{ fontSize: '44px', color: '#020617' }} />
+                      <IonIcon icon={personOutline} style={{ fontSize: '44px', color: isDark ? '#020617' : '#fff' }} />
                     </div>
-                    <h2 style={{ margin: '0 0 6px', color: 'white', fontSize: '22px', fontWeight: '800', letterSpacing: '-0.5px' }}>{name}</h2>
-                    <p style={{ margin: 0, color: '#94a3b8', fontSize: '13px', fontWeight: '600' }}>{phone}</p>
+                    <h2 style={{ margin: '0 0 6px', color: t.textPrimary, fontSize: '22px', fontWeight: '800', letterSpacing: '-0.5px' }}>{name}</h2>
+                    <p style={{ margin: 0, color: t.textSecondary, fontSize: '13px', fontWeight: '600' }}>{phone}</p>
                   </div>
 
                   {/* Settings Options */}
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                    {/* Theme Toggle */}
+                    <div
+                      onClick={toggleTheme}
+                      style={{
+                        display: 'flex', alignItems: 'center', padding: '16px',
+                        background: t.menuBg, border: `1px solid ${t.menuBorder}`,
+                        borderRadius: '20px', cursor: 'pointer', height: '72px',
+                        transition: 'all 0.3s ease'
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', width: '100%', gap: '16px' }}>
+                        <div style={{ width: '40px', height: '40px', borderRadius: '12px', background: isDark ? 'rgba(251,191,36,0.1)' : 'rgba(99,102,241,0.1)', color: isDark ? '#fbbf24' : '#6366f1', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px', transition: 'all 0.3s' }}>
+                          <IonIcon icon={isDark ? sunnyOutline : moonOutline} />
+                        </div>
+                        <span style={{ flex: 1, textAlign: 'left', fontSize: '15px', fontWeight: '700', color: t.textPrimary }}>
+                          {isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+                        </span>
+                        <div style={{
+                          width: '52px', height: '28px', borderRadius: '14px',
+                          background: isDark ? 'rgba(255,255,255,0.1)' : 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+                          position: 'relative', transition: 'background 0.3s',
+                          border: isDark ? '1px solid rgba(255,255,255,0.1)' : '1px solid rgba(99,102,241,0.3)'
+                        }}>
+                          <div style={{
+                            width: '22px', height: '22px', borderRadius: '50%',
+                            background: isDark ? '#64748b' : '#fff',
+                            position: 'absolute', top: '2px',
+                            left: isDark ? '3px' : '25px',
+                            transition: 'all 0.3s ease',
+                            boxShadow: '0 2px 6px rgba(0,0,0,0.2)'
+                          }} />
+                        </div>
+                      </div>
+                    </div>
+
+
+
                     <IonButton 
                       expand="block" fill="clear"
                       onClick={() => setView('profile')}
-                      style={{ ...menuItemStyle, '--background': 'rgba(255,255,255,0.02)' } as any}
+                      style={{ ...menuItemStyle, '--background': t.menuBg, '--border-color': t.menuBorder } as any}
                     >
                       <div style={menuBtnInner}>
-                        <div style={menuBtnIconWrap}><IonIcon icon={personOutline} /></div>
-                        <span style={menuBtnText}>Update Profile</span>
+                        <div style={{ ...menuBtnIconWrap, background: t.goldBg, color: t.gold }}><IonIcon icon={personOutline} /></div>
+                        <span style={{ ...menuBtnText, color: t.textPrimary }}>Update Profile</span>
                         <IonIcon icon={chevronForwardOutline} style={{ fontSize: '18px', opacity: 0.4 }} />
                       </div>
                     </IonButton>
@@ -435,11 +478,11 @@ const Settings: FC = () => {
                     <IonButton 
                       expand="block" fill="clear"
                       onClick={() => setView('password')}
-                      style={{ ...menuItemStyle, '--background': 'rgba(255,255,255,0.02)' } as any}
+                      style={{ ...menuItemStyle, '--background': t.menuBg, '--border-color': t.menuBorder } as any}
                     >
                       <div style={menuBtnInner}>
-                        <div style={menuBtnIconWrap}><IonIcon icon={lockClosedOutline} /></div>
-                        <span style={menuBtnText}>Change Password</span>
+                        <div style={{ ...menuBtnIconWrap, background: t.goldBg, color: t.gold }}><IonIcon icon={lockClosedOutline} /></div>
+                        <span style={{ ...menuBtnText, color: t.textPrimary }}>Change Password</span>
                         <IonIcon icon={chevronForwardOutline} style={{ fontSize: '18px', opacity: 0.4 }} />
                       </div>
                     </IonButton>
@@ -520,11 +563,11 @@ const Settings: FC = () => {
                       { id: 'nbi', label: 'NBI Clearance', icon: documentTextOutline, path: nbiPhoto },
                       { id: 'pnp', label: 'PNP Clearance', icon: documentTextOutline, path: pnpPhoto },
                     ].map((doc) => (
-                      <div key={doc.id} style={docItemStyle}>
+                      <div key={doc.id} style={{ marginBottom: '12px', padding: '14px 16px', background: t.inputBg, borderRadius: '16px', border: `1px solid ${t.inputBorder}` }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                             <IonIcon icon={doc.icon} style={{ fontSize: '18px', color: '#eab308' }} />
-                            <span style={{ fontSize: '13px', fontWeight: '700', color: '#f8fafc' }}>{doc.label}</span>
+                            <span style={{ fontSize: '13px', fontWeight: '700', color: t.textPrimary }}>{doc.label}</span>
                           </div>
                           <label style={{ cursor: 'pointer' }}>
                             <input type="file" accept="image/*" style={{ display: 'none' }} onChange={(e) => e.target.files?.[0] && handleFileUpload(doc.id as any, e.target.files[0])} />
@@ -608,12 +651,7 @@ const menuBtnIconWrap = {
 };
 
 const menuBtnText = {
-  flex: 1, textAlign: 'left' as const, fontSize: '15px', fontWeight: '700', color: '#f8fafc'
-};
-
-const docItemStyle = {
-  marginBottom: '12px', padding: '14px 16px', background: 'rgba(15, 23, 42, 0.4)', 
-  borderRadius: '16px', border: '1px solid rgba(255,255,255,0.04)'
+  flex: 1, textAlign: 'left' as const, fontSize: '15px', fontWeight: '700', color: '#f8fafc' as string
 };
 
 const saveBtnStyle = {

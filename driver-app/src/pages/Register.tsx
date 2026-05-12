@@ -27,6 +27,7 @@ import { useHistory } from 'react-router-dom';
 import axios from 'axios';
 import { endpoints } from '../config/api';
 import { useAuth } from '../context/AuthContext';
+import { useTheme } from '../context/ThemeContext';
 import { Device } from '@capacitor/device';
 
 /* ── Shared Styles ── */
@@ -104,6 +105,7 @@ const inputStyle = {
 } as any;
 
 const Register: FC = () => {
+  const { t, isDark } = useTheme();
   const history = useHistory();
   const { loginFromData } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
@@ -274,7 +276,7 @@ const Register: FC = () => {
       <IonContent fullscreen>
         <div style={{
           minHeight: '100%',
-          background: 'linear-gradient(180deg, #0f172a 0%, #1e293b 100%)',
+          background: isDark ? 'linear-gradient(180deg, #0f172a 0%, #1e293b 100%)' : 'linear-gradient(180deg, #f1f5f9 0%, #e2e8f0 100%)',
           padding: '16px 20px 40px',
         }}>
 
@@ -284,7 +286,7 @@ const Register: FC = () => {
             onClick={() => step === 'otp' ? setStep('form') : history.push('/login')}
             style={{
               display: 'flex', alignItems: 'center', gap: '8px',
-              background: 'none', border: 'none', color: '#94a3b8',
+              background: 'none', border: 'none', color: t.textSecondary,
               fontSize: '13px', fontWeight: '500', padding: '8px 0',
               marginBottom: '16px', cursor: 'pointer',
             }}
@@ -313,10 +315,10 @@ const Register: FC = () => {
                 style={{ fontSize: '36px', color: '#020617' }}
               />
             </div>
-            <h1 style={{ fontSize: '26px', fontWeight: '800', color: '#ffffff', margin: '0 0 4px', letterSpacing: '-0.5px' }}>
-              {step === 'success' ? 'Account Created!' : step === 'otp' ? 'Verify Phone' : 'Join EuroTaxi'}
+            <h1 style={{ fontSize: '24px', fontWeight: '900', color: t.textPrimary, margin: '0 0 4px' }}>
+              {step === 'success' ? 'Registration Complete' : step === 'otp' ? 'Verify Phone' : 'Create Account'}
             </h1>
-            <p style={{ color: '#94a3b8', fontSize: '13px', fontWeight: '500', margin: 0 }}>
+            <p style={{ fontSize: '13px', color: t.textSecondary, margin: 0 }}>
               {step === 'success'
                 ? 'Redirecting to login...'
                 : step === 'otp'

@@ -23,13 +23,22 @@ class NotificationController extends Controller
     public function index(Request $request)
     {
         try {
-            $notifications = $this->notificationService->getGlobalNotifications();
+            $user = auth()->user();
+            
+            // Check if user is a driver to provide personalized feed
+            $driver = DB::table('drivers')->where('user_id', $user->id)->first();
+            
+            if ($driver) {
+                $notifications = $this->notificationService->getDriverFeed($user->id);
+            } else {
+                $notifications = $this->notificationService->getGlobalNotifications();
+            }
 
             // Structure data specifically for easy rendering on mobile list view with nice badges
             $formatted = collect($notifications)->map(function ($notif) {
-                // Assign consistent icons and badge colors for mobile UI/UX
-                $severity = 'info';
-                $icon = 'bell-outline';
+                // Use predefined icons/severity if they exist (from getDriverFeed), otherwise set defaults
+                $severity = $notif['severity'] ?? 'info';
+                $icon = $notif['icon'] ?? 'bell-outline';
 
                 $type = $notif['type'] ?? 'notice';
                 switch ($type) {
@@ -69,7 +78,7 @@ class NotificationController extends Controller
                     'type' => $type,
                     'title' => $notif['title'] ?? 'System Alert',
                     'message' => $notif['message'] ?? '',
-                    'time_display' => $notif['time'] ?? 'Now',
+                    'time_display' => $notif['time_display'] ?? 'Now',
                     'timestamp' => isset($notif['timestamp']) ? Carbon::parse($notif['timestamp'])->toIso8601String() : now()->toIso8601String(),
                     'icon' => $icon,
                     'severity' => $severity,
@@ -155,7 +164,7 @@ class NotificationController extends Controller
         $failedCount = 0;
 
         // Get all registered FCM tokens in database
-        $tokens = \Illuminate\Support\Facades\DB::table('users')
+        $tokens = DB::table('users')
             ->whereNotNull('fcm_token')
             ->where('fcm_token', '!=', '')
             ->pluck('fcm_token')
@@ -181,6 +190,23 @@ class NotificationController extends Controller
             'real_pushed_devices_count' => $pushedCount,
             'failed_devices_count' => $failedCount,
             'info' => 'Dispatched live background pushes using Google Firebase HTTP v1 OAuth2 protocol.'
+        ]);
+    }
+
+    /**
+     * Manually trigger coding alerts for today's restricted vehicles.
+     */
+    public function triggerDailyCodingAlerts(Request $request)
+    {
+        // Simple security key for cron access
+        if ($request->get('key') !== 'eurotaxi_secret_cron_2026') {
+            return response()->json(['success' => false, 'message' => 'Unauthorized'], 401);
+        }
+
+        $count = $this->notificationService->dispatchDailyCodingNotifications();
+        return response()->json([
+            'success' => true,
+            'message' => "Dispatched coding alerts to {$count} drivers.",
         ]);
     }
 
@@ -268,7 +294,7 @@ class NotificationController extends Controller
                 try {
                     $user->update(['fcm_token' => $request->input('token')]);
                 } catch (\Exception $ex) {
-                    \Illuminate\Support\Facades\DB::table('users')->where('id', $user->id)->update([
+                    DB::table('users')->where('id', $user->id)->update([
                         'fcm_token' => $request->input('token')
                     ]);
                 }

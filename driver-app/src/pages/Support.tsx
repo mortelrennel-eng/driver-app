@@ -24,12 +24,15 @@ import {
 } from 'ionicons/icons';
 import axios from 'axios';
 import { endpoints } from '../config/api';
+import { useTheme } from '../context/ThemeContext';
 
 interface SupportMessage {
   id: number;
   sender_type: 'driver' | 'admin';
   message: string;
   created_at: string;
+  sender_name?: string;
+  sender_role?: string;
 }
 
 const g = {
@@ -42,6 +45,7 @@ const g = {
 };
 
 const Support: FC = () => {
+  const { t, isDark } = useTheme();
   const [messages, setMessages] = useState<SupportMessage[]>([]);
   const [loading, setLoading] = useState(true);
   const [showToast, setShowToast] = useState(false);
@@ -117,7 +121,7 @@ const Support: FC = () => {
   return (
     <IonPage>
       <IonHeader className="ion-no-border">
-        <IonToolbar style={{ '--background': g.bg, '--color': '#fff' }}>
+        <IonToolbar style={{ '--background': t.headerBg, '--color': t.headerText }}>
           <IonButtons slot="start">
             <IonBackButton defaultHref="/dashboard" />
           </IonButtons>
@@ -125,22 +129,22 @@ const Support: FC = () => {
         </IonToolbar>
       </IonHeader>
 
-      <IonContent ref={contentRef} fullscreen style={{ '--background': g.bg }}>
+      <IonContent ref={contentRef} fullscreen style={{ '--background': t.bg }}>
         <IonRefresher slot="fixed" onIonRefresh={doRefresh}>
           <IonRefresherContent></IonRefresherContent>
         </IonRefresher>
 
-        <div style={{ background: g.bg, minHeight: '100%', padding: '20px 16px 80px' }}>
+        <div style={{ background: t.bg, minHeight: '100%', padding: '20px 16px 80px' }}>
           
           {loading ? (
             <div style={{ display: 'flex', justifyContent: 'center', padding: '40px' }}>
               <IonSpinner color="warning" />
             </div>
           ) : messages.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '60px 20px', background: 'rgba(255,255,255,0.02)', borderRadius: '24px', border: '1px dashed rgba(255,255,255,0.1)' }}>
-              <IonIcon icon={chatbubbleEllipsesOutline} style={{ fontSize: '64px', color: 'rgba(255,255,255,0.1)', marginBottom: '16px' }} />
-              <h3 style={{ color: '#f8fafc', fontSize: '18px', fontWeight: '700', margin: '0 0 8px' }}>Start a Conversation</h3>
-              <p style={{ color: '#64748b', fontSize: '14px' }}>Send a message below to chat with our support team.</p>
+            <div style={{ textAlign: 'center', padding: '60px 20px', background: t.subtleBg, borderRadius: '24px', border: `1px dashed ${isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)'}` }}>
+              <IonIcon icon={chatbubbleEllipsesOutline} style={{ fontSize: '64px', color: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)', marginBottom: '16px' }} />
+              <h3 style={{ color: t.textPrimary, fontSize: '18px', fontWeight: '700', margin: '0 0 8px' }}>Start a Conversation</h3>
+              <p style={{ color: t.textMuted, fontSize: '14px' }}>Send a message below to chat with our support team.</p>
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
@@ -157,30 +161,36 @@ const Support: FC = () => {
                     )}
                     {!isDriver && !showAvatar && <div style={{ width: '28px' }} />}
                     
-                    <div style={{ 
-                      maxWidth: '75%', 
-                      padding: '12px 16px', 
-                      background: isDriver ? g.gold : 'rgba(255,255,255,0.06)',
-                      borderRadius: isDriver ? '18px 18px 2px 18px' : '18px 18px 18px 2px',
-                      color: isDriver ? '#000' : '#f8fafc',
-                      fontSize: '14px',
-                      fontWeight: isDriver ? '700' : '500',
-                      boxShadow: isDriver ? '0 4px 12px rgba(234,179,8,0.2)' : 'none',
-                      position: 'relative'
-                    }}>
-                      {msg.message}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', maxWidth: '75%' }}>
+                      {!isDriver && (
+                        <div style={{ fontSize: '9px', fontWeight: '800', color: t.gold, marginLeft: '4px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                          {msg.sender_role ? `${msg.sender_role.replace('_', ' ')}: ` : ''}{msg.sender_name || 'Support'}
+                        </div>
+                      )}
                       <div style={{ 
-                        fontSize: '9px', 
-                        opacity: 0.5, 
-                        marginTop: '4px', 
-                        textAlign: 'right',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'flex-end',
-                        gap: '2px'
+                        padding: '12px 16px', 
+                        background: isDriver ? t.gold : t.subtleBg,
+                        borderRadius: isDriver ? '18px 18px 2px 18px' : '18px 18px 18px 2px',
+                        color: isDriver ? (isDark ? '#000' : '#fff') : t.textPrimary,
+                        fontSize: '14px',
+                        fontWeight: isDriver ? '700' : '500',
+                        boxShadow: isDriver ? '0 4px 12px rgba(234,179,8,0.2)' : 'none',
+                        position: 'relative'
                       }}>
-                        <IonIcon icon={timeOutline} style={{ fontSize: '8px' }} />
-                        {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        {msg.message}
+                        <div style={{ 
+                          fontSize: '9px', 
+                          opacity: 0.5, 
+                          marginTop: '4px', 
+                          textAlign: 'right',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'flex-end',
+                          gap: '2px'
+                        }}>
+                          <IonIcon icon={timeOutline} style={{ fontSize: '8px' }} />
+                          {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -200,22 +210,22 @@ const Support: FC = () => {
         />
       </IonContent>
 
-      <IonFooter className="ion-no-border" style={{ background: g.bg }}>
-        <div style={{ padding: '12px 16px', background: 'rgba(15, 23, 42, 0.95)', backdropFilter: 'blur(10px)', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+      <IonFooter className="ion-no-border" style={{ background: t.bg }}>
+        <div style={{ padding: '12px 16px', background: t.footerBg, backdropFilter: 'blur(10px)', borderTop: t.footerBorder }}>
           <form onSubmit={handleSendMessage} style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-            <div style={{ flex: 1, background: 'rgba(255,255,255,0.05)', borderRadius: '24px', padding: '4px 16px', border: '1px solid rgba(255,255,255,0.1)' }}>
+            <div style={{ flex: 1, background: t.subtleBg, borderRadius: '24px', padding: '4px 16px', border: isDark ? '1px solid rgba(255,255,255,0.1)' : '1px solid rgba(0,0,0,0.1)' }}>
               <input 
                 type="text" 
                 value={newMessage}
                 onChange={e => setNewMessage(e.target.value)}
                 placeholder="Type your message..."
-                style={{ width: '100%', background: 'none', border: 'none', padding: '10px 0', color: '#fff', fontSize: '14px', outline: 'none' }}
+                style={{ width: '100%', background: 'none', border: 'none', padding: '10px 0', color: t.textPrimary, fontSize: '14px', outline: 'none' }}
               />
             </div>
             <IonButton 
               type="submit" 
               disabled={submitting || !newMessage.trim()}
-              style={{ '--background': g.gold, '--color': '#000', '--border-radius': '50%', width: '44px', height: '44px', '--padding-start': '0', '--padding-end': '0' }}
+              style={{ '--background': t.gold, '--color': isDark ? '#000' : '#fff', '--border-radius': '50%', width: '44px', height: '44px', '--padding-start': '0', '--padding-end': '0' }}
             >
               {submitting ? <IonSpinner name="crescent" style={{ width: '20px', height: '20px' }} /> : <IonIcon icon={sendOutline} />}
             </IonButton>

@@ -76,7 +76,7 @@ class LiveTrackingController extends Controller
                     
                     if ($diff < 600) { // Less than 10 minutes
                         if ($unit->ignition_status) {
-                            $status = $unit->speed > 2 ? 'active' : 'idle'; 
+                            $status = $unit->speed > 2 ? 'moving' : 'idle'; 
                         } else {
                             $status = 'stopped';
                         }
@@ -89,7 +89,7 @@ class LiveTrackingController extends Controller
             // Simulated stats logic
             $stats = [
                 'total'     => $tracked_units->count(),
-                'active'    => $tracked_units->where('gps_status', 'active')->count(),
+                'moving'    => $tracked_units->where('gps_status', 'moving')->count(),
                 'idle'      => $tracked_units->where('gps_status', 'idle')->count(),
                 'stopped'   => $tracked_units->where('gps_status', 'stopped')->count(),
                 'offline'   => $tracked_units->where('gps_status', 'offline')->count(),

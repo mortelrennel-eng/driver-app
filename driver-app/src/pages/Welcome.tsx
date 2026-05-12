@@ -1,9 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { IonPage, IonContent } from '@ionic/react';
 import { useHistory } from 'react-router-dom';
+import { useTheme } from '../context/ThemeContext';
 
 const Welcome: React.FC = () => {
   const history = useHistory();
+  const { t } = useTheme();
   const [quote, setQuote] = useState('');
 
   const quotes = [
@@ -40,7 +42,7 @@ const Welcome: React.FC = () => {
       <IonContent fullscreen>
         <div style={{
           height: '100%',
-          background: '#0a0e1a',
+          background: t.bg,
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
@@ -76,7 +78,7 @@ const Welcome: React.FC = () => {
             }}>Hati ng Karunungan</p>
             
             <h2 style={{
-              color: '#fff',
+              color: t.textPrimary,
               fontSize: '22px',
               fontWeight: '700',
               lineHeight: '1.4',

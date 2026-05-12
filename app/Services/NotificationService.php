@@ -280,4 +280,196 @@ class NotificationService
             return $headerNotifications;
         });
     }
+
+    /**
+     * Send personalized push notifications to drivers whose vehicles are on coding today.
+     */
+    public function dispatchDailyCodingNotifications()
+    {
+        $todayName = now()->timezone('Asia/Manila')->format('l');
+        
+        // Find units with coding today
+        $units = \App\Models\Unit::where('coding_day', $todayName)
+            ->orWhere(function($q) use ($todayName) {
+                $q->whereNull('coding_day')->orWhere('coding_day', '');
+            })
+            ->get();
+
+        $notifiedCount = 0;
+
+        foreach ($units as $unit) {
+            // If coding_day is empty, derive it dynamically
+            $actualCodingDay = $unit->coding_day;
+            if (empty($actualCodingDay)) {
+                $lastDigit = substr(preg_replace('/[^0-9]/', '', $unit->plate_number), -1);
+                $days = [1 => 'Monday', 2 => 'Monday', 3 => 'Tuesday', 4 => 'Tuesday', 5 => 'Wednesday', 6 => 'Wednesday', 7 => 'Thursday', 8 => 'Thursday', 9 => 'Friday', 0 => 'Friday'];
+                $actualCodingDay = $days[$lastDigit] ?? null;
+            }
+
+            if ($actualCodingDay !== $todayName) continue;
+
+            // Notify both primary and secondary drivers
+            $driverIds = array_filter([$unit->driver_id, $unit->secondary_driver_id]);
+            if (empty($driverIds)) continue;
+
+            $drivers = \App\Models\User::whereIn('id', function($q) use ($driverIds) {
+                $q->select('user_id')->from('drivers')->whereIn('id', $driverIds)->whereNotNull('user_id');
+            })->whereNotNull('fcm_token')->get();
+
+            foreach ($drivers as $user) {
+                $success = \App\Services\FirebasePushService::sendPush(
+                    'Coding Alert Today!',
+                    "ALERTO: Coding po ang unit niyo ({$unit->plate_number}) ngayong {$todayName}. Mag-ingat po!",
+                    $user->fcm_token,
+                    'coding'
+                );
+                if ($success) $notifiedCount++;
+            }
+        }
+
+        return $notifiedCount;
+    }
+
+    /**
+     * Get a personalized feed for a specific driver.
+     */
+    public function getDriverFeed($userId)
+    {
+        $driver = DB::table('drivers')->where('user_id', $userId)->first();
+        if (!$driver) return [];
+
+        $feed = [];
+
+        // 1. Remittances (Boundaries)
+        $boundaries = DB::table('boundaries')
+            ->where('driver_id', $driver->id)
+            ->whereNull('deleted_at')
+            ->orderByDesc('date')
+            ->limit(10)
+            ->get();
+        
+        foreach ($boundaries as $b) {
+            $severity = 'info';
+            if ($b->status === 'paid') $severity = 'success';
+            elseif ($b->status === 'shortage') $severity = 'danger';
+            elseif ($b->status === 'excess') $severity = 'warning';
+
+            $feed[] = [
+                'id' => 'remit_' . $b->id,
+                'type' => 'remittance',
+                'title' => 'Remittance Processed',
+                'message' => "Boundary remitted: ₱" . number_format($b->actual_boundary, 2) . " for " . Carbon::parse($b->date)->format('M d, Y') . ". Status: " . strtoupper($b->status),
+                'timestamp' => $b->created_at,
+                'time_display' => Carbon::parse($b->created_at)->diffForHumans(),
+                'severity' => $severity,
+                'icon' => 'cash-outline'
+            ];
+        }
+
+        // 2. Charges/Incidents
+        $incidents = DB::table('driver_behavior')
+            ->where('driver_id', $driver->id)
+            ->whereNull('deleted_at')
+            ->orderByDesc('timestamp')
+            ->limit(10)
+            ->get();
+
+        foreach ($incidents as $i) {
+            $feed[] = [
+                'id' => 'incident_' . $i->id,
+                'type' => 'incident',
+                'title' => $i->incident_type,
+                'message' => $i->description,
+                'timestamp' => $i->timestamp,
+                'time_display' => Carbon::parse($i->timestamp)->diffForHumans(),
+                'severity' => $i->severity === 'high' ? 'danger' : 'warning',
+                'icon' => 'alert-circle-outline'
+            ];
+        }
+
+        // 3. Support Replies
+        $supportReplies = DB::table('support_messages')
+            ->where('driver_id', $userId)
+            ->where('sender_type', '!=', 'driver')
+            ->orderByDesc('created_at')
+            ->limit(10)
+            ->get();
+
+        foreach ($supportReplies as $sr) {
+            $feed[] = [
+                'id' => 'support_' . $sr->id,
+                'type' => 'system',
+                'title' => 'Support Message',
+                'message' => $sr->message,
+                'timestamp' => $sr->created_at,
+                'time_display' => Carbon::parse($sr->created_at)->diffForHumans(),
+                'severity' => 'info',
+                'icon' => 'megaphone-outline'
+            ];
+        }
+
+
+
+        // 5. Incentives
+        $incentives = DB::table('driver_incentives')
+            ->where('driver_id', $driver->id)
+            ->orderByDesc('created_at')
+            ->limit(10)
+            ->get();
+
+        foreach ($incentives as $inc) {
+            $feed[] = [
+                'id' => 'incentive_' . $inc->id,
+                'type' => 'notice',
+                'title' => 'Incentive Awarded: ' . ucfirst($inc->incentive_type),
+                'message' => "Amount: ₱" . number_format($inc->amount, 2) . ". " . $inc->description,
+                'timestamp' => $inc->created_at,
+                'time_display' => Carbon::parse($inc->created_at)->diffForHumans(),
+                'severity' => 'success',
+                'icon' => 'sparkles-outline'
+            ];
+        }
+
+        // 6. Personalized System Alerts (e.g., Coding Reminders targeted to this driver)
+        $systemAlerts = DB::table('system_alerts')
+            ->where('is_resolved', false)
+            ->where('user_id', $userId)
+            ->orderByDesc('created_at')
+            ->limit(10)
+            ->get();
+
+        foreach ($systemAlerts as $a) {
+             $feed[] = [
+                'id' => 'system_' . $a->id,
+                'type' => 'system',
+                'title' => $a->title,
+                'message' => $a->message,
+                'timestamp' => $a->created_at,
+                'time_display' => Carbon::parse($a->created_at)->diffForHumans(),
+                'severity' => 'info',
+                'icon' => 'megaphone-outline'
+            ];
+        }
+
+        // Sort by timestamp
+        usort($feed, function($a, $b) {
+            return strtotime($b['timestamp']) - strtotime($a['timestamp']);
+        });
+
+        return $feed;
+    }
+
+    /**
+     * Send a push notification to a specific driver.
+     */
+    public function notifyDriver($driverId, $title, $body, $type = 'notice')
+    {
+        $driver = DB::table('drivers')->where('id', $driverId)->first();
+        if (!$driver || !$driver->user_id) return false;
+
+        $user = DB::table('users')->where('id', $driver->user_id)->first();
+        if (!$user || !$user->fcm_token) return false;
+
+        return \App\Services\FirebasePushService::sendPush($title, $body, $user->fcm_token, $type);
+    }
 }

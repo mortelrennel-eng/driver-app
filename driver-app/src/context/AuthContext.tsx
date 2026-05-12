@@ -52,12 +52,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     if (token) {
-      // Temporarily disabled to prevent crash due to missing google-services.json
-      /*
       import('../utils/notifications').then(({ initPushNotifications }) => {
         initPushNotifications();
       });
-      */
     }
   }, [token]);
 

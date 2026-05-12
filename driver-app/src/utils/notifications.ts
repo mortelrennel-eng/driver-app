@@ -22,6 +22,9 @@ export const initPushNotifications = async () => {
       return;
     }
 
+    console.log('Notification channels are now managed natively in MainActivity.java');
+
+    // Register with FCM
     await PushNotifications.register();
 
     // On success, we should be able to receive notifications
@@ -35,9 +38,17 @@ export const initPushNotifications = async () => {
       console.error('Error on registration: ' + JSON.stringify(error));
     });
 
-    // Show us the notification payload if the app is open on our device
+    // Handle notification received in foreground
     PushNotifications.addListener('pushNotificationReceived', (notification) => {
-      console.log('Push received: ' + JSON.stringify(notification));
+      console.log('Push received in foreground:', notification);
+      
+      // Play custom sound manually for foreground notifications
+      try {
+        const audio = new Audio('assets/sounds/driver_alert.mp3');
+        audio.play().catch(e => console.error('Audio play failed:', e));
+      } catch (e) {
+        console.error('Failed to play foreground sound:', e);
+      }
     });
 
     // Method called when tapping on a notification

@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "785041486723",
+    "project_id": "edutrackrfid",
+    "storage_bucket": "edutrackrfid.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:785041486723:android:aac77b7cedb9a47847fcb6",
+        "android_client_info": {
+          "package_name": "com.eurotaxisystem.driver"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAtFWnePFqsqaVcZkL1N_etcu-x5nrMSxA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:785041486723:android:f4cd9b2e678bbae947fcb6",
+        "android_client_info": {
+          "package_name": "com.example.rotcattendaceandebook"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAtFWnePFqsqaVcZkL1N_etcu-x5nrMSxA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
