@@ -90,6 +90,11 @@
                                 </span>
                             </div>
                             <div class="px-4 py-3 rounded-2xl text-sm shadow-sm {{ $msg->sender_type == 'admin' ? 'bg-yellow-600 text-white rounded-tr-none' : 'bg-white text-gray-800 border border-gray-100 rounded-tl-none' }}">
+                                @if($msg->attachment)
+                                    <div class="mb-2 rounded-xl overflow-hidden border border-gray-100">
+                                        <img src="{{ asset($msg->attachment) }}" class="max-w-full max-h-64 object-cover cursor-pointer" onclick="window.open(this.src, '_blank')">
+                                    </div>
+                                @endif
                                 {{ $msg->message }}
                             </div>
                         </div>
@@ -110,6 +115,7 @@
                 <form id="chatForm" action="{{ route('support.send') }}" method="POST" class="flex items-end gap-2">
                     @csrf
                     <input type="hidden" name="driver_id" value="{{ $selectedDriver->id }}">
+                    
                     <div class="flex-1 relative">
                         <textarea 
                             name="message" 
@@ -154,8 +160,11 @@
         const sendButton = document.getElementById('sendButton');
         const sendIcon = document.getElementById('sendIcon');
         
+        const notifSound = new Audio('https://assets.mixkit.co/active_storage/sfx/2358/2358-preview.mp3');
         let lastMessageCount = @json($chatMessages ? count($chatMessages) : 0);
         const selectedDriverId = @json($selectedDriver ? $selectedDriver->id : null);
+        let originalTitle = document.title;
+        let unreadTotal = 0;
 
         if (chatContainer) {
             chatContainer.scrollTop = chatContainer.scrollHeight;
@@ -169,6 +178,14 @@
                     const data = await response.json();
                     
                     if (data.success && data.messages.length > lastMessageCount) {
+                        const newMsgs = data.messages.slice(lastMessageCount);
+                        const hasDriverMsg = newMsgs.some(m => m.sender_type === 'driver');
+                        
+                        if (hasDriverMsg) {
+                            notifSound.play().catch(e => console.log('Sound blocked by browser'));
+                            flashTitle('New Message!');
+                        }
+
                         renderMessages(data.messages);
                         lastMessageCount = data.messages.length;
                     }
@@ -191,6 +208,17 @@
             }
         }, 3000); // Poll every 3 seconds for sidebar status
 
+        function flashTitle(text) {
+            let count = 0;
+            const interval = setInterval(() => {
+                document.title = (count % 2 === 0) ? text : originalTitle;
+                if (++count >= 6) {
+                    clearInterval(interval);
+                    document.title = originalTitle;
+                }
+            }, 500);
+        }
+
         function renderMessages(messages) {
             chatContainer.innerHTML = '';
             messages.forEach(msg => {
@@ -206,7 +234,12 @@
                             <span class="text-[9px] font-bold text-gray-400 uppercase tracking-tighter">${time}</span>
                         </div>
                         <div class="px-4 py-3 rounded-2xl text-sm shadow-sm ${isSystem ? 'bg-yellow-600 text-white rounded-tr-none' : 'bg-white text-gray-800 border border-gray-100 rounded-tl-none'}">
-                            ${msg.message}
+                            ${msg.attachment ? `
+                                <div class="mb-2 rounded-xl overflow-hidden border border-gray-100">
+                                    <img src="/${msg.attachment}" class="max-w-full max-h-64 object-cover cursor-pointer" onclick="window.open(this.src, '_blank')">
+                                </div>
+                            ` : ''}
+                            ${msg.message || ''}
                         </div>
                     </div>
                 `;
@@ -216,7 +249,9 @@
         }
 
         function updateDriverList(drivers) {
+            let currentTotalUnread = 0;
             drivers.forEach(driver => {
+                currentTotalUnread += parseInt(driver.unread_count || 0);
                 const badge = document.querySelector(`a[href*="driver_id=${driver.id}"] .bg-red-500`);
                 const latestMsgP = document.querySelector(`a[href*="driver_id=${driver.id}"] p`);
                 
@@ -240,6 +275,14 @@
                     }
                 }
             });
+
+            if (currentTotalUnread > unreadTotal) {
+                if (!selectedDriverId) { // Only sound if not currently in a chat, or logic could be refined
+                    notifSound.play().catch(e => console.log('Sound blocked'));
+                    flashTitle('New Chat!');
+                }
+            }
+            unreadTotal = currentTotalUnread;
         }
 
         // --- AJAX Form Submission ---
@@ -272,8 +315,6 @@
 
             try {
                 const formData = new FormData(chatForm);
-                formData.set('message', message); // ensure message is set
-                
                 const response = await fetch(chatForm.action, {
                     method: 'POST',
                     body: formData,
@@ -281,7 +322,6 @@
                 });
                 
                 if (response.ok) {
-                    // Update state and re-fetch to sync IDs and real timestamps
                     const msgRes = await fetch(`/support-center/${selectedDriverId}/messages`);
                     const msgData = await msgRes.json();
                     if (msgData.success) {

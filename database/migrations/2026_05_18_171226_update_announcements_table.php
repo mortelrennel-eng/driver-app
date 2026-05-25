@@ -1,0 +1,35 @@
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    /**
+     * Run the migrations.
+     *
+     * @return void
+     */
+    public function up()
+    {
+        Schema::table('announcements', function (Blueprint $table) {
+            $table->dropColumn(['title', 'type']);
+            $table->timestamp('valid_until')->nullable()->after('is_pinned');
+        });
+    }
+
+    /**
+     * Reverse the migrations.
+     *
+     * @return void
+     */
+    public function down()
+    {
+        Schema::table('announcements', function (Blueprint $table) {
+            $table->string('title')->nullable();
+            $table->string('type')->default('info');
+            $table->dropColumn('valid_until');
+        });
+    }
+};

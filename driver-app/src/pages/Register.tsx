@@ -376,7 +376,7 @@ const Register: FC = () => {
           {step === 'otp' && (
             <div style={styles.sectionCard}>
               <div style={{ textAlign: 'center', marginBottom: '24px' }}>
-                <p style={{ fontSize: '13px', color: '#94a3b8', margin: 0, lineHeight: '1.6' }}>
+                <p style={{ fontSize: '13px', color: t.textSecondary, margin: 0, lineHeight: '1.6' }}>
                   Enter the 6-digit code sent via SMS to <br />
                   <span style={{ color: '#eab308', fontWeight: '700' }}>{pendingPhone}</span>
                 </p>
@@ -395,8 +395,8 @@ const Register: FC = () => {
                   style={{
                     '--padding-start': '48px',
                     '--padding-end': '16px',
-                    '--color': '#f8fafc',
-                    '--placeholder-color': '#475569',
+                    '--color': isDark ? '#f8fafc' : '#1e293b',
+                    '--placeholder-color': isDark ? '#475569' : '#94a3b8',
                     '--background': 'transparent',
                     height: '56px',
                     fontSize: '24px',

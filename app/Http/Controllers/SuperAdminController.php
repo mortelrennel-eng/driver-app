@@ -41,6 +41,7 @@ class SuperAdminController extends Controller
         // ─── Legal & Admin ─────────────────────
         'decision-management.*' => ['icon' => 'file-text', 'label' => 'Franchise', 'group' => '4. Legal & Admin'],
         'staff.*' => ['icon' => 'user-cog', 'label' => 'Staff Records', 'group' => '4. Legal & Admin'],
+        'announcements.*' => ['icon' => 'megaphone', 'label' => 'Announcements', 'group' => '4. Legal & Admin'],
         'archive.*' => ['icon' => 'archive', 'label' => 'Archive Access', 'group' => '4. Legal & Admin'],
         'support.*' => ['icon' => 'message-square', 'label' => 'Support Center', 'group' => '4. Legal & Admin'],
 

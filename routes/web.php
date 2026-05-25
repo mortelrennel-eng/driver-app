@@ -267,6 +267,10 @@ Route::middleware(['auth', 'page_access'])->group(function () {
     Route::get('/support-center/status', [\App\Http\Controllers\SupportManagementController::class, 'getStatusJson'])->name('support.status');
     Route::get('/support-center/{driverId}/messages', [\App\Http\Controllers\SupportManagementController::class, 'getMessagesJson'])->name('support.messages');
     Route::post('/support-center/send', [\App\Http\Controllers\SupportManagementController::class, 'sendMessage'])->name('support.send');
+
+    // ─── Announcement Management Routes ──────────────────────
+    Route::resource('announcements', \App\Http\Controllers\AnnouncementController::class);
+    Route::post('/announcements/{id}/toggle-pin', [\App\Http\Controllers\AnnouncementController::class, 'togglePin'])->name('announcements.toggle-pin');
 });
 
 // ─── Super Admin Routes (Owner Only) ─────────────────────────────────────────

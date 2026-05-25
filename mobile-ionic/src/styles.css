@@ -1,0 +1,6 @@
+html, body, #root { height: 100%; }
+
+ion-app, ion-page { height: 100%; }
+
+/* Minimal spacing */
+.ion-padding { padding: 16px; }

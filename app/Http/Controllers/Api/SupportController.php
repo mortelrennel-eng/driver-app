@@ -113,14 +113,40 @@ class SupportController extends Controller
     public function sendMessage(Request $request)
     {
         $request->validate([
-            'message' => 'required|string|max:2000'
+            'message' => 'nullable|string|max:2000',
+            'image' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:5120' // Max 5MB
         ]);
+
+        if (!$request->message && !$request->hasFile('image')) {
+            return response()->json(['success' => false, 'message' => 'Message or image is required'], 422);
+        }
+
+        $attachmentPath = null;
+        if ($request->hasFile('image')) {
+            $file = $request->file('image');
+            $filename = time() . '_' . $file->getClientOriginalName();
+            
+            // For Hostinger compatibility: check if we are in a subfolder or root
+            $destPath = public_path('uploads/support_attachments');
+            if (str_contains($destPath, '/public/uploads')) {
+                // If public_path includes /public, go one level up to public_html
+                $destPath = str_replace('/public/uploads', '/uploads', $destPath);
+            }
+            
+            if (!file_exists($destPath)) {
+                mkdir($destPath, 0775, true);
+            }
+
+            $file->move($destPath, $filename);
+            $attachmentPath = 'uploads/support_attachments/' . $filename;
+        }
 
         $msg = \App\Models\SupportMessage::create([
             'driver_id' => Auth::id(),
             'sender_type' => 'driver',
             'sender_id' => Auth::id(),
-            'message' => $request->message
+            'message' => $request->message ?? '',
+            'attachment' => $attachmentPath
         ]);
 
         return response()->json([

@@ -36,4 +36,6 @@ export const endpoints = {
   uploadDocument: `${API_BASE_URL}/driver/upload-document`,
   performanceHistory: `${API_BASE_URL}/driver/performance-history`,
   driverIncidents: `${API_BASE_URL}/driver/incidents`,
+  announcements: `${API_BASE_URL}/driver/announcements`,
+  latestAnnouncement: `${API_BASE_URL}/driver/announcements/latest`,
 };

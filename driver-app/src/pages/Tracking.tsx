@@ -32,17 +32,6 @@ const DefaultIcon = L.icon({
   shadowSize: [41, 41]
 });
 
-const NearbyIcon = L.icon({
-  iconUrl: markerIcon,
-  iconRetinaUrl: markerIconRetina,
-  shadowUrl: markerShadow,
-  iconSize: [22, 36],
-  iconAnchor: [11, 36],
-  popupAnchor: [1, -32],
-  shadowSize: [36, 36],
-  className: 'nearby-marker-icon'
-});
-
 L.Marker.prototype.options.icon = DefaultIcon;
 
 const ChangeView: React.FC<{ center: [number, number] }> = ({ center }) => {
@@ -77,7 +66,6 @@ const Tracking: React.FC = () => {
   const history = useHistory();
   const { t } = useTheme();
   const [data, setData] = useState<any>(null);
-  const [pos, setPos] = useState<{lat:number;lng:number}|null>(null);
   const [position, setPosition] = useState<[number, number]>(() => {
     const saved = localStorage.getItem('last_known_pos');
     return saved ? JSON.parse(saved) : [14.5995, 120.9842];
@@ -144,13 +132,12 @@ const Tracking: React.FC = () => {
         // Determine offline status:
         const status = (perfData.gps_status || '').toLowerCase();
         const hasCoords = perfData.latitude && perfData.longitude && parseFloat(perfData.latitude) !== 0;
-        const isReallyOffline = (!status || status === 'offline') && !hasCoords;
+        const isReallyOffline = (!status || status === 'offline');
         setIsOffline(isReallyOffline);
 
           if (hasCoords) {
             const newPos: [number, number] = [parseFloat(perfData.latitude), parseFloat(perfData.longitude)];
             setPosition(newPos);
-            setPos({lat: newPos[0], lng: newPos[1]});
             localStorage.setItem('last_known_pos', JSON.stringify(newPos));
 
             setPath(prev => {
@@ -314,21 +301,6 @@ const Tracking: React.FC = () => {
                 GPS SIGNAL LOST
               </div>
             )}
-
-            {nearbyDrivers.map((driver, idx) => (
-              <Marker
-                key={idx}
-                position={[parseFloat(driver.latitude), parseFloat(driver.longitude)]}
-                icon={NearbyIcon}
-              >
-                <Popup>
-                  <div style={{ textAlign: 'center', padding: '5px' }}>
-                    <strong style={{ color: '#b45309' }}>{driver.plate_number}</strong><br />
-                    <span style={{ fontSize: '11px', color: t.textMuted }}>{pos ? `${pos.lat.toFixed(6)}, ${pos.lng.toFixed(6)}` : 'N/A'}</span>
-                  </div>
-                </Popup>
-              </Marker>
-            ))}
 
             <LocateButton position={position} />
           </MapContainer>

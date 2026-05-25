@@ -429,6 +429,14 @@
                         </a>
                         @endif
 
+                        @if(auth()->user()->hasAccessTo('announcements.*'))
+                        <a href="{{ route('announcements.index') }}"
+                            class="sidebar-item flex items-center justify-start md:justify-center lg:justify-start gap-2.5 px-4 md:px-0 lg:px-4 py-1.5 md:py-2 rounded-lg text-gray-700 hover:bg-yellow-50 hover:text-yellow-700 {{ request()->routeIs('announcements.*') ? 'bg-yellow-50 text-yellow-700 font-semibold' : '' }}">
+                            <i data-lucide="megaphone" class="w-5 md:w-5 lg:w-4 h-5 md:h-5 lg:h-4"></i>
+                            <span class="text-sm block md:hidden lg:block">Announcements</span>
+                        </a>
+                        @endif
+
                         @if(auth()->user()->hasAccessTo('archive.*'))
                         <a href="{{ route('archive.index') }}"
                             class="sidebar-item flex items-center justify-start md:justify-center lg:justify-start gap-2.5 px-4 md:px-0 lg:px-4 py-1.5 md:py-2 rounded-lg text-gray-700 hover:bg-red-50 hover:text-red-700 {{ request()->routeIs('archive.*') ? 'bg-red-50 text-red-700 font-semibold' : '' }}">
@@ -1730,7 +1738,83 @@
                 }
             });
         })();
+
+        // --- GLOBAL SUPPORT CHAT NOTIFICATION CENTER ---
+        (function() {
+            const isSupportPage = @json(request()->routeIs('support.*'));
+            const notifSound = new Audio('https://assets.mixkit.co/active_storage/sfx/2358/2358-preview.mp3');
+            let originalTitle = document.title;
+            let lastNotifiedTotal = parseInt(localStorage.getItem('last_support_notif_total') || '0');
+
+            function flashTitle(text) {
+                let count = 0;
+                const interval = setInterval(() => {
+                    document.title = (count % 2 === 0) ? text : originalTitle;
+                    if (++count >= 10) {
+                        clearInterval(interval);
+                        document.title = originalTitle;
+                    }
+                }, 500);
+            }
+
+            async function checkGlobalChatStatus() {
+                try {
+                    const response = await fetch('/support-center/status');
+                    const data = await response.json();
+                    if (data.success) {
+                        let currentTotal = 0;
+                        data.drivers.forEach(d => {
+                            currentTotal += parseInt(d.unread_count || 0);
+                        });
+
+                        const sharedLastTotal = parseInt(localStorage.getItem('last_support_notif_total') || '0');
+                        
+                        if (currentTotal > sharedLastTotal) {
+                            localStorage.setItem('last_support_notif_total', currentTotal);
+                            lastNotifiedTotal = currentTotal;
+
+                            notifSound.play().catch(() => {});
+                            flashTitle('NEW MESSAGE!');
+                        } else if (currentTotal < sharedLastTotal) {
+                            localStorage.setItem('last_support_notif_total', currentTotal);
+                            lastNotifiedTotal = currentTotal;
+                        }
+
+                        const navBadge = document.getElementById('support-nav-badge');
+                        if (navBadge) {
+                            navBadge.innerText = currentTotal;
+                            navBadge.classList.toggle('hidden', currentTotal === 0);
+                        }
+                    }
+                } catch (e) {}
+            }
+
+            // Poll every 4 seconds
+            setInterval(checkGlobalChatStatus, 4000);
+            
+            // On load, set initial state from current unread
+            setTimeout(async () => {
+                try {
+                    const response = await fetch('/support-center/status');
+                    const data = await response.json();
+                    if (data.success) {
+                        let initialTotal = 0;
+                        data.drivers.forEach(d => initialTotal += parseInt(d.unread_count || 0));
+                        localStorage.setItem('last_support_notif_total', initialTotal);
+                        lastNotifiedTotal = initialTotal;
+                    }
+                } catch(e) {}
+            }, 1000);
+        })();
     </script>
+    <style>
+        @keyframes bounce-in {
+            0% { transform: scale(0.9); opacity: 0; }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        .animate-bounce-in { animation: bounce-in 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+    </style>
 </body>
 
 </html>

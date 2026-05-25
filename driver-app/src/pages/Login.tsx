@@ -28,58 +28,8 @@ import { endpoints } from '../config/api';
 
 type Screen = 'login' | 'mfa' | 'forgot_phone' | 'forgot_otp' | 'forgot_reset';
 
-const inputStyle = {
-  '--padding-start': '48px',
-  '--padding-end': '16px',
-  '--color': '#f8fafc',
-  '--placeholder-color': '#475569',
-  '--background': 'transparent',
-  height: '52px',
-  fontSize: '15px',
-} as any;
+// Styles are now inside the component to support theming
 
-const iconStyle = (extra?: any) => ({
-  position: 'absolute' as const,
-  left: '16px',
-  top: '50%',
-  transform: 'translateY(-50%)',
-  fontSize: '18px',
-  color: '#64748b',
-  zIndex: 2,
-  ...extra,
-});
-
-// cardStyle is now a function to support theming
-const getCardStyle = (isDark: boolean) => ({
-  width: '100%',
-  maxWidth: '400px',
-  background: isDark ? 'linear-gradient(145deg, rgba(30, 41, 59, 0.8), rgba(15, 23, 42, 0.9))' : 'linear-gradient(145deg, rgba(255,255,255,0.95), rgba(248,250,252,0.9))',
-  backdropFilter: 'blur(10px)',
-  WebkitBackdropFilter: 'blur(10px)',
-  border: isDark ? '1px solid rgba(255, 255, 255, 0.06)' : '1px solid rgba(0,0,0,0.08)',
-  boxShadow: isDark ? '0 8px 32px rgba(0, 0, 0, 0.3)' : '0 4px 24px rgba(0,0,0,0.06)',
-  borderRadius: '24px',
-  padding: '32px 24px',
-} as any);
-
-const inputWrap = {
-  position: 'relative' as const,
-  background: 'rgba(15, 23, 42, 0.6)',
-  border: '1px solid rgba(51, 65, 85, 0.8)',
-  borderRadius: '16px',
-  overflow: 'hidden' as const,
-};
-
-const labelStyle = {
-  display: 'block',
-  fontSize: '11px',
-  fontWeight: '700',
-  color: '#94a3b8',
-  textTransform: 'uppercase' as const,
-  letterSpacing: '1.5px',
-  marginBottom: '8px',
-  paddingLeft: '4px',
-};
 
 const primaryBtn = {
   '--border-radius': '16px',
@@ -96,6 +46,58 @@ const Login: FC = () => {
   const { login, verifyOtp, sendOtp, token } = useAuth();
   const { t, isDark } = useTheme();
   const history = useHistory();
+
+  const inputStyle = {
+    '--padding-start': '48px',
+    '--padding-end': '16px',
+    '--color': isDark ? '#f8fafc' : '#1e293b',
+    '--placeholder-color': isDark ? '#475569' : '#94a3b8',
+    '--background': 'transparent',
+    height: '52px',
+    fontSize: '15px',
+  } as any;
+
+  const iconStyle = (extra?: any) => ({
+    position: 'absolute' as const,
+    left: '16px',
+    top: '50%',
+    transform: 'translateY(-50%)',
+    fontSize: '18px',
+    color: isDark ? '#64748b' : '#94a3b8',
+    zIndex: 2,
+    ...extra,
+  });
+
+  const getCardStyle = () => ({
+    width: '100%',
+    maxWidth: '400px',
+    background: isDark ? 'linear-gradient(145deg, rgba(30, 41, 59, 0.8), rgba(15, 23, 42, 0.9))' : '#ffffff',
+    backdropFilter: 'blur(10px)',
+    WebkitBackdropFilter: 'blur(10px)',
+    border: isDark ? '1px solid rgba(255, 255, 255, 0.06)' : '1px solid #e2e8f0',
+    boxShadow: isDark ? '0 8px 32px rgba(0, 0, 0, 0.3)' : '0 4px 24px rgba(0,0,0,0.06)',
+    borderRadius: '24px',
+    padding: '32px 24px',
+  } as any);
+
+  const inputWrap = {
+    position: 'relative' as const,
+    background: isDark ? 'rgba(15, 23, 42, 0.6)' : '#f1f5f9',
+    border: isDark ? '1px solid rgba(51, 65, 85, 0.8)' : '1px solid #cbd5e1',
+    borderRadius: '16px',
+    overflow: 'hidden' as const,
+  };
+
+  const labelStyle = {
+    display: 'block',
+    fontSize: '11px',
+    fontWeight: '700',
+    color: isDark ? '#94a3b8' : '#64748b',
+    textTransform: 'uppercase' as const,
+    letterSpacing: '1.5px',
+    marginBottom: '8px',
+    paddingLeft: '4px',
+  };
 
   useState(() => { if (token) history.replace('/dashboard'); });
 
@@ -288,7 +290,7 @@ const Login: FC = () => {
   const ResendRow = ({ onResend }: { onResend: () => void }) => (
     <div style={{ textAlign: 'center', marginTop: '8px' }}>
       {resendCountdown > 0 ? (
-        <p style={{ color: '#64748b', fontSize: '13px', margin: 0 }}>
+        <p style={{ color: t.textSecondary, fontSize: '13px', margin: 0 }}>
           Resend in <span style={{ color: '#eab308', fontWeight: '700' }}>{resendCountdown}s</span>
         </p>
       ) : (
@@ -307,7 +309,7 @@ const Login: FC = () => {
   const BackBtn = ({ to }: { to: Screen }) => (
     <button type="button" onClick={() => setScreen(to)} style={{
       display: 'flex', alignItems: 'center', gap: '6px',
-      background: 'none', border: 'none', color: '#94a3b8',
+      background: 'none', border: 'none', color: t.textSecondary,
       fontSize: '13px', marginBottom: '20px', cursor: 'pointer',
     }}>
       <IonIcon icon={arrowBackOutline} /> Back
@@ -348,7 +350,7 @@ const Login: FC = () => {
 
           {/* ── LOGIN SCREEN ── */}
           {screen === 'login' && (
-            <div style={getCardStyle(isDark)}>
+            <div style={getCardStyle()}>
               <form onSubmit={handleLogin}>
                 <div style={{ marginBottom: '20px' }}>
                   <label style={labelStyle}>Account</label>
@@ -406,7 +408,7 @@ const Login: FC = () => {
                 </IonButton>
 
                 <div style={{ textAlign: 'center' }}>
-                  <p style={{ color: '#64748b', fontSize: '13px', margin: 0 }}>
+                  <p style={{ color: t.textSecondary, fontSize: '13px', margin: 0 }}>
                     New driver?{' '}
                     <button type="button" onClick={() => history.push('/register')} style={{
                       background: 'none', border: 'none', color: '#eab308',
@@ -422,11 +424,11 @@ const Login: FC = () => {
 
           {/* ── MFA SCREEN ── */}
           {screen === 'mfa' && (
-            <div style={getCardStyle(isDark)}>
+            <div style={getCardStyle()}>
               <BackBtn to="login" />
               <div style={{ textAlign: 'center', marginBottom: '24px' }}>
-                <h2 style={{ fontSize: '20px', fontWeight: '700', color: '#ffffff', margin: '0 0 8px' }}>Verify Identity</h2>
-                <p style={{ fontSize: '13px', color: '#94a3b8', margin: 0 }}>
+                <h2 style={{ fontSize: '20px', fontWeight: '700', color: t.textPrimary, margin: '0 0 8px' }}>Verify Identity</h2>
+                <p style={{ fontSize: '13px', color: t.textSecondary, margin: 0 }}>
                   Code sent via SMS to <span style={{ color: '#eab308', fontWeight: '600' }}>{maskedPhone}</span>
                 </p>
               </div>
@@ -455,11 +457,11 @@ const Login: FC = () => {
 
           {/* ── FORGOT: ENTER PHONE ── */}
           {screen === 'forgot_phone' && (
-            <div style={getCardStyle(isDark)}>
+            <div style={getCardStyle()}>
               <BackBtn to="login" />
               <div style={{ marginBottom: '24px' }}>
-                <h2 style={{ fontSize: '20px', fontWeight: '700', color: '#ffffff', margin: '0 0 8px' }}>Forgot Password</h2>
-                <p style={{ fontSize: '13px', color: '#94a3b8', margin: 0 }}>Enter your registered phone number to receive a reset code.</p>
+                <h2 style={{ fontSize: '20px', fontWeight: '700', color: t.textPrimary, margin: '0 0 8px' }}>Forgot Password</h2>
+                <p style={{ fontSize: '13px', color: t.textSecondary, margin: 0 }}>Enter your registered phone number to receive a reset code.</p>
               </div>
 
               <form onSubmit={handleForgotSendOtp}>
@@ -481,11 +483,11 @@ const Login: FC = () => {
 
           {/* ── FORGOT: ENTER OTP ── */}
           {screen === 'forgot_otp' && (
-            <div style={getCardStyle(isDark)}>
+            <div style={getCardStyle()}>
               <BackBtn to="forgot_phone" />
               <div style={{ marginBottom: '24px' }}>
-                <h2 style={{ fontSize: '20px', fontWeight: '700', color: '#ffffff', margin: '0 0 8px' }}>Enter Reset Code</h2>
-                <p style={{ fontSize: '13px', color: '#94a3b8', margin: 0 }}>
+                <h2 style={{ fontSize: '20px', fontWeight: '700', color: t.textPrimary, margin: '0 0 8px' }}>Enter Reset Code</h2>
+                <p style={{ fontSize: '13px', color: t.textSecondary, margin: 0 }}>
                   Code sent to <span style={{ color: '#eab308', fontWeight: '600' }}>{fpPhone}</span>
                 </p>
               </div>
@@ -510,10 +512,10 @@ const Login: FC = () => {
 
           {/* ── FORGOT: NEW PASSWORD ── */}
           {screen === 'forgot_reset' && (
-            <div style={getCardStyle(isDark)}>
+            <div style={getCardStyle()}>
               <div style={{ marginBottom: '24px' }}>
-                <h2 style={{ fontSize: '20px', fontWeight: '700', color: '#ffffff', margin: '0 0 8px' }}>New Password</h2>
-                <p style={{ fontSize: '13px', color: '#94a3b8', margin: 0 }}>Create a new password for your account.</p>
+                <h2 style={{ fontSize: '20px', fontWeight: '700', color: t.textPrimary, margin: '0 0 8px' }}>New Password</h2>
+                <p style={{ fontSize: '13px', color: t.textSecondary, margin: 0 }}>Create a new password for your account.</p>
               </div>
 
               <form onSubmit={handleForgotReset}>

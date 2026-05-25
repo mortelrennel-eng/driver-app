@@ -147,6 +147,11 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::post('/messages', [\App\Http\Controllers\Api\SupportController::class, 'sendMessage']);
             Route::post('/messages/send', [\App\Http\Controllers\Api\SupportController::class, 'sendMessage']); // Fallback for app
         });
+
+        Route::prefix('announcements')->group(function () {
+            Route::get('/', [\App\Http\Controllers\Api\AnnouncementController::class, 'index']);
+            Route::get('/latest', [\App\Http\Controllers\Api\AnnouncementController::class, 'latest']);
+        });
     });
 
 

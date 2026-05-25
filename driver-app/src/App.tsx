@@ -18,6 +18,7 @@ const Support = lazy(() => import('./pages/Support'));
 const Performance = lazy(() => import('./pages/Performance'));
 const Settings = lazy(() => import('./pages/Settings'));
 const Incidents = lazy(() => import('./pages/Incidents'));
+const Announcements = lazy(() => import('./pages/Announcements'));
 
 /* Core CSS required for Ionic components to work properly */
 import '@ionic/react/css/core.css';
@@ -99,6 +100,7 @@ const App: React.FC = () => {
               <PrivateRoute exact path="/performance" component={Performance} />
               <PrivateRoute exact path="/settings" component={Settings} />
               <PrivateRoute exact path="/incidents" component={Incidents} />
+              <PrivateRoute exact path="/announcements" component={Announcements} />
               <Route exact path="/">
                 <Redirect to="/welcome" />
               </Route>

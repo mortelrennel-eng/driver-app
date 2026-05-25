@@ -68,7 +68,7 @@ interface PerformanceData {
 
 interface DriverNotification {
   id: string;
-  type: 'remittance' | 'incident' | 'system';
+  type: 'remittance' | 'incident' | 'system' | 'support' | 'ticket' | 'message';
   title: string;
   message: string;
   timestamp: string;
@@ -87,8 +87,20 @@ const Dashboard: FC = () => {
   const [showNotifModal, setShowNotifModal] = useState(false);
   const [notifications, setNotifications] = useState<DriverNotification[]>([]);
   const [notifLoading, setNotifLoading] = useState(false);
+  const [announcement, setAnnouncement] = useState<any>(null);
 
   useGpsTracking(60000);
+
+  const fetchLatestAnnouncement = async () => {
+    try {
+      const response = await axios.get(endpoints.latestAnnouncement);
+      if (response.data.success) {
+        setAnnouncement(response.data.announcement);
+      }
+    } catch (e) {
+      console.error('Failed to fetch announcement', e);
+    }
+  };
 
   const fetchNotifications = async () => {
     setNotifLoading(true);
@@ -123,8 +135,27 @@ const Dashboard: FC = () => {
   };
 
   const getNotifRoute = (notif: DriverNotification) => {
-    if (notif.type === 'remittance') return '/history';
-    if (notif.type === 'incident') return '/incidents';
+    const type = (notif.type || '').toLowerCase();
+    const title = (notif.title || '').toLowerCase();
+    const message = (notif.message || '').toLowerCase();
+
+    if (type === 'remittance') return '/history';
+    if (type === 'incident') return '/incidents';
+    
+    // Smart Routing: Check type OR keywords in title/message
+    if (
+      type === 'support' || 
+      type === 'ticket' || 
+      type === 'message' ||
+      title.includes('support') || 
+      title.includes('ticket') || 
+      title.includes('message') ||
+      message.includes('support') ||
+      message.includes('ticket')
+    ) {
+      return '/support';
+    }
+
     return '/dashboard';
   };
 
@@ -141,7 +172,11 @@ const Dashboard: FC = () => {
 
     refreshUser();
     fetchPerformance();
-    const interval = setInterval(fetchPerformance, 5 * 60 * 1000);
+    fetchLatestAnnouncement();
+    const interval = setInterval(() => {
+      fetchPerformance();
+      fetchLatestAnnouncement();
+    }, 5 * 60 * 1000);
     return () => clearInterval(interval);
   }, []);
 
@@ -175,7 +210,7 @@ const Dashboard: FC = () => {
   };
 
   const doRefresh = (event: CustomEvent) => {
-    fetchPerformance().then(() => event.detail.complete());
+    Promise.all([fetchPerformance(), fetchLatestAnnouncement()]).then(() => event.detail.complete());
   };
 
   const [currentTime, setCurrentTime] = useState(new Date());
@@ -263,6 +298,55 @@ const Dashboard: FC = () => {
               </div>
             </div>
           </div>
+
+          {/* ── Latest Announcement Pinned ── */}
+          {announcement && (
+            <div style={{ 
+              margin: '0 20px 20px', 
+              padding: '16px', 
+              background: announcement.is_pinned ? 'rgba(234,179,8,0.08)' : 'rgba(59,130,246,0.08)', 
+              border: `1px solid ${announcement.is_pinned ? 'rgba(234,179,8,0.25)' : 'rgba(59,130,246,0.25)'}`, 
+              borderRadius: '20px',
+              position: 'relative',
+              overflow: 'hidden'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
+                <div style={{ 
+                  width: '32px', 
+                  height: '32px', 
+                  borderRadius: '10px', 
+                  background: announcement.is_pinned ? '#eab308' : '#3b82f6', 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  justifyContent: 'center' 
+                }}>
+                  <IonIcon icon={megaphoneOutline} style={{ fontSize: '18px', color: '#fff' }} />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: '14px', fontWeight: '900', color: t.textPrimary }}>
+                    {announcement.title || (announcement.is_pinned ? 'Important Announcement' : 'Announcement')}
+                  </div>
+                  <div style={{ fontSize: '10px', color: t.textMuted, fontWeight: '700', textTransform: 'uppercase' }}>Admin Announcement</div>
+                </div>
+                {announcement.is_pinned && <IonIcon icon={shieldCheckmarkOutline} style={{ fontSize: '16px', color: t.gold }} />}
+              </div>
+              {announcement.message && (
+                <div style={{ fontSize: '12px', color: t.textSecondary, lineHeight: '1.5', paddingLeft: '2px' }}>
+                  {announcement.message}
+                </div>
+              )}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '10px', fontSize: '9px', color: t.textMuted, fontWeight: '600' }}>
+                <div>
+                  {announcement.valid_until && (
+                    <span>Display until: {new Date(announcement.valid_until).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                  )}
+                </div>
+                <div>
+                  {new Date(announcement.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* ── API Error Banner ── */}
           {apiError && (
@@ -411,7 +495,8 @@ const Dashboard: FC = () => {
                   { label: 'Vehicle', icon: carSportOutline, color: '#06b6d4', bg: '#06b6d4', route: '/vehicle' },
                   { label: 'History', icon: cashOutline, color: '#22c55e', bg: '#22c55e', route: '/history' },
                   { label: 'Incidents', icon: alertCircle, color: '#ef4444', bg: '#ef4444', route: '/incidents' },
-                  { label: 'Charges', icon: ribbonOutline, color: '#f59e0b', bg: '#f59e0b', route: '/charges' }
+                  { label: 'Charges', icon: ribbonOutline, color: '#f59e0b', bg: '#f59e0b', route: '/charges' },
+                  { label: 'Broadcasts', icon: megaphoneOutline, color: '#ea580c', bg: '#ea580c', route: '/announcements' }
                 ].map((item, i) => (
                   <div key={i} onClick={() => history.push(item.route)} style={{ 
                     display: 'flex', 

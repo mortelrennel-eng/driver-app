@@ -451,6 +451,27 @@ class NotificationService
             ];
         }
 
+        // 7. Global Announcements
+        $announcements = DB::table('announcements')
+            ->where('is_active', true)
+            ->whereNull('deleted_at')
+            ->orderByDesc('created_at')
+            ->limit(10)
+            ->get();
+
+        foreach ($announcements as $ann) {
+            $feed[] = [
+                'id' => 'announcement_' . $ann->id,
+                'type' => 'system',
+                'title' => $ann->title ? "📢 " . $ann->title : '📢 Announcement',
+                'message' => $ann->message ?? 'Tap to view details.',
+                'timestamp' => $ann->created_at,
+                'time_display' => Carbon::parse($ann->created_at)->diffForHumans(),
+                'severity' => $ann->is_pinned ? 'warning' : 'info',
+                'icon' => 'megaphone-outline'
+            ];
+        }
+
         // Sort by timestamp
         usort($feed, function($a, $b) {
             return strtotime($b['timestamp']) - strtotime($a['timestamp']);
