@@ -144,7 +144,7 @@
                                 </tr>
                                 @empty
                                 <tr>
-                                    <td colspan="4" class="px-6 py-12 text-center">
+                                    <td colspan="3" class="px-6 py-12 text-center">
                                         <div class="flex flex-col items-center">
                                             <div class="p-4 bg-gray-50 rounded-full mb-3">
                                                 <i data-lucide="megaphone-off" class="w-8 h-8 text-gray-300"></i>

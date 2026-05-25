@@ -309,29 +309,48 @@
             chatContainer.appendChild(tempDiv);
             chatContainer.scrollTop = chatContainer.scrollHeight;
 
+            const formData = new FormData(chatForm);
+
             messageInput.value = '';
             messageInput.style.height = 'auto';
             sendButton.disabled = true;
 
             try {
-                const formData = new FormData(chatForm);
-                const response = await fetch(chatForm.action, {
-                    method: 'POST',
-                    body: formData,
-                    headers: { 'X-Requested-With': 'XMLHttpRequest' }
-                });
-                
-                if (response.ok) {
-                    const msgRes = await fetch(`/support-center/${selectedDriverId}/messages`);
-                    const msgData = await msgRes.json();
-                    if (msgData.success) {
-                        renderMessages(msgData.messages);
-                        lastMessageCount = msgData.messages.length;
+                    // Debug: Log FormData entries
+                    const fdEntries = [];
+                    for (let pair of formData.entries()) {
+                        fdEntries.push(`${pair[0]}: ${pair[1]}`);
                     }
-                }
+                    console.log('FormData submitted:', fdEntries);
+                    
+                    try {
+                        const response = await fetch(chatForm.action, {
+                            method: 'POST',
+                            body: formData,
+                            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                        });
+                        
+                        if (response.ok) {
+                            const msgRes = await fetch(`/support-center/${selectedDriverId}/messages`);
+                            const msgData = await msgRes.json();
+                            if (msgData.success) {
+                                renderMessages(msgData.messages);
+                                lastMessageCount = msgData.messages.length;
+                            }
+                        } else {
+                            const errorJson = await response.json();
+                            const errorMsg = errorJson.errors?.message?.join(' ') || await response.text();
+                            tempDiv.innerHTML = `<div class="px-4 py-3 rounded-2xl text-sm bg-red-100 text-red-800">Error ${response.status}: ${errorMsg.substring(0, 200)}</div>`;
+                        }
+                    } catch (e) {
+                        console.error('Send failed', e);
+                        tempDiv.innerHTML = '<span class="text-[9px] text-red-500 font-bold">Failed to send network error.</span>';
+                    } finally {
+                        sendButton.disabled = false;
+                    }
             } catch (e) {
                 console.error('Send failed', e);
-                tempDiv.innerHTML = '<span class="text-[9px] text-red-500 font-bold">Failed to send.</span>';
+                tempDiv.innerHTML = '<span class="text-[9px] text-red-500 font-bold">Failed to send network error.</span>';
             } finally {
                 sendButton.disabled = false;
             }
