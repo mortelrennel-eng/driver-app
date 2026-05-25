@@ -5,8 +5,7 @@ const config: CapacitorConfig = {
   appName: 'EuroTaxi Driver',
   webDir: 'dist',
   server: {
-    cleartext: true,
-    androidScheme: 'http'
+    androidScheme: 'https'
   }
 };
 
