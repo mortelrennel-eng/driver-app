@@ -128,8 +128,8 @@ class StaffController extends Controller
         // Revoke tokens
         $user->tokens()->delete();
 
-        // Soft-delete the user account only
-        $user->delete();
+        // Hard-delete the user account only to free up email/phone
+        $user->forceDelete();
 
         ActivityLogController::log('Deleted Mobile App Driver', "Driver Account: {$name} deleted from the system.");
 

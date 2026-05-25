@@ -811,8 +811,8 @@ class DriverAppController extends Controller
             // 1. Unlink the Driver record if it exists
             \App\Models\Driver::where('user_id', $user->id)->update(['user_id' => null]);
 
-            // 2. Archive the User account (Soft Delete)
-            $user->delete();
+            // 2. Archive the User account (Hard Delete to free up email/phone)
+            $user->forceDelete();
 
             return response()->json([
                 'success' => true,
