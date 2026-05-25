@@ -54,7 +54,7 @@ class AnnouncementController extends Controller
                 $request->message ? \Illuminate\Support\Str::limit($request->message, 100) : 'Tap to view announcement details',
                 $driver->fcm_token,
                 'announcement',
-                ['announcement_id' => $announcement->id]
+                ['announcement_id' => (string) $announcement->id]
             );
         }
 
