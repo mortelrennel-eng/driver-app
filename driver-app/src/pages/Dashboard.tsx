@@ -22,9 +22,10 @@ import {
   chevronForwardOutline,
   ribbonOutline,
   closeOutline,
-  timeOutline,
+  calendarOutline,
   alertCircleOutline,
-  megaphoneOutline
+  megaphoneOutline,
+  timeOutline
 } from 'ionicons/icons';
 import { useHistory } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
@@ -88,6 +89,7 @@ const Dashboard: FC = () => {
   const [notifications, setNotifications] = useState<DriverNotification[]>([]);
   const [notifLoading, setNotifLoading] = useState(false);
   const [announcement, setAnnouncement] = useState<any>(null);
+  const [showAnnModal, setShowAnnModal] = useState(false);
 
   useGpsTracking(60000);
 
@@ -299,50 +301,113 @@ const Dashboard: FC = () => {
             </div>
           </div>
 
-          {/* ── Latest Announcement Pinned ── */}
+          {/* ── Latest Announcement ── */}
           {announcement && (
-            <div style={{ 
-              margin: '0 20px 20px', 
-              padding: '16px', 
-              background: announcement.is_pinned ? 'rgba(234,179,8,0.08)' : 'rgba(59,130,246,0.08)', 
-              border: `1px solid ${announcement.is_pinned ? 'rgba(234,179,8,0.25)' : 'rgba(59,130,246,0.25)'}`, 
-              borderRadius: '20px',
-              position: 'relative',
-              overflow: 'hidden'
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
-                <div style={{ 
-                  width: '32px', 
-                  height: '32px', 
-                  borderRadius: '10px', 
-                  background: announcement.is_pinned ? '#eab308' : '#3b82f6', 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  justifyContent: 'center' 
-                }}>
-                  <IonIcon icon={megaphoneOutline} style={{ fontSize: '18px', color: '#fff' }} />
-                </div>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: '14px', fontWeight: '900', color: t.textPrimary }}>
-                    {announcement.title || (announcement.is_pinned ? 'Important Announcement' : 'Announcement')}
-                  </div>
-                  <div style={{ fontSize: '10px', color: t.textMuted, fontWeight: '700', textTransform: 'uppercase' }}>Admin Announcement</div>
-                </div>
-                {announcement.is_pinned && <IonIcon icon={shieldCheckmarkOutline} style={{ fontSize: '16px', color: t.gold }} />}
+            <div
+              onClick={() => setShowAnnModal(true)}
+              style={{
+                margin: '0 20px 20px',
+                padding: '14px 16px',
+                background: t.goldBg,
+                border: `1.5px solid ${t.gold}44`,
+                borderRadius: '18px',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '12px',
+                WebkitTapHighlightColor: 'transparent',
+              }}
+            >
+              {/* Icon */}
+              <div style={{
+                width: '44px', height: '44px', borderRadius: '13px', flexShrink: 0,
+                background: t.goldGrad,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                boxShadow: `0 4px 12px ${t.gold}44`
+              }}>
+                <IonIcon icon={megaphoneOutline} style={{ fontSize: '22px', color: isDark ? '#000' : '#fff' }} />
               </div>
-              {announcement.message && (
-                <div style={{ fontSize: '12px', color: t.textSecondary, lineHeight: '1.5', paddingLeft: '2px' }}>
-                  {announcement.message}
+
+              {/* Title + Date */}
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: '10px', fontWeight: '800', color: t.gold, textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: '3px' }}>
+                  ADMIN ANNOUNCEMENT
                 </div>
-              )}
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '10px', fontSize: '9px', color: t.textMuted, fontWeight: '600' }}>
-                <div>
-                  {announcement.valid_until && (
-                    <span>Display until: {new Date(announcement.valid_until).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}</span>
-                  )}
+                <div style={{ fontSize: '14px', fontWeight: '900', color: t.textPrimary, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  {announcement.title || 'Announcement'}
                 </div>
-                <div>
-                  {new Date(announcement.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '4px' }}>
+                  <IonIcon icon={timeOutline} style={{ fontSize: '11px', color: t.textMuted }} />
+                  <span style={{ fontSize: '11px', color: t.textMuted, fontWeight: '600' }}>
+                    {new Date(announcement.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                  </span>
+                </div>
+              </div>
+
+              {/* Chevron */}
+              <div style={{ width: '28px', height: '28px', borderRadius: '8px', flexShrink: 0, background: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <IonIcon icon={chevronForwardOutline} style={{ fontSize: '14px', color: t.gold }} />
+              </div>
+            </div>
+          )}
+
+          {/* ── Announcement Detail Modal ── */}
+          {showAnnModal && announcement && (
+            <div
+              onClick={() => setShowAnnModal(false)}
+              style={{
+                position: 'fixed', inset: 0, zIndex: 9999,
+                background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(8px)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                padding: '20px',
+                animation: 'annFadeIn 0.15s ease'
+              }}
+            >
+              <div
+                onClick={e => e.stopPropagation()}
+                style={{
+                  width: '100%', maxWidth: '520px',
+                  background: t.card, borderRadius: '28px',
+                  overflow: 'hidden', boxShadow: '0 12px 48px rgba(0,0,0,0.35)',
+                  animation: 'annScaleIn 0.2s cubic-bezier(.32,1.2,.4,1)',
+                  maxHeight: '80vh', overflowY: 'auto'
+                }}
+              >
+                {/* Header */}
+                <div style={{ background: t.goldGrad, padding: '20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 1 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <IonIcon icon={megaphoneOutline} style={{ fontSize: '22px', color: isDark ? '#000' : '#fff' }} />
+                    <span style={{ fontSize: '15px', fontWeight: '900', color: isDark ? '#000' : '#fff' }}>Announcement</span>
+                  </div>
+                  <button onClick={() => setShowAnnModal(false)} style={{ background: 'rgba(0,0,0,0.15)', border: 'none', borderRadius: '10px', padding: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
+                    <IonIcon icon={closeOutline} style={{ fontSize: '20px', color: isDark ? '#000' : '#fff' }} />
+                  </button>
+                </div>
+                {/* Body */}
+                <div style={{ padding: '24px 20px 44px' }}>
+                  <div style={{ fontSize: '19px', fontWeight: '900', color: t.textPrimary, marginBottom: '12px', lineHeight: '1.3' }}>
+                    {announcement.title || 'Announcement'}
+                  </div>
+                  <div style={{ display: 'flex', gap: '16px', marginBottom: '20px', flexWrap: 'wrap' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                      <IonIcon icon={timeOutline} style={{ fontSize: '13px', color: t.gold }} />
+                      <span style={{ fontSize: '12px', fontWeight: '700', color: t.textMuted }}>
+                        Posted {new Date(announcement.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                      </span>
+                    </div>
+                    {announcement.valid_until && (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                        <IonIcon icon={calendarOutline} style={{ fontSize: '13px', color: t.gold }} />
+                        <span style={{ fontSize: '12px', fontWeight: '700', color: t.textMuted }}>
+                          Until {new Date(announcement.valid_until).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                  <div style={{ height: '1px', background: isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.07)', marginBottom: '20px' }} />
+                  <div style={{ fontSize: '15px', color: t.textSecondary, lineHeight: '1.8', fontWeight: '500', whiteSpace: 'pre-wrap' }}>
+                    {announcement.message || 'No additional details.'}
+                  </div>
                 </div>
               </div>
             </div>
@@ -489,27 +554,29 @@ const Dashboard: FC = () => {
           {/* ── Driver Tools (GCash-style Icon Grid) ── */}
           <div style={{ margin: '0 20px 8px' }}>
              <h3 style={{ fontSize: '11px', fontWeight: '800', color: t.textMuted, textTransform: 'uppercase', letterSpacing: '1.5px', marginBottom: '10px', paddingLeft: '4px' }}>Driver Toolbox</h3>
-             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '6px', padding: '8px 0' }}>
+             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px', padding: '8px 0' }}>
                 {[
                   { label: 'Stats', icon: statsChartOutline, color: '#8b5cf6', bg: '#8b5cf6', route: '/performance' },
                   { label: 'Vehicle', icon: carSportOutline, color: '#06b6d4', bg: '#06b6d4', route: '/vehicle' },
                   { label: 'History', icon: cashOutline, color: '#22c55e', bg: '#22c55e', route: '/history' },
                   { label: 'Incidents', icon: alertCircle, color: '#ef4444', bg: '#ef4444', route: '/incidents' },
                   { label: 'Charges', icon: ribbonOutline, color: '#f59e0b', bg: '#f59e0b', route: '/charges' },
-                  { label: 'Broadcasts', icon: megaphoneOutline, color: '#ea580c', bg: '#ea580c', route: '/announcements' }
+                  { label: 'Announcement', icon: megaphoneOutline, color: '#ea580c', bg: '#ea580c', route: '/announcements' }
                 ].map((item, i) => (
-                  <div key={i} onClick={() => history.push(item.route)} style={{ 
-                    display: 'flex', 
-                    flexDirection: 'column', 
-                    alignItems: 'center', 
+                  <div key={i} onClick={() => history.push(item.route)} style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
                     gap: '6px',
                     cursor: 'pointer',
-                    padding: '8px 4px'
+                    padding: '8px 4px',
+                    borderRadius: '12px',
+                    WebkitTapHighlightColor: 'transparent',
                   }}>
-                    <div style={{ 
-                      width: '40px', height: '40px', borderRadius: '14px', 
-                      background: `${item.bg}18`, 
-                      display: 'flex', alignItems: 'center', justifyContent: 'center'
+                    <div style={{
+                      width: '40px', height: '40px', borderRadius: '12px',
+                      background: `${item.bg}18`,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
                     }}>
                       <IonIcon icon={item.icon} style={{ fontSize: '20px', color: item.color }} />
                     </div>
@@ -601,6 +668,11 @@ const Dashboard: FC = () => {
         </IonModal>
 
       </IonContent>
+
+      <style>{`
+        @keyframes annFadeIn  { from { opacity: 0 } to { opacity: 1 } }
+        @keyframes annScaleIn { from { transform: scale(0.95); opacity: 0 } to { transform: scale(1); opacity: 1 } }
+      `}</style>
     </IonPage>
   );
 };

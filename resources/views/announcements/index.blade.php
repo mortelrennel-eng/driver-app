@@ -35,7 +35,7 @@
 
                         <div class="mb-4">
                             <label class="block text-xs font-black text-gray-400 uppercase tracking-widest mb-2">Display Until</label>
-                            <input type="date" name="valid_until" id="valid_until" required
+                            <input type="date" name="valid_until" id="valid_until" required min="{{ date('Y-m-d') }}"
                                 class="w-full px-4 py-3 bg-gray-50 border border-gray-100 rounded-xl focus:ring-2 focus:ring-yellow-500 focus:border-transparent transition-all outline-none text-sm font-bold">
                             <span class="text-[10px] text-emerald-600 mt-1 block font-bold">Duration date is required to post announcements.</span>
                         </div>
@@ -259,7 +259,7 @@
                 </div>
                 <div>
                     <label class="block text-xs font-black text-gray-400 uppercase tracking-widest mb-2">Display Until</label>
-                    <input type="date" name="valid_until" id="editValidUntil" required
+                    <input type="date" name="valid_until" id="editValidUntil" required min="{{ date('Y-m-d') }}"
                         class="w-full px-4 py-3 bg-gray-50 border border-gray-100 rounded-xl focus:ring-2 focus:ring-yellow-500 focus:border-transparent transition-all outline-none text-sm font-bold">
                     <span class="text-[10px] text-emerald-600 mt-1 block font-bold">Duration date is required to update announcements.</span>
                 </div>

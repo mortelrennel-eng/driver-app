@@ -31,7 +31,7 @@ class AnnouncementController extends Controller
             'title' => 'required|string|max:255',
             'message' => 'nullable|string',
             'is_pinned' => 'boolean',
-            'valid_until' => 'nullable|date',
+            'valid_until' => 'required|date|after_or_equal:today',
         ]);
 
         // If this is pinned, unpin others (optional, or just allow multiple pinned)
@@ -73,7 +73,7 @@ class AnnouncementController extends Controller
             'message' => 'nullable|string',
             'is_pinned' => 'boolean',
             'is_active' => 'boolean',
-            'valid_until' => 'nullable|date',
+            'valid_until' => 'required|date|after_or_equal:today',
         ]);
 
         $data = $request->all();

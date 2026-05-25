@@ -15,7 +15,6 @@ import {
   megaphoneOutline,
   timeOutline,
   calendarOutline,
-  sparklesOutline,
   bookmarkOutline,
   closeOutline,
   chevronForwardOutline
@@ -24,6 +23,7 @@ import { useHistory } from 'react-router-dom';
 import { useTheme } from '../context/ThemeContext';
 import axios from 'axios';
 import { endpoints } from '../config/api';
+
 
 interface Announcement {
   id: string;
@@ -45,8 +45,9 @@ const Announcements: FC = () => {
     try {
       const response = await axios.get(endpoints.announcements);
       if (response.data.success) {
-        setAnnouncements(response.data.announcements);
-        localStorage.setItem('cached_driver_announcements', JSON.stringify(response.data.announcements));
+        const fetched: Announcement[] = response.data.announcements;
+        setAnnouncements(fetched);
+        localStorage.setItem('cached_driver_announcements', JSON.stringify(fetched));
       }
     } catch (e) {
       console.error('Failed to fetch announcements', e);
@@ -75,6 +76,10 @@ const Announcements: FC = () => {
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
   };
 
+  const openDetail = (ann: Announcement) => {
+    setSelected(ann);
+  };
+
   return (
     <IonPage>
       <IonHeader className="ion-no-border">
@@ -101,27 +106,7 @@ const Announcements: FC = () => {
 
         <div style={{ minHeight: '100%', background: t.bg, paddingBottom: '40px' }}>
 
-          {/* Banner */}
-          <div style={{
-            margin: '4px 20px 24px', padding: '24px',
-            background: 'linear-gradient(135deg, rgba(234,179,8,0.15), rgba(234,179,8,0.05))',
-            border: `1px solid ${t.gold}33`, borderRadius: '24px', boxShadow: t.shadow,
-            display: 'flex', alignItems: 'center', gap: '16px'
-          }}>
-            <div style={{
-              width: '56px', height: '56px', borderRadius: '18px', background: t.goldGrad,
-              display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-              boxShadow: '0 6px 16px rgba(234,179,8,0.25)'
-            }}>
-              <IonIcon icon={sparklesOutline} style={{ fontSize: '28px', color: isDark ? '#000' : '#fff' }} />
-            </div>
-            <div>
-              <div style={{ fontSize: '16px', fontWeight: '900', color: t.textPrimary, marginBottom: '2px' }}>Official Announcements</div>
-              <div style={{ fontSize: '12px', color: t.textSecondary, lineHeight: '1.4' }}>
-                Stay updated with the latest regulations, announcements, and notices from management.
-              </div>
-            </div>
-          </div>
+
 
           {/* Section label */}
           <div style={{ padding: '0 20px 12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -131,7 +116,7 @@ const Announcements: FC = () => {
             </span>
           </div>
 
-          {/* States */}
+          {/* List */}
           {loading && announcements.length === 0 ? (
             <div style={{ display: 'flex', justifyContent: 'center', padding: '40px' }}>
               <IonSpinner color="warning" />
@@ -155,14 +140,14 @@ const Announcements: FC = () => {
                 return (
                   <div
                     key={ann.id}
-                    onClick={() => setSelected(ann)}
+                    onClick={() => openDetail(ann)}
                     style={{
                       padding: '14px 16px',
                       background: t.card,
                       ...t.glass,
                       border: ann.is_pinned ? `2px solid ${t.gold}` : t.border,
                       borderRadius: '18px',
-                      boxShadow: ann.is_pinned ? `0 8px 24px rgba(234,179,8,0.12)` : t.cardShadow,
+                      boxShadow: ann.is_pinned ? `0 8px 24px rgba(234,179,8,0.15)` : t.cardShadow,
                       position: 'relative',
                       overflow: 'hidden',
                       cursor: 'pointer',
@@ -170,6 +155,7 @@ const Announcements: FC = () => {
                       alignItems: 'center',
                       gap: '14px',
                       WebkitTapHighlightColor: 'transparent',
+                      transition: 'transform 0.1s ease, box-shadow 0.1s ease',
                     }}
                   >
                     {/* Pinned badge */}
@@ -187,17 +173,17 @@ const Announcements: FC = () => {
                       </div>
                     )}
 
-                    {/* Icon */}
+                    {/* Megaphone icon */}
                     <div style={{
-                      width: '44px', height: '44px', borderRadius: '14px', flexShrink: 0,
-                      background: `linear-gradient(135deg, rgba(234,179,8,0.18), rgba(234,179,8,0.06))`,
-                      border: `1px solid ${t.gold}44`,
+                      width: '48px', height: '48px', borderRadius: '15px', flexShrink: 0,
+                      background: `linear-gradient(135deg, rgba(234,179,8,0.2), rgba(234,179,8,0.07))`,
+                      border: `1.5px solid ${t.gold}55`,
                       display: 'flex', alignItems: 'center', justifyContent: 'center'
                     }}>
-                      <IonIcon icon={megaphoneOutline} style={{ fontSize: '22px', color: t.gold }} />
+                      <IonIcon icon={megaphoneOutline} style={{ fontSize: '24px', color: t.gold }} />
                     </div>
 
-                    {/* Title + Date */}
+                    {/* Title + Posted date */}
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{
                         fontSize: '14px', fontWeight: '800', color: t.textPrimary,
@@ -207,15 +193,21 @@ const Announcements: FC = () => {
                         {ann.title || 'Announcement'}
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                        <IonIcon icon={timeOutline} style={{ fontSize: '11px', color: t.textMuted }} />
+                        <IonIcon icon={timeOutline} style={{ fontSize: '11px', color: t.gold }} />
                         <span style={{ fontSize: '11px', color: t.textMuted, fontWeight: '600' }}>
                           {formatDate(ann.created_at)}
                         </span>
                       </div>
                     </div>
 
-                    {/* Chevron */}
-                    <IonIcon icon={chevronForwardOutline} style={{ fontSize: '16px', color: t.textMuted, flexShrink: 0 }} />
+                    {/* Chevron arrow */}
+                    <div style={{
+                      width: '28px', height: '28px', borderRadius: '8px', flexShrink: 0,
+                      background: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center'
+                    }}>
+                      <IonIcon icon={chevronForwardOutline} style={{ fontSize: '14px', color: t.textMuted }} />
+                    </div>
                   </div>
                 );
               })}
@@ -224,22 +216,23 @@ const Announcements: FC = () => {
 
           {announcements.length > 0 && (
             <div style={{ textAlign: 'center', padding: '32px 20px 0', fontSize: '11px', color: t.textMuted, fontWeight: '600' }}>
-              You're all caught up!
+              You're all caught up! 🎉
             </div>
           )}
         </div>
       </IonContent>
 
-      {/* ── Detail bottom-sheet modal ── */}
+      {/* ── Detail Bottom Sheet ── */}
       {selected && (
         <div
           onClick={() => setSelected(null)}
           style={{
             position: 'fixed', inset: 0, zIndex: 9999,
-            background: 'rgba(0,0,0,0.55)',
-            backdropFilter: 'blur(6px)',
-            display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
-            animation: 'annFadeIn 0.18s ease'
+            background: 'rgba(0,0,0,0.6)',
+            backdropFilter: 'blur(8px)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            padding: '20px',
+            animation: 'annFadeIn 0.15s ease'
           }}
         >
           <div
@@ -247,17 +240,20 @@ const Announcements: FC = () => {
             style={{
               width: '100%', maxWidth: '520px',
               background: t.card,
-              borderRadius: '28px 28px 0 0',
+              borderRadius: '28px',
               overflow: 'hidden',
-              boxShadow: '0 -8px 40px rgba(0,0,0,0.3)',
-              animation: 'annSlideUp 0.22s cubic-bezier(.32,1.2,.4,1)',
+              boxShadow: '0 12px 48px rgba(0,0,0,0.35)',
+              animation: 'annScaleIn 0.2s cubic-bezier(.32,1.2,.4,1)',
+              maxHeight: '80vh',
+              overflowY: 'auto'
             }}
           >
             {/* Sheet header */}
             <div style={{
               background: 'linear-gradient(135deg, #EAB308, #D97706)',
-              padding: '18px 20px',
-              display: 'flex', alignItems: 'center', justifyContent: 'space-between'
+              padding: '20px 20px 18px',
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              position: 'sticky', top: 0, zIndex: 1
             }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                 <IonIcon icon={megaphoneOutline} style={{ fontSize: '22px', color: '#fff' }} />
@@ -266,7 +262,7 @@ const Announcements: FC = () => {
               <button
                 onClick={() => setSelected(null)}
                 style={{
-                  background: 'rgba(255,255,255,0.2)', border: 'none',
+                  background: 'rgba(255,255,255,0.22)', border: 'none',
                   borderRadius: '10px', padding: '8px', cursor: 'pointer',
                   display: 'flex', alignItems: 'center'
                 }}
@@ -276,17 +272,17 @@ const Announcements: FC = () => {
             </div>
 
             {/* Sheet body */}
-            <div style={{ padding: '22px 20px 40px' }}>
+            <div style={{ padding: '24px 20px 44px' }}>
               {/* Title */}
               <div style={{
-                fontSize: '18px', fontWeight: '900', color: t.textPrimary,
+                fontSize: '19px', fontWeight: '900', color: t.textPrimary,
                 marginBottom: '12px', lineHeight: '1.3'
               }}>
                 {selected.title || 'Announcement'}
               </div>
 
               {/* Date meta */}
-              <div style={{ display: 'flex', gap: '16px', marginBottom: '18px', flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', gap: '16px', marginBottom: '20px', flexWrap: 'wrap' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
                   <IonIcon icon={timeOutline} style={{ fontSize: '13px', color: t.gold }} />
                   <span style={{ fontSize: '12px', fontWeight: '700', color: t.textMuted }}>
@@ -307,13 +303,13 @@ const Announcements: FC = () => {
               <div style={{
                 height: '1px',
                 background: isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.07)',
-                marginBottom: '18px'
+                marginBottom: '20px'
               }} />
 
-              {/* Message */}
+              {/* Full message */}
               <div style={{
-                fontSize: '14px', color: t.textSecondary,
-                lineHeight: '1.75', fontWeight: '500', whiteSpace: 'pre-wrap'
+                fontSize: '15px', color: t.textSecondary,
+                lineHeight: '1.8', fontWeight: '500', whiteSpace: 'pre-wrap'
               }}>
                 {selected.message || 'No additional details.'}
               </div>
@@ -324,7 +320,7 @@ const Announcements: FC = () => {
 
       <style>{`
         @keyframes annFadeIn  { from { opacity: 0 } to { opacity: 1 } }
-        @keyframes annSlideUp { from { transform: translateY(100%) } to { transform: translateY(0) } }
+        @keyframes annScaleIn { from { transform: scale(0.95); opacity: 0 } to { transform: scale(1); opacity: 1 } }
       `}</style>
     </IonPage>
   );
