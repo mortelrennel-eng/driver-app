@@ -122,12 +122,13 @@ class StaffController extends Controller
 
         $name = $user->full_name ?? $user->name;
 
-        // Keep the driver linked so it can be restored correctly later
+        // Unlink the Driver record so driver data stays visible on the web
+        \App\Models\Driver::where('user_id', $user->id)->update(['user_id' => null]);
 
         // Revoke tokens
         $user->tokens()->delete();
 
-        // Delete user
+        // Soft-delete the user account only
         $user->delete();
 
         ActivityLogController::log('Deleted Mobile App Driver', "Driver Account: {$name} deleted from the system.");
