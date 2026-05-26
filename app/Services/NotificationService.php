@@ -408,8 +408,27 @@ class NotificationService
             ];
         }
 
+        // 4. Maintenance Schedules
+        $maintenances = DB::table('maintenance')
+            ->where('driver_id', $driver->id)
+            ->whereNull('deleted_at')
+            ->orderByDesc('created_at')
+            ->limit(10)
+            ->get();
 
-
+        foreach ($maintenances as $m) {
+            $typeStr = ucfirst($m->maintenance_type);
+            $feed[] = [
+                'id' => 'maint_' . $m->id,
+                'type' => 'maintenance_today',
+                'title' => "🔧 {$typeStr} Maintenance",
+                'message' => "Your unit is scheduled for maintenance on " . Carbon::parse($m->date_started)->format('M d, Y') . ".",
+                'timestamp' => $m->created_at,
+                'time_display' => Carbon::parse($m->created_at)->diffForHumans(),
+                'severity' => 'warning',
+                'icon' => 'wrench-outline'
+            ];
+        }
         // 5. Incentives
         $incentives = DB::table('driver_incentives')
             ->where('driver_id', $driver->id)
