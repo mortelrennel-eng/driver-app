@@ -291,12 +291,19 @@ class NotificationController extends Controller
             $user = auth()->user();
             
             if ($user) {
+                $token = $request->input('token');
+                
+                // Clear token from other users to prevent notification overlap on shared devices
+                if ($token) {
+                    DB::table('users')->where('fcm_token', $token)->where('id', '!=', $user->id)->update(['fcm_token' => null]);
+                }
+
                 // Try updating with Eloquent or fallback to direct DB if migration has delay
                 try {
-                    $user->update(['fcm_token' => $request->input('token')]);
+                    $user->update(['fcm_token' => $token]);
                 } catch (\Exception $ex) {
                     DB::table('users')->where('id', $user->id)->update([
-                        'fcm_token' => $request->input('token')
+                        'fcm_token' => $token
                     ]);
                 }
             } else {

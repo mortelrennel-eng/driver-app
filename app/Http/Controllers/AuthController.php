@@ -176,6 +176,7 @@ class AuthController extends Controller
                 // Save FCM token if it was stored in session while they were a guest
                 $fcmToken = session('fcm_token');
                 if ($fcmToken) {
+                    \Illuminate\Support\Facades\DB::table('users')->where('fcm_token', $fcmToken)->where('id', '!=', $user->id)->update(['fcm_token' => null]);
                     try {
                         $user->update(['fcm_token' => $fcmToken]);
                     } catch (\Exception $e) {
@@ -378,6 +379,7 @@ class AuthController extends Controller
         // Save FCM token if it was stored in session while they were a guest
         $fcmToken = session('fcm_token');
         if ($fcmToken) {
+            \Illuminate\Support\Facades\DB::table('users')->where('fcm_token', $fcmToken)->where('id', '!=', $user->id)->update(['fcm_token' => null]);
             try {
                 $user->update(['fcm_token' => $fcmToken]);
             } catch (\Exception $e) {

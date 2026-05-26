@@ -1238,6 +1238,8 @@ class DriverAppController extends Controller
     {
         $user = $request->user();
         if ($request->token) {
+            // Clear token from other users to prevent notification overlap on shared devices
+            DB::table('users')->where('fcm_token', $request->token)->where('id', '!=', $user->id)->update(['fcm_token' => null]);
             // Save token logic (e.g. to users table or device_tokens)
             DB::table('users')->where('id', $user->id)->update(['fcm_token' => $request->token]);
             return response()->json(['success' => true]);
