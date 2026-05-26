@@ -286,10 +286,20 @@
         }
 
         // --- AJAX Form Submission ---
-    if (chatForm) {
-        chatForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const message = messageInput.value.trim();
+        if (chatForm) {
+            // Allow sending by pressing Enter
+            messageInput.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    if (messageInput.value.trim() !== '') {
+                        chatForm.dispatchEvent(new Event('submit'));
+                    }
+                }
+            });
+
+            chatForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const message = messageInput.value.trim();
             if (!message) return;
 
             // --- OPTIMISTIC UI: Append message immediately ---
