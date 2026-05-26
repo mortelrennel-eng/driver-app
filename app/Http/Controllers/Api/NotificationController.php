@@ -163,8 +163,9 @@ class NotificationController extends Controller
         $pushedCount = 0;
         $failedCount = 0;
 
-        // Get all registered FCM tokens in database
+        // Get FCM tokens for admin/staff only (not drivers)
         $tokens = DB::table('users')
+            ->whereIn('role', ['admin', 'superadmin', 'staff'])
             ->whereNotNull('fcm_token')
             ->where('fcm_token', '!=', '')
             ->pluck('fcm_token')
