@@ -154,4 +154,28 @@ class SupportController extends Controller
             'message' => $msg
         ]);
     }
+
+    /**
+     * Delete/Unsend a chat message sent by the driver.
+     */
+    public function deleteMessage($id)
+    {
+        $msg = \App\Models\SupportMessage::where('id', $id)
+            ->where('driver_id', Auth::id())
+            ->where('sender_type', 'driver')
+            ->first();
+
+        if ($msg) {
+            $msg->delete();
+            return response()->json([
+                'success' => true,
+                'message' => 'Message unsent successfully.'
+            ]);
+        }
+
+        return response()->json([
+            'success' => false,
+            'message' => 'Message not found or unauthorized.'
+        ], 403);
+    }
 }

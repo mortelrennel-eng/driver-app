@@ -146,6 +146,7 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::get('/messages', [\App\Http\Controllers\Api\SupportController::class, 'getMessages']);
             Route::post('/messages', [\App\Http\Controllers\Api\SupportController::class, 'sendMessage']);
             Route::post('/messages/send', [\App\Http\Controllers\Api\SupportController::class, 'sendMessage']); // Fallback for app
+            Route::delete('/messages/{id}', [\App\Http\Controllers\Api\SupportController::class, 'deleteMessage']);
         });
 
         Route::prefix('announcements')->group(function () {
