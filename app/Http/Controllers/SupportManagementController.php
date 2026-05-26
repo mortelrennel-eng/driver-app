@@ -140,6 +140,19 @@ class SupportManagementController extends Controller
     }
 
     /**
+     * Delete/Unsend a message sent by admin.
+     */
+    public function deleteMessage($id)
+    {
+        $msg = SupportMessage::where('id', $id)->where('sender_type', 'admin')->first();
+        if ($msg) {
+            $msg->delete();
+            return response()->json(['success' => true]);
+        }
+        return response()->json(['success' => false, 'message' => 'Message not found or unauthorized.'], 403);
+    }
+
+    /**
      * (Optional) Keep the old ticket-based show for backward compatibility if needed, 
      * but we are moving to Messenger style.
      */

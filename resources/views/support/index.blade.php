@@ -88,6 +88,11 @@
                                 <span class="text-[9px] font-bold text-gray-400 uppercase tracking-tighter">
                                     {{ $msg->created_at->diffForHumans() }}
                                 </span>
+                                @if($msg->sender_type == 'admin')
+                                <button type="button" onclick="deleteMessage({{ $msg->id }}, this)" class="text-red-400 hover:text-red-600 transition-colors opacity-0 group-hover:opacity-100" title="Unsend Message">
+                                    <i data-lucide="trash-2" class="w-3 h-3"></i>
+                                </button>
+                                @endif
                             </div>
                             <div class="px-4 py-3 rounded-2xl text-sm shadow-sm {{ $msg->sender_type == 'admin' ? 'bg-yellow-600 text-white rounded-tr-none' : 'bg-white text-gray-800 border border-gray-100 rounded-tl-none' }}">
                                 @if($msg->attachment)
@@ -232,6 +237,11 @@
                     <div class="max-w-[70%] group">
                         <div class="flex items-center gap-2 mb-1 ${isSystem ? 'flex-row-reverse' : ''}">
                             <span class="text-[9px] font-bold text-gray-400 uppercase tracking-tighter">${time}</span>
+                            ${isSystem ? `
+                            <button type="button" onclick="deleteMessage(${msg.id}, this)" class="text-red-400 hover:text-red-600 transition-colors opacity-0 group-hover:opacity-100" title="Unsend Message">
+                                <i data-lucide="trash-2" class="w-3 h-3"></i>
+                            </button>
+                            ` : ''}
                         </div>
                         <div class="px-4 py-3 rounded-2xl text-sm shadow-sm ${isSystem ? 'bg-yellow-600 text-white rounded-tr-none' : 'bg-white text-gray-800 border border-gray-100 rounded-tl-none'}">
                             ${msg.attachment ? `
@@ -246,7 +256,37 @@
                 chatContainer.appendChild(div);
             });
             chatContainer.scrollTop = chatContainer.scrollHeight;
+            lucide.createIcons();
         }
+
+        window.deleteMessage = async function(id, btn) {
+            if (!confirm('Are you sure you want to unsend this message?')) return;
+            
+            const msgDiv = btn.closest('.flex');
+            msgDiv.style.opacity = '0.5';
+            
+            try {
+                const response = await fetch(`/support-center/message/${id}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                        'Accept': 'application/json'
+                    }
+                });
+                
+                const data = await response.json();
+                if (data.success) {
+                    msgDiv.remove();
+                } else {
+                    alert(data.message || 'Failed to unsend message');
+                    msgDiv.style.opacity = '1';
+                }
+            } catch (e) {
+                console.error(e);
+                alert('Network error while unsending message');
+                msgDiv.style.opacity = '1';
+            }
+        };
 
         function updateDriverList(drivers) {
             let currentTotalUnread = 0;
