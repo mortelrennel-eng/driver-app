@@ -21,6 +21,26 @@ const BASE_LOCAL  = __dirname;
 
 const filesToUpload = [
     {
+        local:  'app/Http/Controllers/SupportManagementController.php',
+        remote: `${BASE_REMOTE}/app/Http/Controllers/SupportManagementController.php`
+    },
+    {
+        local:  'resources/views/support/index.blade.php',
+        remote: `${BASE_REMOTE}/resources/views/support/index.blade.php`
+    },
+    {
+        local:  'app/Http/Controllers/Api/SupportController.php',
+        remote: `${BASE_REMOTE}/app/Http/Controllers/Api/SupportController.php`
+    },
+    {
+        local:  'app/Http/Controllers/Api/AuthController.php',
+        remote: `${BASE_REMOTE}/app/Http/Controllers/Api/AuthController.php`
+    },
+    {
+        local:  'database/migrations/2026_05_26_152000_add_hidden_columns_to_support_messages.php',
+        remote: `${BASE_REMOTE}/database/migrations/2026_05_26_152000_add_hidden_columns_to_support_messages.php`
+    },
+    {
         local:  'routes/api.php',
         remote: `${BASE_REMOTE}/routes/api.php`
     },
@@ -33,61 +53,17 @@ const filesToUpload = [
         remote: `${BASE_REMOTE}/app/Http/Controllers/Api/DriverAppController.php`
     },
     {
-        local:  'app/Http/Controllers/SuperAdminController.php',
-        remote: `${BASE_REMOTE}/app/Http/Controllers/SuperAdminController.php`
-    },
-    {
-        local:  'app/Http/Controllers/ArchiveController.php',
-        remote: `${BASE_REMOTE}/app/Http/Controllers/ArchiveController.php`
-    },
-    {
-        local:  'resources/views/archive/index.blade.php',
-        remote: `${BASE_REMOTE}/resources/views/archive/index.blade.php`
-    },
-    {
-        local:  'resources/views/archive/partials/_user_accounts_table.blade.php',
-        remote: `${BASE_REMOTE}/resources/views/archive/partials/_user_accounts_table.blade.php`
-    },
-    {
-        local:  'resources/views/layouts/app.blade.php',
-        remote: `${BASE_REMOTE}/resources/views/layouts/app.blade.php`
-    },
-    {
-        local:  'app/Http/Controllers/Api/AuthController.php',
-        remote: `${BASE_REMOTE}/app/Http/Controllers/Api/AuthController.php`
-    },
-    {
-        local:  'app/helpers.php',
-        remote: `${BASE_REMOTE}/app/helpers.php`
-    },
-    {
-        local:  'app/Helpers/SemaphoreHelper.php',
-        remote: `${BASE_REMOTE}/app/Helpers/SemaphoreHelper.php`
-    },
-    {
-        local:  'resources/views/support/index.blade.php',
-        remote: `${BASE_REMOTE}/resources/views/support/index.blade.php`
+        local:  'app/Http/Controllers/Api/NotificationController.php',
+        remote: `${BASE_REMOTE}/app/Http/Controllers/Api/NotificationController.php`
     },
     {
         local:  'app/Http/Controllers/AuthController.php',
         remote: `${BASE_REMOTE}/app/Http/Controllers/AuthController.php`
-    },
-    {
-        local:  'app/Http/Controllers/GitHubAuthController.php',
-        remote: `${BASE_REMOTE}/app/Http/Controllers/GitHubAuthController.php`
-    },
-    {
-        local:  'database/migrations/2026_05_10_205500_make_driver_user_id_nullable_and_prevent_cascade.php',
-        remote: `${BASE_REMOTE}/database/migrations/2026_05_10_205500_make_driver_user_id_nullable_and_prevent_cascade.php`
-    },
-    {
-        local:  'app/Http/Controllers/ArchiveController.php',
-        remote: `${BASE_REMOTE}/app/Http/Controllers/ArchiveController.php`
-    },
+    }
 ];
 
-// Post-upload commands to clear caches
-const POST_COMMANDS = `cd ${BASE_REMOTE} && php artisan view:clear && php artisan optimize:clear && echo "---CACHE_CLEARED---"`;
+// Post-upload commands to clear caches and migrate
+const POST_COMMANDS = `cd ${BASE_REMOTE} && php artisan migrate --force && php artisan view:clear && php artisan optimize:clear && echo "---CACHE_CLEARED---"`;
 
 console.log('--- SFTP DEPLOY START ---');
 console.log(`Uploading ${filesToUpload.length} files to Hostinger...`);
