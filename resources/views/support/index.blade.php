@@ -89,9 +89,19 @@
                                     {{ $msg->created_at->diffForHumans() }}
                                 </span>
                                 @if($msg->sender_type == 'admin')
-                                <button type="button" onclick="deleteMessage({{ $msg->id }}, this)" class="text-red-400 hover:text-red-600 transition-colors opacity-0 group-hover:opacity-100" title="Unsend Message">
-                                    <i data-lucide="trash-2" class="w-3 h-3"></i>
-                                </button>
+                                <div class="relative inline-block dropdown-container">
+                                    <button type="button" onclick="toggleDropdown(this)" class="text-gray-400 hover:text-gray-600 transition-colors p-1 rounded-full hover:bg-gray-100" title="More options">
+                                        <i data-lucide="more-vertical" class="w-4 h-4"></i>
+                                    </button>
+                                    <div class="dropdown-menu absolute right-0 top-full mt-1 hidden bg-white rounded-xl shadow-lg border border-gray-100 py-1 min-w-[170px] z-50">
+                                        <button type="button" onclick="deleteMessage({{ $msg->id }}, this, 'for_everyone')" class="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2">
+                                            <i data-lucide="trash-2" class="w-3 h-3"></i> Unsend for everyone
+                                        </button>
+                                        <button type="button" onclick="deleteMessage({{ $msg->id }}, this, 'for_me')" class="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2">
+                                            <i data-lucide="eye-off" class="w-3 h-3"></i> Unsend for me
+                                        </button>
+                                    </div>
+                                </div>
                                 @endif
                             </div>
                             <div class="px-4 py-3 rounded-2xl text-sm shadow-sm {{ $msg->sender_type == 'admin' ? 'bg-yellow-600 text-white rounded-tr-none' : 'bg-white text-gray-800 border border-gray-100 rounded-tl-none' }}">
@@ -238,9 +248,19 @@
                         <div class="flex items-center gap-2 mb-1 ${isSystem ? 'flex-row-reverse' : ''}">
                             <span class="text-[9px] font-bold text-gray-400 uppercase tracking-tighter">${time}</span>
                             ${isSystem ? `
-                            <button type="button" onclick="deleteMessage(${msg.id}, this)" class="text-red-400 hover:text-red-600 transition-colors opacity-0 group-hover:opacity-100" title="Unsend Message">
-                                <i data-lucide="trash-2" class="w-3 h-3"></i>
-                            </button>
+                            <div class="relative inline-block dropdown-container">
+                                <button type="button" onclick="toggleDropdown(this)" class="text-gray-400 hover:text-gray-600 transition-colors p-1 rounded-full hover:bg-gray-100" title="More options">
+                                    <i data-lucide="more-vertical" class="w-4 h-4"></i>
+                                </button>
+                                <div class="dropdown-menu absolute right-0 top-full mt-1 hidden bg-white rounded-xl shadow-lg border border-gray-100 py-1 min-w-[170px] z-50">
+                                    <button type="button" onclick="deleteMessage(${msg.id}, this, 'for_everyone')" class="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2">
+                                        <i data-lucide="trash-2" class="w-3 h-3"></i> Unsend for everyone
+                                    </button>
+                                    <button type="button" onclick="deleteMessage(${msg.id}, this, 'for_me')" class="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2">
+                                        <i data-lucide="eye-off" class="w-3 h-3"></i> Unsend for me
+                                    </button>
+                                </div>
+                            </div>
                             ` : ''}
                         </div>
                         <div class="px-4 py-3 rounded-2xl text-sm shadow-sm ${isSystem ? 'bg-yellow-600 text-white rounded-tr-none' : 'bg-white text-gray-800 border border-gray-100 rounded-tl-none'}">
@@ -259,8 +279,29 @@
             lucide.createIcons();
         }
 
-        window.deleteMessage = async function(id, btn) {
-            if (!confirm('Are you sure you want to unsend this message?')) return;
+        window.toggleDropdown = function(btn) {
+            document.querySelectorAll('.dropdown-menu').forEach(menu => {
+                if (menu !== btn.nextElementSibling) {
+                    menu.classList.add('hidden');
+                }
+            });
+            btn.nextElementSibling.classList.toggle('hidden');
+        };
+
+        document.addEventListener('click', function(e) {
+            if (!e.target.closest('.dropdown-container')) {
+                document.querySelectorAll('.dropdown-menu').forEach(menu => {
+                    menu.classList.add('hidden');
+                });
+            }
+        });
+
+        window.deleteMessage = async function(id, btn, type = 'for_everyone') {
+            const confirmMsg = type === 'for_everyone' 
+                ? 'Are you sure you want to unsend this message for everyone?'
+                : 'Are you sure you want to unsend this message for yourself?';
+                
+            if (!confirm(confirmMsg)) return;
             
             const msgDiv = btn.closest('.flex');
             msgDiv.style.opacity = '0.5';
@@ -270,8 +311,10 @@
                     method: 'DELETE',
                     headers: {
                         'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                        'Content-Type': 'application/json',
                         'Accept': 'application/json'
-                    }
+                    },
+                    body: JSON.stringify({ type: type })
                 });
                 
                 const data = await response.json();
@@ -332,7 +375,7 @@
                 if (e.key === 'Enter' && !e.shiftKey) {
                     e.preventDefault();
                     if (messageInput.value.trim() !== '') {
-                        chatForm.dispatchEvent(new Event('submit'));
+                        sendButton.click();
                     }
                 }
             });

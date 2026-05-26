@@ -92,6 +92,7 @@ class SupportController extends Controller
             ->update(['is_read' => true]);
 
         $messages = \App\Models\SupportMessage::where('driver_id', Auth::id())
+            ->where('hidden_by_driver', false)
             ->leftJoin('users', 'support_messages.sender_id', '=', 'users.id')
             ->select(
                 'support_messages.*',
@@ -158,15 +159,21 @@ class SupportController extends Controller
     /**
      * Delete/Unsend a chat message sent by the driver.
      */
-    public function deleteMessage($id)
+    public function deleteMessage(Request $request, $id)
     {
+        $type = $request->input('type', 'for_everyone');
         $msg = \App\Models\SupportMessage::where('id', $id)
             ->where('driver_id', Auth::id())
             ->where('sender_type', 'driver')
             ->first();
 
         if ($msg) {
-            $msg->delete();
+            if ($type === 'for_me') {
+                $msg->hidden_by_driver = true;
+                $msg->save();
+            } else {
+                $msg->delete();
+            }
             return response()->json([
                 'success' => true,
                 'message' => 'Message unsent successfully.'

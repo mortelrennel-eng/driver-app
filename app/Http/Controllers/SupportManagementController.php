@@ -51,6 +51,7 @@ class SupportManagementController extends Controller
                 ->update(['is_read' => true]);
 
             $chatMessages = SupportMessage::where('driver_id', $selectedDriverId)
+                ->where('hidden_by_admin', false)
                 ->orderBy('created_at', 'asc')
                 ->get();
         }
@@ -70,6 +71,7 @@ class SupportManagementController extends Controller
             ->update(['is_read' => true]);
 
         $messages = SupportMessage::where('driver_id', $driverId)
+            ->where('hidden_by_admin', false)
             ->orderBy('created_at', 'asc')
             ->get();
 
@@ -142,11 +144,17 @@ class SupportManagementController extends Controller
     /**
      * Delete/Unsend a message sent by admin.
      */
-    public function deleteMessage($id)
+    public function deleteMessage(Request $request, $id)
     {
+        $type = $request->input('type', 'for_everyone');
         $msg = SupportMessage::where('id', $id)->where('sender_type', 'admin')->first();
         if ($msg) {
-            $msg->delete();
+            if ($type === 'for_me') {
+                $msg->hidden_by_admin = true;
+                $msg->save();
+            } else {
+                $msg->delete();
+            }
             return response()->json(['success' => true]);
         }
         return response()->json(['success' => false, 'message' => 'Message not found or unauthorized.'], 403);
