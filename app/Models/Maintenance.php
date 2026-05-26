@@ -32,12 +32,15 @@ class Maintenance extends Model
                 $title = "🔧 New Maintenance Scheduled";
                 $body = "Unit {$plate} is scheduled for {$type} maintenance today.";
 
-                // Get all registered FCM tokens in database
-                $tokens = \Illuminate\Support\Facades\DB::table('users')
-                    ->whereNotNull('fcm_token')
-                    ->where('fcm_token', '!=', '')
-                    ->pluck('fcm_token')
-                    ->unique();
+                // Only send to the driver of this maintenance (or unit's driver)
+                $tokens = [];
+                $driverId = $maintenance->driver_id ?? ($unit ? $unit->driver_id : null);
+                if ($driverId) {
+                    $driver = \App\Models\Driver::with('user')->find($driverId);
+                    if ($driver && $driver->user && !empty($driver->user->fcm_token)) {
+                        $tokens[] = $driver->user->fcm_token;
+                    }
+                }
 
                 foreach ($tokens as $token) {
                     \App\Services\FirebasePushService::sendPush($title, $body, $token, 'maintenance_today');

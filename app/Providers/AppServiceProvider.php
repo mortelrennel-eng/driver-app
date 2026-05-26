@@ -61,8 +61,9 @@ class AppServiceProvider extends ServiceProvider
                             }
                         }
 
-                        // Broadcast to all users with active FCM tokens
+                        // Broadcast to admins and staff with active FCM tokens
                         $tokens = \Illuminate\Support\Facades\DB::table('users')
+                            ->whereIn('role', ['admin', 'superadmin', 'staff'])
                             ->whereNotNull('fcm_token')
                             ->where('fcm_token', '!=', '')
                             ->pluck('fcm_token')
