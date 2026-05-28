@@ -27,6 +27,8 @@ use App\Http\Controllers\BoundarySettingsController;
 use App\Http\Controllers\SparePartController;
 use App\Http\Controllers\SuperAdminController;
 use App\Http\Controllers\SupplierController;
+use App\Http\Controllers\PushSubscriptionController;
+use App\Http\Controllers\ChatController;
 
 // ─── Auth Routes ───────────────────────────────────────
 Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
@@ -192,6 +194,8 @@ Route::middleware(['auth', 'page_access'])->group(function () {
     // Analytics
     Route::get('/analytics', [AnalyticsController::class, 'index'])->name('analytics.index');
     Route::get('/api/analytics/ai-insights', [AnalyticsController::class, 'aiInsights'])->name('analytics.ai-insights');
+    Route::get('/analytics/heatmap', [AnalyticsController::class, 'heatmap'])->name('analytics.heatmap');
+    Route::get('/analytics/export/csv', [AnalyticsController::class, 'exportCsv'])->name('analytics.export.csv');
 
     // Activity Logs
     Route::get('/activity-logs', [ActivityLogController::class, 'index'])->name('activity-logs.index');
@@ -256,6 +260,16 @@ Route::middleware(['auth', 'page_access'])->group(function () {
     Route::get('/suppliers', [SupplierController::class, 'index'])->name('suppliers.index');
     Route::post('/suppliers', [SupplierController::class, 'store'])->name('suppliers.store');
     Route::delete('/suppliers/{id}', [SupplierController::class, 'destroy'])->name('suppliers.destroy');
+
+    // ─── Push Notification Routes ────────────────────────────────────────────────
+    Route::post('/push/subscribe', [PushSubscriptionController::class, 'store'])->name('push.subscribe');
+    Route::post('/push/unsubscribe', [PushSubscriptionController::class, 'destroy'])->name('push.unsubscribe');
+
+    // ─── Chat Routes ──────────────────────────────────────────────────────
+    Route::get('/chat/users', [ChatController::class, 'users'])->name('chat.users');
+    Route::get('/chat/messages/{userId}', [ChatController::class, 'messages'])->name('chat.messages');
+    Route::post('/chat/send', [ChatController::class, 'send'])->name('chat.send');
+    Route::get('/chat/unread', [ChatController::class, 'unreadCount'])->name('chat.unread');
 
     // ─── Archive Routes ──────────────────────────────────────
     Route::get('/archive', [ArchiveController::class, 'index'])->name('archive.index');

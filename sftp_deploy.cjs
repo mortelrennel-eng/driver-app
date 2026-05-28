@@ -19,54 +19,68 @@ const config = {
 const BASE_REMOTE = '/home/u747826271/domains/eurotaxisystem.site/public_html';
 const BASE_LOCAL  = __dirname;
 
+// ─── OUR files to push ────────────────────────────────────────────────────────
+// routes/web.php = merged version (web's new routes + our delete route restored)
+// All other files = our new features (support unsend, FCM token fix, auth)
 const filesToUpload = [
-    {
-        local:  'app/Http/Controllers/SupportManagementController.php',
-        remote: `${BASE_REMOTE}/app/Http/Controllers/SupportManagementController.php`
-    },
-    {
-        local:  'resources/views/support/index.blade.php',
-        remote: `${BASE_REMOTE}/resources/views/support/index.blade.php`
-    },
-    {
-        local:  'app/Http/Controllers/Api/SupportController.php',
-        remote: `${BASE_REMOTE}/app/Http/Controllers/Api/SupportController.php`
-    },
-    {
-        local:  'app/Http/Controllers/Api/AuthController.php',
-        remote: `${BASE_REMOTE}/app/Http/Controllers/Api/AuthController.php`
-    },
-    {
-        local:  'database/migrations/2026_05_26_152000_add_hidden_columns_to_support_messages.php',
-        remote: `${BASE_REMOTE}/database/migrations/2026_05_26_152000_add_hidden_columns_to_support_messages.php`
-    },
-    {
-        local:  'routes/api.php',
-        remote: `${BASE_REMOTE}/routes/api.php`
-    },
+    // routes/web.php — merged: web's push notification & chat routes + our delete support route
     {
         local:  'routes/web.php',
         remote: `${BASE_REMOTE}/routes/web.php`
     },
+    // api.php — our update: added delete message endpoint
+    {
+        local:  'routes/api.php',
+        remote: `${BASE_REMOTE}/routes/api.php`
+    },
+    // Support Management Controller — our update: unsend/delete feature
+    {
+        local:  'app/Http/Controllers/SupportManagementController.php',
+        remote: `${BASE_REMOTE}/app/Http/Controllers/SupportManagementController.php`
+    },
+    // Support view — our update: unsend UI + enter key send
+    {
+        local:  'resources/views/support/index.blade.php',
+        remote: `${BASE_REMOTE}/resources/views/support/index.blade.php`
+    },
+    // API SupportController — our update: delete message endpoint
+    {
+        local:  'app/Http/Controllers/Api/SupportController.php',
+        remote: `${BASE_REMOTE}/app/Http/Controllers/Api/SupportController.php`
+    },
+    // API AuthController — our update: FCM token fix
+    {
+        local:  'app/Http/Controllers/Api/AuthController.php',
+        remote: `${BASE_REMOTE}/app/Http/Controllers/Api/AuthController.php`
+    },
+    // DriverAppController — our update: FCM token overlap fix
     {
         local:  'app/Http/Controllers/Api/DriverAppController.php',
         remote: `${BASE_REMOTE}/app/Http/Controllers/Api/DriverAppController.php`
     },
+    // NotificationController — our update: FCM token overlap fix
     {
         local:  'app/Http/Controllers/Api/NotificationController.php',
         remote: `${BASE_REMOTE}/app/Http/Controllers/Api/NotificationController.php`
     },
+    // AuthController — our update: FCM token clear on login
     {
         local:  'app/Http/Controllers/AuthController.php',
         remote: `${BASE_REMOTE}/app/Http/Controllers/AuthController.php`
+    },
+    // Migration — hidden columns for support messages
+    {
+        local:  'database/migrations/2026_05_26_152000_add_hidden_columns_to_support_messages.php',
+        remote: `${BASE_REMOTE}/database/migrations/2026_05_26_152000_add_hidden_columns_to_support_messages.php`
     }
 ];
 
-// Post-upload commands to clear caches and migrate
-const POST_COMMANDS = `cd ${BASE_REMOTE} && php artisan migrate --force && php artisan view:clear && php artisan optimize:clear && echo "---CACHE_CLEARED---"`;
+// Post-upload: just clear cache, migration was already run
+const POST_COMMANDS = `cd ${BASE_REMOTE} && php artisan optimize:clear && php artisan config:clear && echo "---DONE---"`;
 
 console.log('--- SFTP DEPLOY START ---');
 console.log(`Uploading ${filesToUpload.length} files to Hostinger...`);
+console.log('NOTE: routes/web.php = MERGED (web routes kept + our delete route restored)\n');
 
 const conn = new Client();
 
@@ -88,7 +102,6 @@ conn.on('ready', () => {
                 console.log('\nClearing caches on server...');
                 sftp.end();
 
-                // Run cache clear commands
                 conn.exec(POST_COMMANDS, (err, stream) => {
                     if (err) {
                         console.error('Cache clear error:', err);
