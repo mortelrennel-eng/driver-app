@@ -13,7 +13,11 @@
                 Messages
             </h3>
             <div class="mt-4 relative">
-                <input type="text" id="driver_search_query" name="driver_search_query" autocomplete="new-password" placeholder="Search drivers..." class="w-full pl-10 pr-4 py-2 bg-gray-100 border-none rounded-xl text-sm focus:ring-2 focus:ring-yellow-500 outline-none">
+                <!-- Fake inputs to cheat Chrome autofill -->
+                <input type="text" style="display:none" aria-hidden="true" tabindex="-1">
+                <input type="password" style="display:none" aria-hidden="true" tabindex="-1">
+                
+                <input type="search" id="driver_search_query" name="driver_search_query" autocomplete="off" readonly onfocus="this.removeAttribute('readonly');" onblur="this.setAttribute('readonly', 'readonly');" placeholder="Search drivers..." class="w-full pl-10 pr-4 py-2 bg-gray-100 border-none rounded-xl text-sm focus:ring-2 focus:ring-yellow-500 outline-none">
                 <i data-lucide="search" class="w-4 h-4 text-gray-400 absolute left-3 top-2.5"></i>
             </div>
         </div>
@@ -237,6 +241,41 @@
 
         if (chatContainer) {
             chatContainer.scrollTop = chatContainer.scrollHeight;
+        }
+
+        // --- Sidebar Driver Search & Anti-Autofill ---
+        const searchInput = document.getElementById('driver_search_query');
+        if (searchInput) {
+            // 1. Live Sidebar Filtering
+            searchInput.addEventListener('input', function() {
+                const query = this.value.toLowerCase().trim();
+                const driverLinks = document.querySelectorAll('.custom-scrollbar a');
+                
+                driverLinks.forEach(link => {
+                    const nameSpan = link.querySelector('span.font-bold');
+                    if (nameSpan) {
+                        const name = nameSpan.textContent.toLowerCase();
+                        if (name.includes(query)) {
+                            link.style.display = 'flex';
+                        } else {
+                            link.style.display = 'none';
+                        }
+                    }
+                });
+            });
+
+            // 2. Extra Insurance: Clear browser autofill if it bypasses our HTML blocks
+            const clearAutofill = () => {
+                if (searchInput.value.includes('@') || searchInput.value === 'sonysunico02@gmail.com') {
+                    searchInput.value = '';
+                }
+            };
+            
+            // Run immediately, after 50ms, and on initial focus to catch delayed browser autofill
+            clearAutofill();
+            setTimeout(clearAutofill, 50);
+            setTimeout(clearAutofill, 150);
+            searchInput.addEventListener('focus', clearAutofill, { once: true });
         }
 
         // --- Polling for New Messages ---
