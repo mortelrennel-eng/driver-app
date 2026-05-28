@@ -41,13 +41,35 @@ class TracksolidService
     public function getAccessToken($forceRefresh = false)
     {
         $cacheKey = 'tracksolid_access_token_' . $this->username;
+        $backupPath = storage_path('framework/cache/tracksolid_token_backup.json');
         
         if ($forceRefresh) {
             Cache::forget($cacheKey);
+            if (file_exists($backupPath)) {
+                @unlink($backupPath);
+            }
         }
         
+        // 1. Check Laravel cache
         if (Cache::has($cacheKey)) {
             return Cache::get($cacheKey);
+        }
+
+        // 2. Check local persistent file backup (survives cache clear)
+        if (file_exists($backupPath)) {
+            try {
+                $backupData = json_decode(file_get_contents($backupPath), true);
+                if (is_array($backupData) && isset($backupData['token']) && isset($backupData['expires_at'])) {
+                    // If not expired, restore cache and return
+                    if (time() < $backupData['expires_at']) {
+                        $remaining = $backupData['expires_at'] - time();
+                        Cache::put($cacheKey, $backupData['token'], $remaining);
+                        return $backupData['token'];
+                    }
+                }
+            } catch (\Exception $e) {
+                // Ignore backup read errors
+            }
         }
 
         $params = [
@@ -62,12 +84,8 @@ class TracksolidService
             'user_pwd_md5'=> strlen($this->password) === 32 ? $this->password : md5($this->password),
         ];
 
-        // Ensure sign is null or omitted for v=0.9
-        // $params['sign'] = $this->generateSignature($params);
-
         try {
             $response = Http::asForm()->post($this->apiUrl, $params);
-            $body = $response->body();
             $data = $response->json();
 
             if (isset($data['code']) && $data['code'] == 0 && isset($data['result']['accessToken'])) {
@@ -77,14 +95,53 @@ class TracksolidService
                 // Cache token slightly shorter than its actual expiry
                 Cache::put($cacheKey, $token, $expiresIn - 60);
                 
+                // Save to local backup file
+                try {
+                    $dir = dirname($backupPath);
+                    if (!is_dir($dir)) {
+                        @mkdir($dir, 0755, true);
+                    }
+                    file_put_contents($backupPath, json_encode([
+                        'token' => $token,
+                        'expires_at' => time() + $expiresIn - 60
+                    ]));
+                } catch (\Exception $e) {
+                    // Ignore backup write errors
+                }
+                
                 return $token;
             }
 
             Log::error('Tracksolid API Token Error: ' . json_encode($data));
+
+            // 3. Fallback: If API returns rate-limiting error, use backup token anyway as best effort
+            if (file_exists($backupPath)) {
+                try {
+                    $backupData = json_decode(file_get_contents($backupPath), true);
+                    if (is_array($backupData) && isset($backupData['token'])) {
+                        return $backupData['token'];
+                    }
+                } catch (\Exception $e) {
+                    // Ignore
+                }
+            }
+            
             return null;
 
         } catch (\Exception $e) {
             Log::error('Tracksolid API Exception (Token): ' . $e->getMessage());
+
+            // Fallback: If connection failed, use backup token as best effort
+            if (file_exists($backupPath)) {
+                try {
+                    $backupData = json_decode(file_get_contents($backupPath), true);
+                    if (is_array($backupData) && isset($backupData['token'])) {
+                        return $backupData['token'];
+                    }
+                } catch (\Exception $e) {
+                    // Ignore
+                }
+            }
             return null;
         }
     }
@@ -326,21 +383,21 @@ class TracksolidService
         $token = $this->getAccessToken();
         if (!$token) return ['success' => false, 'error' => 'API Auth Failed'];
 
-        // 'Relay,1#' for cut-off, 'Relay,0#' for restore 
-        // Using "Custom" passing raw command
-        $paramValue = ($action === 'kill') ? 'Relay,1#' : 'Relay,0#';
+        // Tracksolid Pro API requires inst_param_json for jimi.open.instruction.send
+        $instParamJson = ($action === 'kill') 
+            ? json_encode(["inst_id" => 113, "inst_template" => "RELAY,1#", "params" => [], "is_cover" => true]) 
+            : json_encode(["inst_id" => 114, "inst_template" => "RELAY,0#", "params" => [], "is_cover" => true]);
 
         $params = [
-            'method'       => 'jimi.device.instruction.send',
-            'app_key'      => $this->appKey,
-            'access_token' => $token,
-            'timestamp'    => $this->getTimestamp(),
-            'format'       => 'json',
-            'v'            => '1.0',
-            'sign_method'  => 'md5',
-            'imei'         => $imei,
-            'cmd_type'     => 'Custom', 
-            'param'        => $paramValue,
+            'method'          => 'jimi.open.instruction.send',
+            'app_key'         => $this->appKey,
+            'access_token'    => $token,
+            'timestamp'       => $this->getTimestamp(),
+            'format'          => 'json',
+            'v'               => '1.0',
+            'sign_method'     => 'md5',
+            'imei'            => $imei,
+            'inst_param_json' => $instParamJson,
         ];
 
         $params['sign'] = $this->generateSignature($params);
@@ -350,11 +407,21 @@ class TracksolidService
             $data = $response->json();
 
             if (isset($data['code']) && $data['code'] == 0) {
-                return ['success' => true, 'data' => $data];
+                return ['success' => true, 'message' => 'Command executed successfully.', 'data' => $data];
+            }
+            
+            // 1002 means the device is offline, but the command was successfully queued.
+            if (isset($data['code']) && $data['code'] == 1002) {
+                return ['success' => true, 'message' => 'Command queued. Device is currently offline.', 'data' => $data];
+            }
+            
+            // 12005 / result code 225 means device rejected it (e.g. wire not connected or model doesn't support it)
+            if (isset($data['code']) && $data['code'] == 12005) {
+                return ['success' => false, 'error' => 'Tracker received the command but hardware rejected it (Result Code 225). Ensure Relay is wired.'];
             }
 
             Log::warning('Tracksolid Engine Command Rejected: ' . json_encode($data));
-            return ['success' => false, 'error' => $data['msg'] ?? 'Tracker rejected the command or is offline.'];
+            return ['success' => false, 'error' => $data['message'] ?? ($data['msg'] ?? 'Tracker rejected the command or API error.')];
 
         } catch (\Exception $e) {
             Log::error('Tracksolid API Exception (Engine Command): ' . $e->getMessage());

@@ -40,18 +40,66 @@ class LiveTrackingController extends Controller
             $liveMap = $liveData ? collect($liveData)->keyBy('imei') : collect();
             $apiActive = !is_null($liveData);
 
-            // Merge API data with local records
+            // Merge API data with local records and determine status in a single safe loop
             foreach ($tracked_units as $unit) {
+                // 1. If we have fresh live data, merge it first
                 if ($unit->imei && isset($liveMap[$unit->imei])) {
                     $gps = $liveMap[$unit->imei];
                     $unit->latitude = $gps['lat'] ?? $unit->latitude;
                     $unit->longitude = $gps['lng'] ?? $unit->longitude;
                     $unit->ignition_status = ($gps['accStatus'] ?? 0) == 1;
-                    $unit->speed = $unit->ignition_status ? ($gps['speed'] ?? $unit->speed) : 0;
+                    $unit->speed = (float)($gps['speed'] ?? 0);
                     $unit->heading = $gps['direction'] ?? $unit->heading;
                     $unit->last_update = $gps['gpsTime'] ?? $unit->last_update;
-                    
-                    // Update local cache table for history/others
+                }
+
+                // 2. Determine GPS status
+                $status = 'offline';
+                $diff = PHP_INT_MAX; 
+                $gpsDiff = PHP_INT_MAX;
+
+                if (isset($gps['hbTime']) && isset($gps['gpsTime'])) {
+                    $hbTs = strtotime($gps['hbTime'] . ' UTC');
+                    $gpsTs = strtotime($gps['gpsTime'] . ' UTC');
+                    $diff = abs(time() - max($hbTs, $gpsTs));
+                    $gpsDiff = abs(time() - $gpsTs);
+                } else if ($unit->last_update) {
+                    $lastUpdateTs = strtotime($unit->last_update . ' UTC');
+                    if ($lastUpdateTs !== false) {
+                        $diff = abs(time() - $lastUpdateTs);
+                        $gpsDiff = $diff;
+                    }
+                }
+
+                if ($diff < 600) {
+                    if ($unit->ignition_status) {
+                        // ACC is ON: Use Heartbeat to keep alive even if GPS is lost (Idling under roof)
+                        $actualSpeed = ($gpsDiff > 300) ? 0 : (float)($unit->speed ?? 0);
+                        $status = $actualSpeed > 2 ? 'moving' : 'idle';
+                    } else {
+                        // ACC is OFF: If GPS is old, consider it Offline (User preference)
+                        if ($gpsDiff > 600) {
+                            $status = 'offline';
+                        } else {
+                            $status = 'stopped';
+                        }
+                    }
+                } else {
+                    $status = 'offline';
+                }
+
+                $unit->gps_status = $status;
+
+                // GHOST SPEED & IGNITION FIX: Force speed=0 and ignition=false for offline/stopped statuses
+                if ($status === 'offline' || $status === 'stopped') {
+                    $unit->speed = 0;
+                }
+                if ($status === 'offline') {
+                    $unit->ignition_status = false;
+                }
+
+                // 3. Update local cache table with the CORRECTED/SAFE values (if live data is active)
+                if ($unit->imei && isset($liveMap[$unit->imei])) {
                     DB::table('gps_tracking')->updateOrInsert(
                         ['unit_id' => $unit->id],
                         [
@@ -65,30 +113,6 @@ class LiveTrackingController extends Controller
                         ]
                     );
                 }
-            }
-
-            // Determine GPS status for each unit
-            foreach ($tracked_units as $unit) {
-                $status = 'offline';
-                if ($unit->last_update) {
-                    $lastUpdateTs = strtotime($unit->last_update . ' UTC');
-                    $diff = time() - $lastUpdateTs;
-                    
-                    if (!$unit->ignition_status) {
-                        // Trackers often sleep when ignition is off. Consider them 'stopped' (parked).
-                        $status = 'stopped';
-                    } else {
-                        // Ignition is ON
-                        if ($diff < 600) { // Signal received within 10 mins
-                            $status = $unit->speed > 2 ? 'moving' : 'idle'; 
-                        } else {
-                            // Ignition ON but no signal for 10 mins
-                            $status = 'offline';
-                        }
-                    }
-                }
-                
-                $unit->gps_status = $status;
             }
 
             // Simulated stats logic
@@ -164,6 +188,14 @@ class LiveTrackingController extends Controller
                 }
             }
 
+            // UX Fix: Zero out speed if offline or stopped
+            if ($status === 'offline' || $status === 'stopped') {
+                $speed = 0;
+            }
+            if ($status === 'offline') {
+                $ignition = false;
+            }
+
             return response()->json([
                 'success' => true,
                 'data' => [
@@ -191,11 +223,13 @@ class LiveTrackingController extends Controller
             $units = DB::table('units as u')
                 ->leftJoin('drivers as d1', 'u.driver_id', '=', 'd1.id')
                 ->leftJoin('drivers as d2', 'u.secondary_driver_id', '=', 'd2.id')
+                ->leftJoin('gps_tracking as g', 'u.id', '=', 'g.unit_id')
                 ->select(
                     'u.id', 'u.plate_number', 'u.imei', 'u.status', 'u.driver_id',
-            DB::raw("TRIM(CONCAT(COALESCE(d1.first_name,''), ' ', COALESCE(d1.last_name,''))) as driver_name"),
-            DB::raw("TRIM(CONCAT(COALESCE(d2.first_name,''), ' ', COALESCE(d2.last_name,''))) as secondary_driver"),
-                    'd1.contact_number as driver_phone'
+                    DB::raw("TRIM(CONCAT(COALESCE(d1.first_name,''), ' ', COALESCE(d1.last_name,''))) as driver_name"),
+                    DB::raw("TRIM(CONCAT(COALESCE(d2.first_name,''), ' ', COALESCE(d2.last_name,''))) as secondary_driver"),
+                    'd1.contact_number as driver_phone',
+                    'g.latitude', 'g.longitude', 'g.speed as cached_speed', 'g.heading as cached_heading', 'g.ignition_status as cached_ignition', 'g.timestamp as last_update', 'g.odo as cached_odo'
                 )
                 ->orderBy('u.plate_number')
                 ->get();
@@ -208,42 +242,74 @@ class LiveTrackingController extends Controller
                 $gps = $liveMap[$unit->imei] ?? null;
                 
                 // Determine Status
-                $status = 'offline';
-                $lastUpdate = null;
-                $lat = null;
-                $lng = null;
-                $speed = 0;
+                $status   = 'offline';
+                $lastUpdate = $unit->last_update;
+                $lat      = $unit->latitude;
+                $lng      = $unit->longitude;
+                $speed    = 0;
                 $ignition = false;
+                $diff     = PHP_INT_MAX; // Default: assume very old signal
 
                 if ($gps) {
-                    $lat = $gps['lat'];
-                    $lng = $gps['lng'];
-                    $ignition = ($gps['accStatus'] ?? 0) == 1;
-                    $speed = $ignition ? (float)($gps['speed'] ?? 0) : 0;
-                    $lastUpdate = $gps['gpsTime'] ?? null;
+                    $lat        = $gps['lat'] ?? $lat;
+                    $lng        = $gps['lng'] ?? $lng;
+                    $ignition   = ($gps['accStatus'] ?? 0) == 1;
+                    $rawSpeed   = (float)($gps['speed'] ?? 0);
+                    $lastUpdate = $gps['gpsTime'] ?? $lastUpdate;
+                } else {
+                    // Fall back to database cached ignition & speed
+                    $ignition   = ($unit->cached_ignition ?? 0) == 1;
+                    $rawSpeed   = (float)($unit->cached_speed ?? 0);
+                }
 
-                    if ($lastUpdate) {
-                        $lastUpdateTs = strtotime($lastUpdate . ' UTC');
-                        $diff = time() - $lastUpdateTs;
-                        if ($diff < 600) { // Within 10 minutes
-                            if ($ignition) {
-                                $status = $speed > 2 ? 'moving' : 'idle';
-                            } else {
-                                $status = 'stopped';
-                            }
-                        }
+                // Determine Status
+                $diff = PHP_INT_MAX;
+                $gpsDiff = PHP_INT_MAX;
+                
+                if ($gps && isset($gps['hbTime']) && isset($gps['gpsTime'])) {
+                    $hbTs = strtotime($gps['hbTime'] . ' UTC');
+                    $gpsTs = strtotime($gps['gpsTime'] . ' UTC');
+                    $diff = abs(time() - max($hbTs, $gpsTs));
+                    $gpsDiff = abs(time() - $gpsTs);
+                    
+                    if ($gpsDiff > 300) {
+                        $rawSpeed = 0;
+                    }
+                } else if ($lastUpdate) {
+                    $ts = strtotime($lastUpdate . ' UTC');
+                    if ($ts !== false) {
+                        $diff = abs(time() - $ts);
+                        $gpsDiff = $diff;
                     }
                 }
-                
-                $offlineDuration = '';
-                if ($status === 'offline' && isset($diff)) {
-                    $hours = floor($diff / 3600);
-                    $minutes = floor(($diff % 3600) / 60);
-                    if ($hours > 0) {
-                        $offlineDuration = "{$hours}h {$minutes}m";
+
+                if ($diff < 600) {
+                    if ($ignition) {
+                        $speed  = $rawSpeed;
+                        $status = $speed > 2 ? 'moving' : 'idle';
                     } else {
-                        $offlineDuration = "{$minutes}m";
+                        if ($gpsDiff > 600) {
+                            $status = 'offline';
+                        } else {
+                            $status = 'stopped';
+                        }
                     }
+                } else {
+                    $status = 'offline';
+                }
+
+                // GHOST SPEED FIX: Guarantee speed=0 for non-active statuses
+                if ($status === 'offline' || $status === 'stopped') {
+                    $speed    = 0;
+                    $ignition = false;
+                }
+
+                // Build human-readable offline duration string
+                $offlineDuration = '';
+                if ($status === 'offline' && $diff < PHP_INT_MAX) {
+                    $hours   = (int) floor($diff / 3600);
+                    $minutes = (int) floor(($diff % 3600) / 60);
+                    $offlineDuration = $hours > 0 ? "{$hours}h {$minutes}m" : "{$minutes}m";
                 }
 
                 return [
@@ -259,8 +325,8 @@ class LiveTrackingController extends Controller
                     'offline_display' => $offlineDuration,
                     'latitude'        => $lat,
                     'longitude'       => $lng,
-                    'angle'           => $gps['direction'] ?? 0,
-                    'odo'             => $gps['currentMileage'] ?? 0,
+                    'angle'           => $gps['direction'] ?? $unit->cached_heading ?? 0,
+                    'odo'             => $gps['currentMileage'] ?? $unit->cached_odo ?? 0,
                     'u_status'        => $unit->status,
                     'daily_dist'      => 0 // Handled in sync below
                 ];
@@ -356,9 +422,9 @@ class LiveTrackingController extends Controller
                 return response()->json(['success' => false, 'error' => 'IMEI not found']);
             }
 
-            // Calculate start of day (00:00:00 UTC)
-            // Tracksolid API uses UTC
-            $beginTime = gmdate('Y-m-d 00:00:00'); 
+            // Calculate start of day (00:00:00 PHT -> UTC)
+            // Tracksolid API expects UTC time. Manila 00:00:00 is previous day 16:00:00 UTC.
+            $beginTime = now()->timezone('Asia/Manila')->startOfDay()->timezone('UTC')->format('Y-m-d H:i:s');
             $endTime = gmdate('Y-m-d H:i:s');
 
             $mileageData = $this->tracksolid->getMileage($unit->imei, $beginTime, $endTime);

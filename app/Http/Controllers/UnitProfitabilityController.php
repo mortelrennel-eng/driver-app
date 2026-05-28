@@ -40,30 +40,47 @@ class UnitProfitabilityController extends Controller
                 COALESCE(u.year, 0) as year,
                 COALESCE(u.purchase_cost, 0) as purchase_cost,
                 COALESCE(u.boundary_rate, 0) as boundary_rate,
-                COALESCE(SUM(CASE WHEN b.date BETWEEN ? AND ? THEN b.actual_boundary ELSE 0 END), 0) as total_boundary,
-                COALESCE(SUM(CASE WHEN b.date BETWEEN ? AND ? THEN b.boundary_amount ELSE 0 END), 0) as total_target_boundary,
-                COALESCE(COUNT(DISTINCT CASE WHEN b.date BETWEEN ? AND ? THEN b.id END), 0) as boundary_days,
-                COALESCE(SUM(CASE WHEN m.date_started BETWEEN ? AND ? THEN m.cost ELSE 0 END), 0) as total_maintenance,
-                COALESCE(COUNT(DISTINCT CASE WHEN m.date_started BETWEEN ? AND ? THEN m.id END), 0) as maintenance_days,
-                COALESCE(SUM(CASE WHEN e.date BETWEEN ? AND ? THEN e.amount ELSE 0 END), 0) as total_expenses,
-                COALESCE(COUNT(DISTINCT CASE WHEN e.date BETWEEN ? AND ? THEN e.id END), 0) as expense_days
+                COALESCE(b.total_boundary, 0) as total_boundary,
+                COALESCE(b.total_target_boundary, 0) as total_target_boundary,
+                COALESCE(b.boundary_days, 0) as boundary_days,
+                COALESCE(m.total_maintenance, 0) as total_maintenance,
+                COALESCE(m.maintenance_days, 0) as maintenance_days,
+                COALESCE(e.total_expenses, 0) as total_expenses,
+                COALESCE(e.expense_days, 0) as expense_days
             FROM units u
-            LEFT JOIN boundaries b ON u.id = b.unit_id AND b.deleted_at IS NULL
-            LEFT JOIN maintenance m ON u.id = m.unit_id AND m.deleted_at IS NULL
-            LEFT JOIN expenses e ON u.id = e.unit_id AND e.deleted_at IS NULL
+            LEFT JOIN (
+                SELECT unit_id,
+                       SUM(actual_boundary) as total_boundary,
+                       SUM(boundary_amount) as total_target_boundary,
+                       COUNT(DISTINCT id) as boundary_days
+                FROM boundaries
+                WHERE deleted_at IS NULL AND date BETWEEN ? AND ?
+                GROUP BY unit_id
+            ) b ON u.id = b.unit_id
+            LEFT JOIN (
+                SELECT unit_id,
+                       SUM(cost) as total_maintenance,
+                       COUNT(DISTINCT id) as maintenance_days
+                FROM maintenance
+                WHERE deleted_at IS NULL AND date_started BETWEEN ? AND ?
+                GROUP BY unit_id
+            ) m ON u.id = m.unit_id
+            LEFT JOIN (
+                SELECT unit_id,
+                       SUM(ABS(amount)) as total_expenses,
+                       COUNT(DISTINCT id) as expense_days
+                FROM expenses
+                WHERE deleted_at IS NULL AND date BETWEEN ? AND ?
+                GROUP BY unit_id
+            ) e ON u.id = e.unit_id
             $where_clause
-            GROUP BY u.id, u.plate_number, u.make, u.model, u.year, u.purchase_cost, u.boundary_rate
             ORDER BY u.plate_number";
 
         // Build parameters array
         $all_params = array_merge(
-            [$date_from, $date_to], // total_boundary (actual)
-            [$date_from, $date_to], // total_target_boundary
-            [$date_from, $date_to], // boundary days
-            [$date_from, $date_to], // maintenance dates
-            [$date_from, $date_to], // maintenance days
-            [$date_from, $date_to], // expense dates
-            [$date_from, $date_to], // expense days
+            [$date_from, $date_to], // boundaries
+            [$date_from, $date_to], // maintenance
+            [$date_from, $date_to], // expenses
             $params
         );
 
@@ -159,24 +176,31 @@ class UnitProfitabilityController extends Controller
         $date_to = $request->input('date_to', date('Y-m-t'));
 
         // Gather critical data for AI
+        $boundariesSub = DB::table('boundaries')
+            ->whereNull('deleted_at')
+            ->whereBetween('date', [$date_from, $date_to])
+            ->select('unit_id', DB::raw('SUM(actual_boundary) as total_revenue'), DB::raw('COUNT(DISTINCT id) as active_days'))
+            ->groupBy('unit_id');
+
+        $maintSub = DB::table('maintenance')
+            ->whereNull('deleted_at')
+            ->whereBetween('date_started', [$date_from, $date_to])
+            ->select('unit_id', DB::raw('SUM(cost) as total_maintenance'))
+            ->groupBy('unit_id');
+
         $stats = DB::table('units as u')
-            ->leftJoin('boundaries as b', function($join) use ($date_from, $date_to) {
-                $join->on('u.id', '=', 'b.unit_id')->whereBetween('b.date', [$date_from, $date_to])->whereNull('b.deleted_at');
-            })
-            ->leftJoin('maintenance as m', function($join) use ($date_from, $date_to) {
-                $join->on('u.id', '=', 'm.unit_id')->whereBetween('m.date_started', [$date_from, $date_to])->whereNull('m.deleted_at');
-            })
+            ->leftJoinSub($boundariesSub, 'b', 'u.id', '=', 'b.unit_id')
+            ->leftJoinSub($maintSub, 'm', 'u.id', '=', 'm.unit_id')
             ->select(
                 'u.plate_number',
                 'u.make',
                 'u.model',
                 'u.purchase_cost',
-                DB::raw('COALESCE(SUM(b.actual_boundary), 0) as total_revenue'),
-                DB::raw('COALESCE(SUM(m.cost), 0) as total_maintenance'),
-                DB::raw('COUNT(DISTINCT b.id) as active_days')
+                DB::raw('COALESCE(b.total_revenue, 0) as total_revenue'),
+                DB::raw('COALESCE(m.total_maintenance, 0) as total_maintenance'),
+                DB::raw('COALESCE(b.active_days, 0) as active_days')
             )
             ->whereNull('u.deleted_at')
-            ->groupBy('u.id', 'u.plate_number', 'u.make', 'u.model', 'u.purchase_cost')
             ->get();
 
         $totalUnits = $stats->count();

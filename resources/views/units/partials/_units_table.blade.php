@@ -44,7 +44,7 @@
                 {{-- Grouped card: main row + health bar share one tbody --}}
                 <tbody class="modern-card-tbody">
                 {{-- Main Data Row --}}
-                <tr class="modern-row cursor-pointer group" onclick="viewUnitDetails({{ $unit->id }})">
+                <tr class="{{ $has_maintenance_data ? 'modern-row-has-sub' : 'modern-row' }} cursor-pointer group" onclick="viewUnitDetails({{ $unit->id }})">
                     {{-- Plate Number Info --}}
                     <td class="px-2 md:px-6 py-3 md:py-5 whitespace-nowrap">
                         <div class="flex flex-col">
@@ -165,12 +165,14 @@
 
                 {{-- Maintenance Bar Row (Sub-Row — stays inside same tbody card) --}}
                 @if($has_maintenance_data)
-                    <tr onclick="viewUnitDetails({{ $unit->id }})" style="cursor:pointer; background:white;">
+                    <tr class="modern-sub-row cursor-pointer" onclick="viewUnitDetails({{ $unit->id }})">
                         <td colspan="6" class="px-2 md:px-6 pb-4 pt-0">
                             @include('units.partials._maintenance_health_bar', ['unit' => $unit])
                         </td>
                     </tr>
                 @endif
+                {{-- Transparent spacer row to keep gaps between cards --}}
+                <tr class="h-2 bg-transparent"><td colspan="6" class="p-0"></td></tr>
                 </tbody>
 
             @empty

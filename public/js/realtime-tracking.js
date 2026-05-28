@@ -1,17 +1,31 @@
 let map;
 let markers = {};
 let selectedUnitId = null;
-let followingUnitId = null; // Track if we are following a specific unit
+let followingUnitId = null;
 let updateInterval;
 let isUpdating = false;
+let suppressAddressReset = false; // Flag to prevent popupopen from resetting address during auto-update
 
 document.addEventListener('DOMContentLoaded', function() {
     initMap();
     startTracking();
     
-    // Search and Filter listeners
-    document.getElementById('unitSearchInput').addEventListener('keyup', filterUnitsItems);
-    document.getElementById('statusFilterSelect').addEventListener('change', filterUnitsItems);
+    // Search: listen to both the contenteditable display div AND the hidden input's dispatched keyup
+    const searchDisplay = document.getElementById('unitSearchDisplay');
+    const searchInput   = document.getElementById('unitSearchInput');
+    const statusFilter  = document.getElementById('statusFilterSelect');
+
+    if (searchDisplay) {
+        searchDisplay.addEventListener('input', filterUnitsItems);
+        searchDisplay.addEventListener('keyup', filterUnitsItems);
+    }
+    // The blade JS bridge dispatches 'keyup' on the hidden input — listen there too
+    if (searchInput) {
+        searchInput.addEventListener('keyup', filterUnitsItems);
+    }
+    if (statusFilter) {
+        statusFilter.addEventListener('change', filterUnitsItems);
+    }
 });
 
 function initMap() {
@@ -29,7 +43,7 @@ function initMap() {
     map = L.map('mapViewer', {
         zoomControl:          false,
         minZoom:              8,              // zoom 8 ≈ all of Luzon visible
-        maxZoom:              19,
+        maxZoom:              22,             // allow deep zoom
         maxBounds:            luzonBounds,
         maxBoundsViscosity:   1.0,            // hard pan lock at Luzon edges
     }).setView(defaultCenter, 12);
@@ -37,10 +51,17 @@ function initMap() {
     // Store globally so the blade JS can resize & switch tiles
     window.liveMap = map;
 
-    window.defaultTileLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+    // Default: Google Maps with Live Traffic
+    window.googleTrafficLayer = L.tileLayer('https://mt1.google.com/vt/lyrs=m,traffic&x={x}&y={y}&z={z}', {
+        attribution: '&copy; Google Maps',
+        maxNativeZoom: 20,
+        maxZoom: 22
     });
-    window.defaultTileLayer.addTo(map);
+
+    // Register as defaultTileLayer so map-type-switcher in blade can restore it
+    window.defaultTileLayer = window.googleTrafficLayer;
+
+    window.googleTrafficLayer.addTo(map);
 
     // MMDA Restricted Zones Logic (Visual lines removed as per user request)
     const restrictedZonesGroup = L.layerGroup(); // Not added to map
@@ -62,6 +83,79 @@ function startTracking() {
     updateFleetData();
     // Poll every 5 seconds to match Tracksolid API real-time push
     updateInterval = setInterval(updateFleetData, 5000);
+
+    let geocodeQueue = [];
+    let isGeocoding = false;
+
+    async function processGeocodeQueue() {
+        if (isGeocoding || geocodeQueue.length === 0) return;
+        isGeocoding = true;
+        
+        const { lat, lng, unitId, resolve } = geocodeQueue.shift();
+        
+        try {
+            const addr = await getAddress(lat, lng, unitId, false);
+            resolve(addr);
+        } catch (e) {
+            resolve("Address service unavailable");
+        }
+        
+        setTimeout(() => {
+            isGeocoding = false;
+            processGeocodeQueue();
+        }, 1100); // Nominatim 1-second rate limit safety
+    }
+
+    function queueAddressFetch(lat, lng, unitId) {
+        return new Promise(resolve => {
+            geocodeQueue.push({ lat, lng, unitId, resolve });
+            processGeocodeQueue();
+        });
+    }
+
+    // ==========================================
+    // THE BULLETPROOF ADDRESS GUARDIAN
+    // ==========================================
+    // Leaflet has a fatal flaw where setIcon() recreates the DOM and resets it to the default string.
+    // This Guardian runs independently of Leaflet and forces the DOM to show the cached address.
+    setInterval(() => {
+        Object.keys(markers).forEach(unitId => {
+            const marker = markers[unitId];
+            if (!marker || !marker.isPopupOpen()) return;
+            
+            const addrEl = document.getElementById(`address-${unitId}`);
+            if (!addrEl) return;
+            
+            const txt = addrEl.textContent.trim();
+            
+            // If it says Loading or Unavailable, try to force the cache in
+            if (txt === 'Loading address...' || txt === 'Address service unavailable' || txt === '') {
+                const cached = unitAddressCache[unitId];
+                if (cached) {
+                    addrEl.textContent = cached;
+                    addrEl.style.color = '#374151'; // Ensure it doesn't look faded
+                    // Also force it into the Leaflet internal string so future redraws have it
+                    if (marker._popup) {
+                        marker._popup._content = marker._popup._content.replace('Loading address...', cached);
+                    }
+                }
+            } else if (unitAddressCache[unitId] && txt !== unitAddressCache[unitId]) {
+                // Failsafe: if the DOM somehow has garbage, force it back to the strict cached value
+                addrEl.textContent = unitAddressCache[unitId];
+            }
+        });
+    }, 250);
+
+    // Hardening: Pause polling when browser tab is sent to background
+    document.addEventListener('visibilitychange', function() {
+        if (document.hidden) {
+            clearInterval(updateInterval);
+        } else {
+            clearInterval(updateInterval);
+            updateFleetData();
+            updateInterval = setInterval(updateFleetData, 5000);
+        }
+    });
 }
 
 async function updateFleetData() {
@@ -81,17 +175,24 @@ async function updateFleetData() {
             updateStatsUI(data.stats);
             updateMapAndList(data.units);
             
-            // Mark last successful update
+            // Mark last successful update time
             const apiStatus = document.querySelector('.api-status-text');
             if (apiStatus) {
                 apiStatus.textContent = 'API Online';
                 apiStatus.className = 'api-status-text text-[10px] font-black text-green-600 uppercase';
             }
 
-            // Auto-follow logic
+            // Auto-follow logic: pan map to followed unit
             if (followingUnitId && markers[followingUnitId]) {
                 const latlng = markers[followingUnitId].getLatLng();
                 map.panTo(latlng, { animate: true, duration: 1 });
+            }
+        } else {
+            // Mark API as degraded if response comes back but not success
+            const apiStatus = document.querySelector('.api-status-text');
+            if (apiStatus) {
+                apiStatus.textContent = 'API Error';
+                apiStatus.className = 'api-status-text text-[10px] font-black text-red-500 uppercase';
             }
         }
     } catch (error) {
@@ -219,10 +320,11 @@ function updateListItemUI(unit) {
         }
     }
 
-    // Update Speed
+    // Update Speed — always safe: offline units guaranteed to be 0 from server
     const speedElem = item.querySelector('.unit-speed');
     if (speedElem) {
-        speedElem.textContent = parseFloat(unit.speed || 0).toFixed(1);
+        const safeSpeed = Math.max(0, parseFloat(unit.speed) || 0);
+        speedElem.textContent = safeSpeed.toFixed(1);
     }
 
     // Update Engine Status
@@ -249,17 +351,81 @@ function updateListItemUI(unit) {
 
 }
 
-async function getAddress(lat, lng) {
-// ... (rest of the file follows) ...
+// --- Persistent Address Cache (survives auto-refresh, backed by localStorage) ---
+const addressCache = {}; // In-memory fast cache: Key "lat3,lng3" (3 decimal = ~111m tolerance)
+const unitAddressCache = {}; // Per-unit last known address
+
+// Load previously saved addresses from localStorage on startup
+try {
+    const saved = JSON.parse(localStorage.getItem('eurotaxi_address_cache') || '{}');
+    Object.assign(addressCache, saved);
+    const savedUnit = JSON.parse(localStorage.getItem('eurotaxi_unit_address_cache') || '{}');
+    Object.assign(unitAddressCache, savedUnit);
+} catch(e) { /* localStorage unavailable, proceed with empty cache */ }
+
+function saveAddressCache() {
     try {
-        const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`, {
-            headers: { 'Accept-Language': 'en' }
-        });
-        const data = await response.json();
-        return data.display_name || "Address not found";
-    } catch (e) {
-        return "Address service unavailable";
+        // Only save string values (not pending Promises)
+        const toSave = {};
+        for (const k in addressCache) {
+            if (typeof addressCache[k] === 'string') toSave[k] = addressCache[k];
+        }
+        localStorage.setItem('eurotaxi_address_cache', JSON.stringify(toSave));
+        localStorage.setItem('eurotaxi_unit_address_cache', JSON.stringify(unitAddressCache));
+    } catch(e) { /* ignore */ }
+}
+
+async function getAddress(lat, lng, unitId) {
+    // Use 3 decimal places (~111m tolerance) to absorb GPS drift for stationary vehicles
+    const cacheKey = `${Number(lat).toFixed(3)},${Number(lng).toFixed(3)}`;
+    // Also check 4-decimal for moving vehicles where precision matters
+    const preciseCacheKey = `${Number(lat).toFixed(4)},${Number(lng).toFixed(4)}`;
+
+    // 1. Check precise in-memory cache first (fastest)
+    if (typeof addressCache[preciseCacheKey] === 'string') {
+        return Promise.resolve(addressCache[preciseCacheKey]);
     }
+    // 2. Check drift-tolerant cache (covers GPS micro-drift on parked vehicles)
+    if (typeof addressCache[cacheKey] === 'string') {
+        addressCache[preciseCacheKey] = addressCache[cacheKey]; // promote to precise key
+        return Promise.resolve(addressCache[cacheKey]);
+    }
+    // 3. Check per-unit cache (survives popup rebuilds even if coordinates changed slightly)
+    if (unitId && unitAddressCache[unitId]) {
+        return Promise.resolve(unitAddressCache[unitId]);
+    }
+    // 4. If already fetching (Promise in-flight), wait for it
+    if (addressCache[preciseCacheKey] instanceof Promise) {
+        return addressCache[preciseCacheKey];
+    }
+
+    const promise = fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`, {
+        headers: { 
+            'Accept-Language': 'en',
+            'User-Agent': 'EuroTaxiSystem-Geocoding-Hardened'
+        }
+    })
+    .then(response => {
+        if (!response.ok) throw new Error("Network response was not ok");
+        return response.json();
+    })
+    .then(data => {
+        const addr = data.display_name || "Address not found";
+        addressCache[cacheKey] = addr;
+        addressCache[preciseCacheKey] = addr;
+        if (unitId) unitAddressCache[unitId] = addr;
+        saveAddressCache(); // Persist to localStorage
+        return addr;
+    })
+    .catch(e => {
+        delete addressCache[preciseCacheKey];
+        // If we have any fallback, use it rather than showing error
+        if (unitId && unitAddressCache[unitId]) return unitAddressCache[unitId];
+        return "Address service unavailable";
+    });
+    
+    addressCache[preciseCacheKey] = promise;
+    return promise;
 }
 
 function updateMarker(unit) {
@@ -328,32 +494,41 @@ function updateMarker(unit) {
         iconAnchor: [30, 30] // center
     });
 
+    // === CAPTURE POPUP STATE BEFORE ANY LEAFLET OPERATIONS ===
+    // setIcon() in Leaflet can temporarily change popup state, so we must save everything first.
+    const wasPopupOpen = !!(markers[unit.unit_id] && markers[unit.unit_id].isPopupOpen());
 
     if (markers[unit.unit_id]) {
-        markers[unit.unit_id].setLatLng([unit.latitude, unit.longitude]);
-        markers[unit.unit_id].setIcon(carIcon);
+        const oldLatLng = markers[unit.unit_id].getLatLng();
+        const hasMoved = oldLatLng.lat !== parseFloat(unit.latitude) || oldLatLng.lng !== parseFloat(unit.longitude);
+        
+        if (hasMoved) {
+            markers[unit.unit_id].setLatLng([unit.latitude, unit.longitude]);
+        }
+
+        const currentIconHtml = markers[unit.unit_id].options.icon.options.html;
+        if (currentIconHtml !== carIconValue) {
+            markers[unit.unit_id].setIcon(carIcon);
+        }
 
         // Keep popup in view as unit moves — re-trigger autoPan if near viewport edge
-        if (markers[unit.unit_id].isPopupOpen()) {
+        if (markers[unit.unit_id].isPopupOpen() && hasMoved) {
             const pt  = map.latLngToContainerPoint(markers[unit.unit_id].getLatLng());
             const sz  = map.getSize();
-            const POPUP_RIGHT_EDGE = 380; // offset(170) + popup width(300) - buffer
+            const POPUP_RIGHT_EDGE = 380;
             const EDGE_PAD = 60;
             const nearEdge = pt.x < EDGE_PAD
                           || pt.x > sz.x - POPUP_RIGHT_EDGE
                           || pt.y < EDGE_PAD
                           || pt.y > sz.y - EDGE_PAD;
             if (nearEdge) {
-                markers[unit.unit_id].openPopup(); // re-triggers autoPan
+                markers[unit.unit_id].openPopup();
             }
         }
     } else {
         const marker = L.marker([unit.latitude, unit.longitude], { icon: carIcon }).addTo(map);
         marker.on('click', function() {
-            // Auto-lock onto the selected unit on map click without scrolling sidebar
             followingUnitId = unit.unit_id;
-            
-            // Wait for popup to open then update button text
             setTimeout(() => {
                 const followBtn = marker._popup?._contentNode?.querySelector('button[onclick^="toggleFollow"]');
                 if (followBtn) {
@@ -365,14 +540,20 @@ function updateMarker(unit) {
         markers[unit.unit_id] = marker;
     }
 
-    // Popup content - Upgraded for Pro Look
+    // Resolve the best available address for this unit RIGHT NOW
+    const bestAddress = unitAddressCache[unit.unit_id]
+        || addressCache[`${Number(unit.latitude).toFixed(3)},${Number(unit.longitude).toFixed(3)}`]
+        || addressCache[`${Number(unit.latitude).toFixed(4)},${Number(unit.longitude).toFixed(4)}`]
+        || null;
+
+    // Popup content - always uses best available address so template never shows "Loading address..." unnecessarily
     const popupContent = `
-        <div class="p-4 min-w-[280px] font-sans">
+        <div class="p-4 min-w-[280px] font-sans pro-popup-container">
             <div class="flex items-center justify-between border-b border-gray-100 pb-3 mb-3">
                 <div class="flex flex-col">
                     <div class="font-black text-gray-900 text-xl tracking-tight">${unit.plate_number}</div>
                 </div>
-                <div class="px-3 py-1 rounded-full bg-gray-50 text-[10px] font-black text-gray-500 uppercase border border-gray-100">${unit.gps_status}</div>
+                <div class="px-3 py-1 rounded-full bg-gray-50 text-[10px] font-black text-gray-500 uppercase border border-gray-100 popup-status-badge">${unit.gps_status}</div>
             </div>
             <div class="space-y-4">
                 <div class="flex items-center gap-3">
@@ -388,26 +569,28 @@ function updateMarker(unit) {
                 <div class="grid grid-cols-2 gap-3">
                     <div class="bg-gray-50 p-3 rounded-2xl border border-gray-100/50">
                         <div class="text-gray-400 font-black uppercase text-[9px] tracking-widest mb-1">Speed</div>
-                        <div class="text-lg font-black text-gray-900 leading-none">${unit.speed} <span class="text-xs text-gray-400 font-bold">km/h</span></div>
+                        <div class="text-lg font-black text-gray-900 leading-none">
+                            <span class="popup-speed-val">${Math.max(0, parseFloat(unit.speed) || 0).toFixed(1)}</span> <span class="text-xs text-gray-400 font-bold">km/h</span>
+                        </div>
                     </div>
                     <div class="bg-gray-50 p-3 rounded-2xl border border-gray-100/50">
                         <div class="text-gray-400 font-black uppercase text-[9px] tracking-widest mb-1">Ignition</div>
-                        <div class="text-lg font-black ${unit.ignition_status ? 'text-green-600' : 'text-gray-400'} leading-none">${unit.ignition_status ? 'ON' : 'OFF'}</div>
+                        <div class="text-lg font-black popup-ign-val ${unit.ignition_status ? 'text-green-600' : 'text-gray-400'} leading-none">${unit.ignition_status ? 'ON' : 'OFF'}</div>
                     </div>
                 </div>
 
                 <div class="grid grid-cols-2 gap-3">
                     <div class="bg-yellow-50/30 p-3 rounded-2xl border border-yellow-100/20">
                         <div class="text-yellow-600 font-black uppercase text-[9px] tracking-widest mb-1">Today's Dist.</div>
-                        <div class="text-base font-black text-gray-800 leading-none" id="daily-dist-${unit.unit_id}">
+                        <div class="text-base font-black text-gray-800 leading-none popup-dist-val">
                             ${unit.daily_dist} <span class="text-[10px] text-gray-400 font-bold">km</span>
                         </div>
                     </div>
                     <div class="bg-blue-50/20 p-3 rounded-2xl border border-blue-100/10">
                         <div class="text-blue-500 font-black uppercase text-[9px] tracking-widest mb-1">Total ODO</div>
                         <div class="text-base font-black text-gray-900 leading-none">
-                            ${parseFloat(unit.odo || 0).toLocaleString(undefined, {minimumFractionDigits: 1, maximumFractionDigits: 1})} <span class="text-[9px] text-gray-400">km</span>
-                            <div class="text-[8px] text-blue-400 font-bold mt-1" id="age-${unit.unit_id}">Calculating age...</div>
+                            <span class="popup-odo-val">${parseFloat(unit.odo || 0).toLocaleString(undefined, {minimumFractionDigits: 1, maximumFractionDigits: 1})}</span> <span class="text-[9px] text-gray-400">km</span>
+                            <div class="text-[8px] text-blue-400 font-bold mt-1 popup-age-val" id="age-${unit.unit_id}">Calculating age...</div>
                         </div>
                     </div>
                 </div>
@@ -417,8 +600,8 @@ function updateMarker(unit) {
                         <i data-lucide="map-pin" class="w-3 h-3 text-blue-500"></i>
                         <div class="text-blue-400 font-black uppercase text-[9px] tracking-widest">Current Location</div>
                     </div>
-                    <div class="text-[11px] font-bold text-gray-600 leading-tight address-text" id="address-${unit.unit_id}">
-                        Loading address...
+                    <div class="text-[11px] font-bold text-gray-600 leading-tight address-text popup-address-val" id="address-${unit.unit_id}">
+                        ${bestAddress || 'Loading address...'}
                     </div>
                 </div>
 
@@ -434,14 +617,12 @@ function updateMarker(unit) {
 
                 <div class="flex items-center justify-between pt-3 border-t border-gray-50 mt-3">
                     <div class="flex flex-col">
-                        <div class="text-[10px] text-gray-400 font-bold italic">
+                        <div class="text-[10px] text-gray-400 font-bold italic popup-sync-val">
                             Sync: ${unit.last_update || 'N/A'}
                         </div>
-                        ${unit.gps_status === 'offline' && unit.offline_display ? `
-                        <div class="text-[10px] text-red-500 font-black uppercase tracking-widest mt-0.5">
-                            Offline for: ${unit.offline_display}
+                        <div class="text-[10px] text-red-500 font-black uppercase tracking-widest mt-0.5 popup-offline-val" style="${unit.gps_status === 'offline' && unit.offline_display ? '' : 'display:none'}">
+                            Offline for: ${unit.offline_display || ''}
                         </div>
-                        ` : ''}
                     </div>
                     <button onclick="toggleFollow(${unit.unit_id})" class="text-[10px] font-black uppercase tracking-widest ${followingUnitId == unit.unit_id ? 'text-yellow-600' : 'text-blue-600'} hover:underline">
                         ${followingUnitId == unit.unit_id ? 'Following' : 'Follow Unit'}
@@ -452,35 +633,96 @@ function updateMarker(unit) {
     `;
 
     if (markers[unit.unit_id].getPopup()) {
-        markers[unit.unit_id].getPopup().setContent(popupContent);
+        const popup = markers[unit.unit_id].getPopup();
+        
+        // 1. Silently update Leaflet's internal content so any future redraws use the latest HTML (prevents "Loading address..." reversion)
+        popup._content = popupContent;
+
+        // 2. Perform surgical DOM update if the popup is visibly open right now
+        if (wasPopupOpen && popup._contentNode) {
+            const node = popup._contentNode;
+
+            const statusBadge = node.querySelector('.popup-status-badge');
+            if (statusBadge) statusBadge.textContent = unit.gps_status;
+
+            const speedEl = node.querySelector('.popup-speed-val');
+            if (speedEl) speedEl.textContent = Math.max(0, parseFloat(unit.speed) || 0).toFixed(1);
+
+            const ignEl = node.querySelector('.popup-ign-val');
+            if (ignEl) {
+                ignEl.textContent = unit.ignition_status ? 'ON' : 'OFF';
+                ignEl.className = `text-lg font-black popup-ign-val ${unit.ignition_status ? 'text-green-600' : 'text-gray-400'} leading-none`;
+            }
+
+            const distEl = node.querySelector('.popup-dist-val');
+            if (distEl) distEl.innerHTML = `${unit.daily_dist} <span class="text-[10px] text-gray-400 font-bold">km</span>`;
+
+            const odoEl = node.querySelector('.popup-odo-val');
+            if (odoEl) odoEl.textContent = parseFloat(unit.odo || 0).toLocaleString(undefined, {minimumFractionDigits: 1, maximumFractionDigits: 1});
+
+            const syncEl = node.querySelector('.popup-sync-val');
+            if (syncEl) syncEl.textContent = `Sync: ${unit.last_update || 'N/A'}`;
+
+            const offlineEl = node.querySelector('.popup-offline-val');
+            if (offlineEl) {
+                offlineEl.textContent = `Offline for: ${unit.offline_display || ''}`;
+                offlineEl.style.display = (unit.gps_status === 'offline' && unit.offline_display) ? '' : 'none';
+            }
+
+            // Address: ensure DOM matches bestAddress without flickering
+            const addrEl = node.querySelector('.popup-address-val');
+            if (addrEl) {
+                const addrTxt = addrEl.textContent.trim();
+                if (addrTxt === 'Loading address...' || addrTxt === 'Address service unavailable' || addrTxt === '') {
+                    if (bestAddress) addrEl.textContent = bestAddress;
+                } else {
+                    // Good address is already showing — save it to cache just in case
+                    unitAddressCache[unit.unit_id] = addrTxt;
+                    addressCache[`${Number(unit.latitude).toFixed(3)},${Number(unit.longitude).toFixed(3)}`] = addrTxt;
+                    addressCache[`${Number(unit.latitude).toFixed(4)},${Number(unit.longitude).toFixed(4)}`] = addrTxt;
+                    saveAddressCache();
+                }
+            }
+        } else if (!wasPopupOpen && popup.isOpen()) {
+            // Edge case: popup became open during this exact tick? Force a redraw
+            popup.setContent(popupContent);
+        }
     } else {
         markers[unit.unit_id].bindPopup(popupContent, {
             className: 'pro-popup',
             maxWidth: 300,
-            offset: [220, 200],         // 220px right so marker stays visible, 200px down to vertically centre
+            offset: [220, 200],
             autoPan: true,
-            autoPanPaddingTopLeft:     L.point(60, 140), // extra top room
+            autoPanPaddingTopLeft:     L.point(60, 140),
             autoPanPaddingBottomRight: L.point(60,  60),
         });
     }
 
-    // Fetch address on popup open
-    markers[unit.unit_id].on('popupopen', async function() {
+    // Register popupopen handler (only runs when popup was NOT open during this update)
+    markers[unit.unit_id].off('popupopen');
+    markers[unit.unit_id].on('popupopen', function() {
         if (typeof lucide !== 'undefined') lucide.createIcons();
         const addressEl = document.getElementById(`address-${unit.unit_id}`);
-        if (addressEl && addressEl.textContent.trim() === 'Loading address...') {
-            const addr = await getAddress(unit.latitude, unit.longitude);
-            addressEl.textContent = addr;
+        if (addressEl) {
+            const cached = unitAddressCache[unit.unit_id]
+                || addressCache[`${Number(unit.latitude).toFixed(3)},${Number(unit.longitude).toFixed(3)}`]
+                || addressCache[`${Number(unit.latitude).toFixed(4)},${Number(unit.longitude).toFixed(4)}`];
+            if (cached) {
+                addressEl.textContent = cached;
+            } else {
+                addressEl.textContent = 'Loading address...';
+                queueAddressFetch(unit.latitude, unit.longitude, unit.unit_id).then(addr => {
+                    const el = document.getElementById(`address-${unit.unit_id}`);
+                    if (el) el.textContent = addr;
+                });
+            }
         }
-
-        // Fetch age and sync mileage (one-time fetch per popup open)
         const ageEl = document.getElementById(`age-${unit.unit_id}`);
         if (ageEl && ageEl.textContent.trim() === 'Calculating age...') {
             syncUnitStats(unit.unit_id);
         }
     });
 }
-
 async function syncUnitStats(unitId) {
     try {
         const response = await fetch(`/live-tracking/unit-mileage/${unitId}`);
@@ -562,8 +804,12 @@ window.toggleFollow = function(unitId) {
 };
 
 function filterUnitsItems() {
-    const search = document.getElementById('unitSearchInput').value.toLowerCase().trim();
-    const status = document.getElementById('statusFilterSelect').value;
+    // Read from contenteditable display div (primary) or hidden input (fallback)
+    const displayEl = document.getElementById('unitSearchDisplay');
+    const hiddenEl  = document.getElementById('unitSearchInput');
+    const rawSearch = (displayEl ? (displayEl.innerText || displayEl.textContent || '') : (hiddenEl ? hiddenEl.value : '')).trim();
+    const search    = rawSearch.toLowerCase();
+    const status    = document.getElementById('statusFilterSelect')?.value || '';
 
     document.querySelectorAll('.unit-item').forEach(el => {
         const plateNum = (el.dataset.plateNumber || '').toLowerCase();

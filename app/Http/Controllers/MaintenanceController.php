@@ -115,7 +115,10 @@ class MaintenanceController extends Controller
 
         // Stock Purchase History from Expenses
         $purchaseHistory = DB::table('expenses')
-            ->where('category', 'maintenance')
+            ->where(function ($q) {
+                $q->where('category', 'like', '%part%')
+                  ->orWhere('category', 'like', '%maintenance%');
+            })
             ->whereNull('deleted_at')
             ->orderByDesc('date')
             ->orderByDesc('created_at')
@@ -266,7 +269,7 @@ class MaintenanceController extends Controller
             $plate = DB::table('units')->where('id', $maintenance->unit_id)->value('plate_number');
             ActivityLogController::log('Created Maintenance Record', "Unit: {$plate}\nType: " . ucwords($maintenance->maintenance_type) . "\nCost: ₱" . number_format($maintenance->cost, 2) . "\nParts used: " . ($maintenance->parts_list ?: 'None'));
 
-            return redirect()->route('maintenance.index')->with('success', 'Maintenance record added successfully');
+            return redirect()->to(route('maintenance.index', $request->only(['page', 'search', 'status', 'type', 'view'])))->with('success', 'Maintenance record added successfully');
         });
     }
 
@@ -394,7 +397,7 @@ class MaintenanceController extends Controller
             $plate = DB::table('units')->where('id', $maintenance->unit_id)->value('plate_number');
             ActivityLogController::log('Updated Maintenance Record', "Unit: {$plate}\nType: " . ucwords($maintenance->maintenance_type) . "\nRefreshed details and parts.");
 
-            return redirect()->route('maintenance.index')->with('success', 'Maintenance record updated successfully');
+            return redirect()->to(route('maintenance.index', $request->only(['page', 'search', 'status', 'type', 'view'])))->with('success', 'Maintenance record updated successfully');
         });
     }
 
@@ -431,7 +434,7 @@ class MaintenanceController extends Controller
 
             ActivityLogController::log('Archived Maintenance Record', "Unit: {$plate}\nType: " . ucwords($type) . "\nRecord archived and stock returned.");
 
-            return redirect()->route('maintenance.index')->with('success', 'Maintenance record archived and stock returned.');
+            return redirect()->to(route('maintenance.index', request()->only(['page', 'search', 'status', 'type', 'view'])))->with('success', 'Maintenance record archived and stock returned.');
         });
     }
 

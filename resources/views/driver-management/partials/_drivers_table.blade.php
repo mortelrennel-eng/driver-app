@@ -190,33 +190,13 @@
                     </td>
 
                     {{-- Actions --}}
-                    <td class="px-3 md:px-6 py-4 md:py-5 whitespace-nowrap text-right relative">
+                    <td class="px-3 md:px-6 py-4 md:py-5 whitespace-nowrap text-right">
                         <button type="button"
-                            class="p-1.5 md:p-2 text-gray-400 hover:text-gray-800 hover:bg-gray-200 rounded-full transition-colors focus:outline-none"
+                            class="driver-action-btn p-1.5 md:p-2 text-gray-400 hover:text-gray-800 hover:bg-gray-200 rounded-full transition-colors focus:outline-none"
+                            data-dropdown-id="dropdown-{{ $driver->id }}"
                             onclick="toggleDriverDropdown('dropdown-{{ $driver->id }}', event)" title="Actions">
                             <i data-lucide="more-vertical" class="w-4 h-4 md:w-5 md:h-5"></i>
                         </button>
-
-                        <div id="dropdown-{{ $driver->id }}"
-                            class="driver-action-dropdown hidden absolute right-8 mt-1 w-40 bg-white rounded-lg shadow-xl border border-gray-100 z-50 overflow-hidden transform transition-all">
-                            <button type="button"
-                                class="w-full text-left px-4 py-2.5 text-xs font-bold text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors flex items-center gap-2"
-                                onclick="event.stopPropagation(); document.getElementById('dropdown-{{ $driver->id }}').classList.add('hidden'); openEditDriverModal({{ $driver->id }})">
-                                <i data-lucide="edit-2" class="w-4 h-4"></i> Edit Driver
-                            </button>
-                            @if($driver->driver_status === 'banned')
-                            <button type="button"
-                                class="w-full text-left px-4 py-2.5 text-xs font-bold text-green-600 hover:bg-green-50 transition-colors flex items-center gap-2 border-t border-gray-50"
-                                onclick="event.stopPropagation(); document.getElementById('dropdown-{{ $driver->id }}').classList.add('hidden'); unbanDriver({{ $driver->id }}, '{{ $driver->full_name }}')">
-                                <i data-lucide="shield-check" class="w-4 h-4"></i> Unban Driver
-                            </button>
-                            @endif
-                            <button type="button"
-                                class="w-full text-left px-4 py-2.5 text-xs font-bold text-orange-600 hover:bg-orange-50 transition-colors flex items-center gap-2 border-t border-gray-50"
-                                onclick="event.stopPropagation(); document.getElementById('dropdown-{{ $driver->id }}').classList.add('hidden'); deleteDriver({{ $driver->id }}, '{{ $driver->full_name }}')">
-                                <i data-lucide="archive" class="w-4 h-4"></i> Archive
-                            </button>
-                        </div>
                     </td>
                 </tr>
             @empty
@@ -235,6 +215,31 @@
         </tbody>
     </table>
 </div>
+
+{{-- Floating dropdowns rendered at body level to escape overflow containers --}}
+@foreach($drivers as $driver)
+<div id="dropdown-{{ $driver->id }}"
+    class="driver-action-dropdown hidden fixed w-48 bg-white rounded-xl shadow-2xl border border-gray-100 py-1"
+    style="z-index: 99999;">
+    <button type="button"
+        class="w-full text-left px-4 py-3 text-xs font-bold text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors flex items-center gap-2.5"
+        onclick="event.stopPropagation(); closeAllDriverDropdowns(); openEditDriverModal({{ $driver->id }})">
+        <i data-lucide="edit-2" class="w-3.5 h-3.5"></i> Edit Driver
+    </button>
+    @if($driver->driver_status === 'banned')
+    <button type="button"
+        class="w-full text-left px-4 py-3 text-xs font-bold text-green-600 hover:bg-green-50 transition-colors flex items-center gap-2.5 border-t border-gray-50"
+        onclick="event.stopPropagation(); closeAllDriverDropdowns(); unbanDriver({{ $driver->id }}, '{{ $driver->full_name }}')">
+        <i data-lucide="shield-check" class="w-3.5 h-3.5"></i> Unban Driver
+    </button>
+    @endif
+    <button type="button"
+        class="w-full text-left px-4 py-3 text-xs font-bold text-orange-500 hover:bg-orange-50 transition-colors flex items-center gap-2.5 border-t border-gray-50"
+        onclick="event.stopPropagation(); closeAllDriverDropdowns(); deleteDriver({{ $driver->id }}, '{{ $driver->full_name }}')">
+        <i data-lucide="archive" class="w-3.5 h-3.5"></i> Archive
+    </button>
+</div>
+@endforeach
 
 @if($pagination['total_pages'] > 1)
     <div
@@ -268,31 +273,52 @@
 @endif
 
 <script>
-    // Define global functions to prevent re-declaration issues with AJAX
+    window.closeAllDriverDropdowns = function() {
+        document.querySelectorAll('.driver-action-dropdown').forEach(el => el.classList.add('hidden'));
+    };
+
     window.toggleDriverDropdown = function (id, event) {
-        event.stopPropagation(); // Prevent row click (which opens details)
+        event.stopPropagation();
 
-        // Close all other dropdowns
-        document.querySelectorAll('.driver-action-dropdown').forEach(el => {
-            if (el.id !== id) {
-                el.classList.add('hidden');
-            }
-        });
-
-        // Toggle the target dropdown
         const dropdown = document.getElementById(id);
-        if (dropdown) {
-            dropdown.classList.toggle('hidden');
+        if (!dropdown) return;
+
+        const isHidden = dropdown.classList.contains('hidden');
+
+        // Close all dropdowns first
+        window.closeAllDriverDropdowns();
+
+        if (isHidden) {
+            // Calculate position from the button's screen coordinates
+            const btn = event.currentTarget;
+            const rect = btn.getBoundingClientRect();
+            const dropW = 192; // w-48 = 12rem = 192px
+            const spaceBelow = window.innerHeight - rect.bottom;
+
+            // Position: prefer below-left of button
+            let top = rect.bottom + 6;
+            let left = rect.right - dropW;
+
+            // Flip up if not enough space below
+            if (spaceBelow < 160) {
+                top = rect.top - dropdown.offsetHeight - 6;
+            }
+            // Keep within viewport horizontally
+            if (left < 8) left = 8;
+            if (left + dropW > window.innerWidth - 8) left = window.innerWidth - dropW - 8;
+
+            dropdown.style.top  = top + 'px';
+            dropdown.style.left = left + 'px';
+            dropdown.classList.remove('hidden');
+
+            if (typeof lucide !== 'undefined') lucide.createIcons();
         }
     };
 
-    // Attach document listener only once
+    // Close on scroll or click outside
     if (!window.driverDropdownListenerAdded) {
-        document.addEventListener('click', function () {
-            document.querySelectorAll('.driver-action-dropdown').forEach(el => {
-                el.classList.add('hidden');
-            });
-        });
+        document.addEventListener('click', window.closeAllDriverDropdowns);
+        document.addEventListener('scroll', window.closeAllDriverDropdowns, true);
         window.driverDropdownListenerAdded = true;
     }
 

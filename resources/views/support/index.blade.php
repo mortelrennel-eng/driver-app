@@ -1,6 +1,7 @@
 @extends('layouts.app')
 
 @section('title', 'Driver Support Chat')
+@section('page-heading', 'Driver Support Chat')
 
 @section('content')
 <div class="flex h-[calc(100vh-180px)] bg-white rounded-3xl shadow-2xl shadow-gray-200/50 border border-gray-100 overflow-hidden">
@@ -12,7 +13,7 @@
                 Messages
             </h3>
             <div class="mt-4 relative">
-                <input type="text" placeholder="Search drivers..." class="w-full pl-10 pr-4 py-2 bg-gray-100 border-none rounded-xl text-sm focus:ring-2 focus:ring-yellow-500 outline-none">
+                <input type="text" id="driver_search_query" name="driver_search_query" autocomplete="new-password" placeholder="Search drivers..." class="w-full pl-10 pr-4 py-2 bg-gray-100 border-none rounded-xl text-sm focus:ring-2 focus:ring-yellow-500 outline-none">
                 <i data-lucide="search" class="w-4 h-4 text-gray-400 absolute left-3 top-2.5"></i>
             </div>
         </div>
@@ -94,11 +95,8 @@
                                         <i data-lucide="more-vertical" class="w-4 h-4"></i>
                                     </button>
                                     <div class="dropdown-menu absolute right-0 top-full mt-1 hidden bg-white rounded-xl shadow-lg border border-gray-100 py-1 min-w-[170px] z-50">
-                                        <button type="button" onclick="deleteMessage({{ $msg->id }}, this, 'for_everyone')" class="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2">
-                                            <i data-lucide="trash-2" class="w-3 h-3"></i> Unsend for everyone
-                                        </button>
-                                        <button type="button" onclick="deleteMessage({{ $msg->id }}, this, 'for_me')" class="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2">
-                                            <i data-lucide="eye-off" class="w-3 h-3"></i> Unsend for me
+                                        <button type="button" onclick="openUnsendModal({{ $msg->id }}, this)" class="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2">
+                                            <i data-lucide="trash-2" class="w-4 h-4"></i> Remove
                                         </button>
                                     </div>
                                 </div>
@@ -157,6 +155,62 @@
                 <p class="text-gray-500 text-sm max-w-xs">Select a driver from the left to start chatting or view support requests.</p>
             </div>
         @endif
+    </div>
+</div>
+
+<!-- FB Messenger Style Unsend Modal -->
+<div id="unsendModal" class="hidden fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm transition-opacity duration-200">
+    <div class="bg-white rounded-2xl w-full max-w-[450px] overflow-hidden shadow-2xl transform scale-95 opacity-0 transition-all duration-200" id="unsendModalContainer">
+        <!-- Header -->
+        <div class="p-4 flex justify-between items-center border-b border-gray-100 relative">
+            <h3 class="w-full text-center text-lg font-bold text-gray-900 pr-8 pl-8">Who do you want to unsend this message for?</h3>
+            <button type="button" onclick="closeUnsendModal()" class="hover:bg-gray-200 transition-colors" style="position: absolute; right: 16px; top: 50%; transform: translateY(-50%); width: 32px; height: 32px; min-width: 32px; min-height: 32px; max-width: 32px; max-height: 32px; display: flex; align-items: center; justify-content: center; border-radius: 50%; background-color: #f3f4f6; border: none; cursor: pointer; padding: 0; outline: none;">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#4b5563" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display: block; width: 16px; height: 16px; min-width: 16px; min-height: 16px; max-width: 16px; max-height: 16px;"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+            </button>
+        </div>
+        
+        <!-- Body -->
+        <div class="p-6 space-y-6">
+            <!-- Unsend for everyone -->
+            <label class="flex items-start gap-4 cursor-pointer group">
+                <div class="relative flex items-center justify-center w-6 h-6 mt-0.5 flex-shrink-0">
+                    <input type="radio" name="unsend_type" value="for_everyone" class="peer sr-only" checked>
+                    <!-- Unchecked state -->
+                    <div class="absolute inset-0 rounded-full border-2 border-gray-300 peer-checked:hidden transition-all"></div>
+                    <!-- Checked state -->
+                    <div class="absolute inset-0 rounded-full border-[6px] border-blue-600 hidden peer-checked:block transition-all"></div>
+                </div>
+                <div>
+                    <h4 class="font-bold text-base text-gray-900 leading-none mb-1">Unsend for everyone</h4>
+                    <p class="text-sm text-gray-500 leading-snug">This message will be unsent for everyone in the chat. Others may have already seen or forwarded it. Unsent messages can still be included in reports.</p>
+                </div>
+            </label>
+            
+            <!-- Unsend for you -->
+            <label class="flex items-start gap-4 cursor-pointer group">
+                <div class="relative flex items-center justify-center w-6 h-6 mt-0.5 flex-shrink-0">
+                    <input type="radio" name="unsend_type" value="for_me" class="peer sr-only">
+                    <!-- Unchecked state -->
+                    <div class="absolute inset-0 rounded-full border-2 border-gray-300 peer-checked:hidden transition-all"></div>
+                    <!-- Checked state -->
+                    <div class="absolute inset-0 rounded-full border-[6px] border-blue-600 hidden peer-checked:block transition-all"></div>
+                </div>
+                <div>
+                    <h4 class="font-bold text-base text-gray-900 leading-none mb-1">Unsend for you</h4>
+                    <p class="text-sm text-gray-500 leading-snug">This will remove the message from your devices. Other chat members will still be able to see it.</p>
+                </div>
+            </label>
+        </div>
+        
+        <!-- Footer -->
+        <div class="p-4 flex justify-end gap-3 border-t border-gray-100 bg-gray-50/50">
+            <button type="button" onclick="closeUnsendModal()" class="px-5 py-2.5 rounded-xl text-sm font-bold text-gray-700 hover:bg-gray-200 transition-colors">
+                Cancel
+            </button>
+            <button type="button" id="confirmUnsendBtn" class="px-5 py-2.5 rounded-xl text-sm font-bold bg-blue-600 hover:bg-blue-700 text-white shadow-md shadow-blue-200 transition-all">
+                Remove
+            </button>
+        </div>
     </div>
 </div>
 
@@ -248,19 +302,16 @@
                         <div class="flex items-center gap-2 mb-1 ${isSystem ? 'flex-row-reverse' : ''}">
                             <span class="text-[9px] font-bold text-gray-400 uppercase tracking-tighter">${time}</span>
                             ${isSystem ? `
-                            <div class="relative inline-block dropdown-container">
-                                <button type="button" onclick="toggleDropdown(this)" class="text-gray-400 hover:text-gray-600 transition-colors p-1 rounded-full hover:bg-gray-100" title="More options">
-                                    <i data-lucide="more-vertical" class="w-4 h-4"></i>
-                                </button>
-                                <div class="dropdown-menu absolute right-0 top-full mt-1 hidden bg-white rounded-xl shadow-lg border border-gray-100 py-1 min-w-[170px] z-50">
-                                    <button type="button" onclick="deleteMessage(${msg.id}, this, 'for_everyone')" class="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2">
-                                        <i data-lucide="trash-2" class="w-3 h-3"></i> Unsend for everyone
+                                <div class="relative inline-block dropdown-container">
+                                    <button type="button" onclick="toggleDropdown(this)" class="text-gray-400 hover:text-gray-600 transition-colors p-1 rounded-full hover:bg-gray-100" title="More options">
+                                        <i data-lucide="more-vertical" class="w-4 h-4"></i>
                                     </button>
-                                    <button type="button" onclick="deleteMessage(${msg.id}, this, 'for_me')" class="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2">
-                                        <i data-lucide="eye-off" class="w-3 h-3"></i> Unsend for me
-                                    </button>
+                                    <div class="dropdown-menu absolute right-0 top-full mt-1 hidden bg-white rounded-xl shadow-lg border border-gray-100 py-1 min-w-[170px] z-50">
+                                        <button type="button" onclick="openUnsendModal(${msg.id}, this)" class="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2">
+                                            <i data-lucide="trash-2" class="w-4 h-4"></i> Remove
+                                        </button>
+                                    </div>
                                 </div>
-                            </div>
                             ` : ''}
                         </div>
                         <div class="px-4 py-3 rounded-2xl text-sm shadow-sm ${isSystem ? 'bg-yellow-600 text-white rounded-tr-none' : 'bg-white text-gray-800 border border-gray-100 rounded-tl-none'}">
@@ -296,25 +347,65 @@
             }
         });
 
-        window.deleteMessage = async function(id, btn, type = 'for_everyone') {
-            const confirmMsg = type === 'for_everyone' 
-                ? 'Are you sure you want to unsend this message for everyone?'
-                : 'Are you sure you want to unsend this message for yourself?';
-                
-            if (!confirm(confirmMsg)) return;
+        let currentMessageToUnsend = null;
+        let currentUnsendBtnElement = null;
+
+        window.openUnsendModal = function(id, btn) {
+            currentMessageToUnsend = id;
+            currentUnsendBtnElement = btn;
             
-            const msgDiv = btn.closest('.flex');
+            // Hide dropdown
+            btn.closest('.dropdown-menu').classList.add('hidden');
+            
+            // Reset radio to default (for_everyone)
+            document.querySelector('input[name="unsend_type"][value="for_everyone"]').checked = true;
+            
+            const modal = document.getElementById('unsendModal');
+            const container = document.getElementById('unsendModalContainer');
+            
+            modal.classList.remove('hidden');
+            // Small delay to allow display:block to apply before animation
+            setTimeout(() => {
+                container.classList.remove('scale-95', 'opacity-0');
+                container.classList.add('scale-100', 'opacity-100');
+            }, 10);
+        };
+
+        window.closeUnsendModal = function() {
+            const modal = document.getElementById('unsendModal');
+            const container = document.getElementById('unsendModalContainer');
+            
+            container.classList.remove('scale-100', 'opacity-100');
+            container.classList.add('scale-95', 'opacity-0');
+            
+            setTimeout(() => {
+                modal.classList.add('hidden');
+                currentMessageToUnsend = null;
+                currentUnsendBtnElement = null;
+            }, 200);
+        };
+
+        document.getElementById('confirmUnsendBtn').addEventListener('click', async function() {
+            if (!currentMessageToUnsend || !currentUnsendBtnElement) return;
+            
+            const selectedType = document.querySelector('input[name="unsend_type"]:checked').value;
+            const msgId = currentMessageToUnsend;
+            const btnElement = currentUnsendBtnElement;
+            
+            closeUnsendModal();
+            
+            const msgDiv = btnElement.closest('.flex');
             msgDiv.style.opacity = '0.5';
             
             try {
-                const response = await fetch(`/support-center/message/${id}`, {
+                const response = await fetch(`/support-center/message/${msgId}`, {
                     method: 'DELETE',
                     headers: {
                         'X-CSRF-TOKEN': '{{ csrf_token() }}',
                         'Content-Type': 'application/json',
                         'Accept': 'application/json'
                     },
-                    body: JSON.stringify({ type: type })
+                    body: JSON.stringify({ type: selectedType })
                 });
                 
                 const data = await response.json();
@@ -329,7 +420,7 @@
                 alert('Network error while unsending message');
                 msgDiv.style.opacity = '1';
             }
-        };
+        });
 
         function updateDriverList(drivers) {
             let currentTotalUnread = 0;
