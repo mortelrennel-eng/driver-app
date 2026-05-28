@@ -17,7 +17,7 @@
                 <input type="text" style="display:none" aria-hidden="true" tabindex="-1">
                 <input type="password" style="display:none" aria-hidden="true" tabindex="-1">
                 
-                <input type="search" id="driver_search_query" name="driver_search_query" autocomplete="off" readonly onfocus="this.removeAttribute('readonly');" onblur="this.setAttribute('readonly', 'readonly');" placeholder="Search drivers..." class="w-full pl-10 pr-4 py-2 bg-gray-100 border-none rounded-xl text-sm focus:ring-2 focus:ring-yellow-500 outline-none">
+                <input type="search" id="driver_search_query" name="driver_search_query" autocomplete="off" placeholder="Search drivers..." class="w-full pl-10 pr-4 py-2 bg-gray-100 border-none rounded-xl text-sm focus:ring-2 focus:ring-yellow-500 outline-none">
                 <i data-lucide="search" class="w-4 h-4 text-gray-400 absolute left-3 top-2.5"></i>
             </div>
         </div>
@@ -252,9 +252,9 @@
                 const driverLinks = document.querySelectorAll('.custom-scrollbar a');
                 
                 driverLinks.forEach(link => {
-                    const nameSpan = link.querySelector('span.font-bold');
-                    if (nameSpan) {
-                        const name = nameSpan.textContent.toLowerCase();
+                    const nameElement = link.querySelector('.font-bold');
+                    if (nameElement) {
+                        const name = nameElement.textContent.toLowerCase();
                         if (name.includes(query)) {
                             link.style.display = 'flex';
                         } else {
