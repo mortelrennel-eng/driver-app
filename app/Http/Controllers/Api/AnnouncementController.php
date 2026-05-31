@@ -14,10 +14,6 @@ class AnnouncementController extends Controller
     public function index()
     {
         $announcements = Announcement::where('is_active', true)
-            ->where(function ($query) {
-                $query->whereNull('valid_until')
-                      ->orWhere('valid_until', '>=', now());
-            })
             ->orderBy('is_pinned', 'desc')
             ->orderBy('created_at', 'desc')
             ->get();
@@ -36,7 +32,7 @@ class AnnouncementController extends Controller
         $announcement = Announcement::where('is_active', true)
             ->where(function ($query) {
                 $query->whereNull('valid_until')
-                      ->orWhere('valid_until', '>=', now());
+                      ->orWhere('valid_until', '>=', now()->startOfDay());
             })
             ->orderBy('is_pinned', 'desc')
             ->orderBy('created_at', 'desc')

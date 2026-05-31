@@ -17,22 +17,26 @@ const config = {
 };
 
 const BASE_REMOTE = '/home/u747826271/domains/eurotaxisystem.site/public_html';
-const BASE_LOCAL  = path.resolve(__dirname, '..'); // Go up one level from scratch folder
+const BASE_LOCAL  = path.resolve(__dirname, '..');
 
 const filesToUpload = [
     {
-        local:  'resources/views/announcements/index.blade.php',
-        remote: `${BASE_REMOTE}/resources/views/announcements/index.blade.php`
+        local:  'app/Services/NotificationService.php',
+        remote: `${BASE_REMOTE}/app/Services/NotificationService.php`
     },
     {
-        local:  'app/Http/Controllers/AnnouncementController.php',
-        remote: `${BASE_REMOTE}/app/Http/Controllers/AnnouncementController.php`
+        local:  'app/Models/Maintenance.php',
+        remote: `${BASE_REMOTE}/app/Models/Maintenance.php`
+    },
+    {
+        local:  'app/Providers/AppServiceProvider.php',
+        remote: `${BASE_REMOTE}/app/Providers/AppServiceProvider.php`
     }
 ];
 
-const POST_COMMANDS = `cd ${BASE_REMOTE} && php artisan view:clear && php artisan cache:clear && php artisan optimize:clear && echo "---DONE---"`;
+const POST_COMMANDS = `cd ${BASE_REMOTE} && php artisan cache:clear && php artisan optimize:clear && echo "---DONE---"`;
 
-console.log('--- SFTP DEPLOY ANNOUNCEMENTS START ---');
+console.log('--- SFTP DEPLOY NOTIFICATION UPDATES START ---');
 console.log(`Uploading ${filesToUpload.length} files to Hostinger...`);
 
 const conn = new Client();
