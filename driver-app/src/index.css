@@ -57,3 +57,14 @@ body {
 ::-webkit-scrollbar-thumb:hover {
   background: var(--primary);
 }
+
+/* Support Page Unsend Styles */
+.unsend-action-sheet {
+  --background: #1e293b;
+  --color: #ffffff;
+  --button-color: #ffffff;
+}
+.unsend-action-sheet .action-sheet-title,
+.unsend-action-sheet .action-sheet-button {
+  color: #ffffff !important;
+}

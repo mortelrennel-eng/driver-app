@@ -66,9 +66,9 @@
                 <!-- Search input: spans both columns on mobile, expands wide on desktop with min-width -->
                 <div class="col-span-2 lg:flex-grow lg:min-w-[260px] order-1 lg:order-2">
                     <div class="relative group">
-                        <input type="text" name="search" id="tableSearchInput" value="{{ $search ?? '' }}"
+                        <input type="search" name="search" id="tableSearchInput" value="{{ $search ?? '' }}"
                             class="block w-full pl-3 pr-10 py-2 lg:h-[38px] border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 focus:outline-none"
-                            placeholder="Search by driver name or license...">
+                            placeholder="Search by driver name or license..." autocomplete="new-password" spellcheck="false" autocorrect="off" autocapitalize="off" readonly onfocus="this.removeAttribute('readonly');">
                         <button type="submit" class="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-yellow-600 transition-colors">
                             <i data-lucide="search" class="h-4 w-4"></i>
                         </button>
@@ -775,6 +775,19 @@
                             <p class="text-[11px] font-bold text-rose-600 mt-0.5">${data.emergency_phone || 'N/A'}</p>
                         </div>
                     </div>
+                    <div class="pt-4 border-t border-slate-50">
+                        <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Outstanding Liabilities</span>
+                        <div class="mt-2 grid grid-cols-2 gap-3">
+                            <div class="p-3 bg-red-50/50 rounded-xl border border-red-100">
+                                <span class="text-[9px] font-black uppercase tracking-widest text-red-500 block mb-0.5">Unpaid Shortage</span>
+                                <p class="text-xs font-black text-red-700">₱${parseFloat(data.net_shortage || 0).toLocaleString('en-PH', {minimumFractionDigits:2})}</p>
+                            </div>
+                            <div class="p-3 bg-orange-50/50 rounded-xl border border-orange-100">
+                                <span class="text-[9px] font-black uppercase tracking-widest text-orange-500 block mb-0.5">Pending Debt</span>
+                                <p class="text-xs font-black text-orange-700">₱${parseFloat(data.total_pending_debt || 0).toLocaleString('en-PH', {minimumFractionDigits:2})}</p>
+                            </div>
+                        </div>
+                    </div>
                 </div>
                 <div class="space-y-4">
                     <div class="bg-slate-50 p-4 rounded-2xl border border-slate-100">
@@ -1145,7 +1158,14 @@
         tableContainer.style.opacity = '0.5';
         tableContainer.style.pointerEvents = 'none';
 
-        fetch(`{{ route('driver-management.index') }}?search=${encodeURIComponent(query)}&status=${status}&sort=${sort}&page=${page}`, {
+        const finalUrl = `{{ route('driver-management.index') }}?search=${encodeURIComponent(query)}&status=${status}&sort=${sort}&page=${page}`;
+        
+        // Synchronize state with history state engine
+        if (typeof window.history.replaceState === 'function') {
+            window.history.replaceState({}, '', finalUrl);
+        }
+
+        fetch(finalUrl, {
             headers: { 'X-Requested-With': 'XMLHttpRequest' }
         })
         .then(response => response.text())
@@ -1365,23 +1385,34 @@
             data.debts.forEach(driver => {
                 let rows = '';
                 driver.debts.forEach(debt => {
+                    const isShortage = !!debt.is_boundary_shortage;
                     const severityColors = {
                         critical: 'bg-red-600 text-white shadow-red-100',
                         high: 'bg-orange-500 text-white shadow-orange-100',
                         medium: 'bg-amber-400 text-white shadow-amber-100',
                         low: 'bg-indigo-500 text-white shadow-indigo-100'
                     };
-                    const badgeClass = severityColors[debt.severity.toLowerCase()] || 'bg-slate-500 text-white';
+                    const badgeClass = isShortage 
+                        ? 'bg-rose-600 text-white shadow-rose-100 animate-pulse' 
+                        : (severityColors[debt.severity.toLowerCase()] || 'bg-slate-500 text-white');
+                    const badgeLabel = isShortage ? 'SHORTAGE' : (debt.severity + ' Risk');
+                    const titleLabel = isShortage ? 'Classification' : 'Incident Date & Time';
+                    const dateStr = isShortage 
+                        ? 'Active Account' 
+                        : new Date(debt.timestamp || debt.date).toLocaleDateString('en-PH', {month:'short', day:'numeric', year:'numeric'});
+                    const timeStrHtml = isShortage
+                        ? `<p class="text-[10px] font-bold text-slate-400 mt-0.5 uppercase tracking-widest">Boundary Shortage</p>`
+                        : `<p class="text-[10px] font-bold text-slate-400 mt-0.5 uppercase tracking-widest">${new Date(debt.timestamp || debt.date).toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit', hour12: true })}</p>`;
 
                     rows += `
                         <div class="group relative bg-white border border-slate-100 rounded-2xl p-5 hover:border-red-200 hover:shadow-xl hover:shadow-red-50 transition-all duration-300">
                             <div class="flex flex-col md:flex-row gap-6 items-start md:items-center">
                                 <div class="w-full md:w-32 shrink-0">
-                                    <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Incident Date & Time</p>
-                                    <p class="text-sm font-black text-slate-800">${new Date(debt.timestamp || debt.date).toLocaleDateString('en-PH', {month:'short', day:'numeric', year:'numeric'})}</p>
-                                    <p class="text-[10px] font-bold text-slate-400 mt-0.5 uppercase tracking-widest">${new Date(debt.timestamp || debt.date).toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit', hour12: true })}</p>
+                                    <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">${titleLabel}</p>
+                                    <p class="text-sm font-black text-slate-800">${dateStr}</p>
+                                    ${timeStrHtml}
                                     <span class="inline-block mt-2 px-2 py-0.5 rounded-lg text-[9px] font-black uppercase tracking-widest shadow-lg ${badgeClass}">
-                                        ${debt.severity} Risk
+                                        ${badgeLabel}
                                     </span>
                                 </div>
 
@@ -1409,7 +1440,7 @@
                                     </div>
                                     
                                     <form method="POST" action="{{ route('driver-management.pay-debt') }}" class="flex items-center gap-2 w-full md:w-auto" 
-                                        onsubmit="const amt=parseFloat(this.payment_amount.value); const bal=parseFloat('${debt.remaining_balance}'); if(amt > bal){ alert('Bawal lumampas sa balance (₱' + bal.toLocaleString() + ')'); return false; } return confirm('Confirm cash payment of ₱' + amt.toLocaleString() + ' for this incident?');">
+                                        onsubmit="const amt=parseFloat(this.payment_amount.value); const bal=parseFloat('${debt.remaining_balance}'); if(amt > bal){ alert('Bawal lumampas sa balance (₱' + bal.toLocaleString() + ')'); return false; } return confirm(${isShortage} ? 'Confirm cash payment of ₱' + amt.toLocaleString() + ' to settle boundary shortage?' : 'Confirm cash payment of ₱' + amt.toLocaleString() + ' for this incident?');">
                                         @csrf
                                         <input type="hidden" name="debt_id" value="${debt.id}">
                                         <div class="relative flex-1 md:w-32">

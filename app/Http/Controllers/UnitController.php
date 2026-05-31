@@ -285,49 +285,51 @@ class UnitController extends Controller
 
         ActivityLogController::log('Created Unit', "Unit: {$newUnit->plate_number}\nCategory: {$newUnit->make} {$newUnit->model} ({$newUnit->year})\nStatus: " . ucfirst($newUnit->status));
 
-        return redirect()->route('units.index')->with('success', 'Unit added successfully!');
+        return $this->preserveStateAndRedirect('units.index', ['success' => 'Unit added successfully!']);
     }
 
     public function update(Request $request, $id)
     {
+        $today   = now()->format('Y-m-d');
+        $maxYear = (int) date('Y') + 1;
+
+        // Step 1: Clean numeric inputs before validation
         $request->merge([
             'boundary_rate' => str_replace(',', '', $request->boundary_rate),
             'purchase_cost' => str_replace(',', '', $request->purchase_cost),
         ]);
 
-        $today = now()->format('Y-m-d');
-        $maxYear = 2026;
-
+        // Step 2: Validate and capture into $data
         $data = $request->validate([
-            'plate_number' => 'required|string|max:8|regex:/^[A-Z0-9]+ ?[A-Z0-9]*$/|unique:units,plate_number,' . $id,
-            'make' => ['sometimes', 'required', 'string', 'max:15', 'regex:/^(?![0-9\s\W]+$)[a-zA-Z0-9\s\W]+$/'],
-            'model' => ['sometimes', 'required', 'string', 'max:15', 'regex:/^(?![0-9\s\W]+$)[a-zA-Z0-9\s\W]+$/'],
-            'year' => 'sometimes|required|integer|digits:4|max:'.$maxYear,
-            'status' => 'sometimes|required|string',
-            'boundary_rate' => 'required|numeric|max:100000',
-            'purchase_date' => 'nullable|date|before_or_equal:'.$today,
-            'purchase_cost' => 'nullable|numeric|max:1000000',
-            'motor_no' => 'required|string|max:25|regex:/^[A-Z0-9]+$/',
-            'chassis_no' => 'required|string|max:25|regex:/^[A-Z0-9]+$/',
-            'unit_type' => 'sometimes|required|in:new,old,rented',
-            'coding_day' => 'nullable|string',
-            'driver_id' => 'nullable|integer',
-            'secondary_driver_id' => 'nullable|integer',
-            'imei' => 'nullable|string|size:15|regex:/^[a-zA-Z0-9]+$/|unique:units,imei,' . $id,
+            'plate_number'         => 'required|string|max:15|regex:/^[A-Z0-9 ]{1,15}$/',
+            'make'                 => 'sometimes|required|string|max:20|regex:/^(?![0-9\s\W]+$)[a-zA-Z0-9\s\W]+$/',
+            'model'                => 'sometimes|required|string|max:15|regex:/^(?![0-9\s\W]+$)[a-zA-Z0-9\s\W]+$/',
+            'year'                 => 'sometimes|required|integer|digits:4|max:'.$maxYear,
+            'status'               => 'sometimes|required|string',
+            'boundary_rate'        => 'required|numeric|max:100000',
+            'purchase_date'        => 'nullable|date|before_or_equal:'.$today,
+            'purchase_cost'        => 'nullable|numeric|max:1000000',
+            'motor_no'             => 'required|string|max:25|regex:/^[A-Z0-9]+$/',
+            'chassis_no'           => 'required|string|max:25|regex:/^[A-Z0-9]+$/',
+            'unit_type'            => 'sometimes|required|in:new,old,rented',
+            'coding_day'           => 'nullable|string',
+            'driver_id'            => 'nullable|integer',
+            'secondary_driver_id'  => 'nullable|integer',
+            'imei'                 => 'nullable|string|size:15|regex:/^[a-zA-Z0-9]+$/|unique:units,imei,'.$id,
         ], [
-            'plate_number.regex' => 'Plate number must be alphanumeric and can contain at most one space.',
-            'make.regex' => 'Vehicle make cannot be pure numbers, spaces, or symbols.',
-            'model.regex' => 'Vehicle model cannot be pure numbers, spaces, or symbols.',
-            'motor_no.regex' => 'Motor number must be alphanumeric with no spaces or symbols.',
-            'chassis_no.regex' => 'Chassis number must be alphanumeric with no spaces or symbols.',
-            'imei.regex' => 'IMEI must be alphanumeric with no spaces or symbols.',
-            'imei.size' => 'IMEI must be exactly 15 characters.',
-            'purchase_date.before_or_equal' => 'Purchase date cannot be in the future.',
-            'year.max' => 'Year cannot exceed 2026.',
+            'plate_number.regex'              => 'Plate number must be alphanumeric and can contain at most one space.',
+            'make.regex'                      => 'Vehicle make cannot be pure numbers, spaces, or symbols.',
+            'model.regex'                     => 'Vehicle model cannot be pure numbers, spaces, or symbols.',
+            'motor_no.regex'                  => 'Motor number must be alphanumeric with no spaces or symbols.',
+            'chassis_no.regex'                => 'Chassis number must be alphanumeric with no spaces or symbols.',
+            'imei.regex'                      => 'IMEI must be alphanumeric with no spaces or symbols.',
+            'imei.size'                       => 'IMEI must be exactly 15 characters.',
+            'purchase_date.before_or_equal'   => 'Purchase date cannot be in the future.',
+            'year.max'                        => 'Year cannot exceed '.$maxYear.'.',
         ]);
 
-        $driver_id = $request->input('driver_id') ?: null;
-        $secondary_driver_id = $request->input('secondary_driver_id') ?: null;
+        $driver_id = $data['driver_id'] ?? null;
+        $secondary_driver_id = $data['secondary_driver_id'] ?? null;
 
         // Check driver conflict (excluding this unit)
         if ($driver_id) {
@@ -408,7 +410,7 @@ class UnitController extends Controller
 
         ActivityLogController::log('Updated Unit', "Unit: {$unit->plate_number}\nCategory: {$unit->make} {$unit->model}\nStatus: " . ucfirst($unit->status));
 
-        return redirect()->route('units.index')->with('success', 'Unit updated successfully!');
+        return $this->preserveStateAndRedirect('units.index', ['success' => 'Unit updated successfully!']);
     }
 
     public function destroy($id)
@@ -425,10 +427,10 @@ class UnitController extends Controller
             ActivityLogController::log('Archived Unit', "Unit: {$plate} moved to archive system.");
 
             DB::commit();
-            return redirect()->route('units.index')->with('success', 'Unit archived successfully!');
+            return $this->preserveStateAndRedirect('units.index', ['success' => 'Unit archived successfully!']);
         } catch (\Exception $e) {
             DB::rollBack();
-            return redirect()->route('units.index')->with('error', 'Failed to archive unit: ' . $e->getMessage());
+            return $this->preserveStateAndRedirect('units.index', ['error' => 'Failed to archive unit: ' . $e->getMessage()]);
         }
     }
 
@@ -528,14 +530,21 @@ class UnitController extends Controller
             ->orderByDesc('mr.date_started')
             ->limit(10)->get()->toArray();
 
-        // Add detailed parts and cost breakdown for each maintenance record
-        foreach ($maintenance_records as &$record) {
-            $parts = DB::table('maintenance_parts')
+        // Pre-fetch all parts for the maintenance records
+        $maint_ids = array_column($maintenance_records, 'id');
+        $all_parts = collect();
+        if (!empty($maint_ids)) {
+            $all_parts = DB::table('maintenance_parts')
                 ->leftJoin('spare_parts', 'maintenance_parts.part_id', '=', 'spare_parts.id')
-                ->where('maintenance_parts.maintenance_id', $record->id)
+                ->whereIn('maintenance_parts.maintenance_id', $maint_ids)
                 ->select('maintenance_parts.*', 'spare_parts.supplier')
                 ->orderBy('maintenance_parts.part_name')
-                ->get();
+                ->get()
+                ->groupBy('maintenance_id');
+        }
+
+        foreach ($maintenance_records as &$record) {
+            $parts = $all_parts->get($record->id, collect());
             
             $record->parts_details = $parts;
             $record->total_parts_cost = $parts->where('part_id', '!=', null)->sum('total');
@@ -693,12 +702,19 @@ class UnitController extends Controller
             ->orderByDesc('mr.date_started')
             ->limit(10)->get()->toArray();
 
-        // Add detailed parts and cost breakdown for each maintenance record
-        foreach ($maintenance_records as &$record) {
-            $parts = DB::table('maintenance_parts')
-                ->where('maintenance_id', $record->id)
+        // Pre-fetch all parts for the maintenance records
+        $maint_ids = array_column($maintenance_records, 'id');
+        $all_parts = collect();
+        if (!empty($maint_ids)) {
+            $all_parts = DB::table('maintenance_parts')
+                ->whereIn('maintenance_id', $maint_ids)
                 ->orderBy('part_name')
-                ->get();
+                ->get()
+                ->groupBy('maintenance_id');
+        }
+
+        foreach ($maintenance_records as &$record) {
+            $parts = $all_parts->get($record->id, collect());
             
             $record->parts_details = $parts;
             $record->total_parts_cost = $parts->where('part_id', '!=', null)->sum('total');
@@ -769,12 +785,33 @@ class UnitController extends Controller
         $id = $request->input('id');
         $new_status = $request->input('new_status', 'active');
 
-        DB::table('units')->where('id', $id)->update([
-            'status' => $new_status,
-            'updated_at' => now(),
-        ]);
+        $unit = DB::table('units')->where('id', $id)->first();
+        if ($unit) {
+            $updateData = [
+                'status' => $new_status,
+                'updated_at' => now(),
+            ];
 
-        return redirect()->route('units.index')->with('success', 'Unit status updated!');
+            // If we are clearing the missing/flagged state (marking back to active),
+            // reset the shift deadline and pinned flags to fully clear auto-detected status
+            if ($new_status === 'active') {
+                $updateData['shift_deadline_at'] = null;
+                $updateData['is_pinned_missing'] = false;
+            }
+
+            DB::table('units')->where('id', $id)->update($updateData);
+
+            // Resolve any related missing unit alerts in system alerts
+            DB::table('system_alerts')
+                ->where('title', 'like', "%{$unit->plate_number}%")
+                ->where('is_resolved', false)
+                ->update([
+                    'is_resolved' => true,
+                    'updated_at' => now()
+                ]);
+        }
+
+        return $this->preserveStateAndRedirect('units.index', ['success' => 'Unit status updated and flagged status cleared successfully!'], ['open_flagged' => 1]);
     }
 
     public function resetHealth($id)
@@ -824,23 +861,61 @@ class UnitController extends Controller
         // Merge and de-duplicate by id
         $allFlagged = $surveillanceUnits->merge($autoMissingUnits)->unique('id')->values();
 
+        // Eager load related data to avoid N+1
+        $unit_ids = $allFlagged->pluck('id')->toArray();
+        $last_boundaries = collect();
+        $stolen_metas = collect();
+        $all_drivers = collect();
+        
+        if (!empty($unit_ids)) {
+            $latest_boundary_sub = DB::table('boundaries')
+                ->select('unit_id', DB::raw('MAX(created_at) as max_created_at'))
+                ->whereIn('unit_id', $unit_ids)
+                ->groupBy('unit_id');
+                
+            $last_boundaries = DB::table('boundaries as b')
+                ->joinSub($latest_boundary_sub, 'latest', function ($join) {
+                    $join->on('b.unit_id', '=', 'latest.unit_id')
+                         ->on('b.created_at', '=', 'latest.max_created_at');
+                })
+                ->get()
+                ->keyBy('unit_id');
+
+            $latest_incident_sub = DB::table('driver_behavior')
+                ->whereNull('deleted_at')
+                ->where(function ($q) {
+                    $q->where('incident_type', 'like', '%taken%')
+                        ->orWhere('incident_type', 'like', '%stolen%');
+                })
+                ->select('unit_id', DB::raw('MAX(id) as max_id'))
+                ->whereIn('unit_id', $unit_ids)
+                ->groupBy('unit_id');
+
+            $stolen_metas = DB::table('driver_behavior as d')
+                ->joinSub($latest_incident_sub, 'latest', function ($join) {
+                    $join->on('d.unit_id', '=', 'latest.unit_id')
+                         ->on('d.id', '=', 'latest.max_id');
+                })
+                ->get()
+                ->keyBy('unit_id');
+                
+            $all_drivers = DB::table('drivers')
+                ->select('id', 'first_name', 'last_name', 'contact_number')
+                ->get()
+                ->keyBy('id');
+        }
+
         foreach ($allFlagged as $unit) {
-            // Get the most recent boundary record for this unit
-            $lastBoundary = DB::table('boundaries')
-                ->where('unit_id', $unit->id)
-                ->orderBy('created_at', 'desc')
-                ->first();
+            $lastBoundary = $last_boundaries->get($unit->id);
                 
             if ($lastBoundary) {
                 $lastDate = \Carbon\Carbon::parse($lastBoundary->created_at);
                 $unit->last_boundary_date = $lastDate->format('M d, Y g:i A');
                 $unit->days_inactive = max(0, $lastDate->diffInDays(now()));
                 
-                // Identify the SUSPECT driver (The one who took the unit AFTER the last boundary)
                 $lastBoundaryDriverId = $lastBoundary->driver_id;
                 $suspectDriverId = null;
 
-                // Priority 1: If it's a 2/2 Sharing unit, swap based on last boundary
                 if ($unit->driver_id && $unit->secondary_driver_id) {
                     if ($lastBoundaryDriverId == $unit->driver_id) {
                         $suspectDriverId = $unit->secondary_driver_id;
@@ -848,20 +923,15 @@ class UnitController extends Controller
                         $suspectDriverId = $unit->driver_id;
                     }
                 } 
-                // Priority 2: If it's a Solo unit, the assigned driver is the suspect
                 else if ($unit->driver_id || $unit->secondary_driver_id) {
                     $suspectDriverId = $unit->driver_id ?? $unit->secondary_driver_id;
                 }
-                // Priority 3: If it's Vacant, nobody is assigned
                 else {
                     $suspectDriverId = null;
                 }
 
                 if ($suspectDriverId) {
-                    $suspect = DB::table('drivers')
-                        ->where('id', $suspectDriverId)
-                        ->select('id', 'first_name', 'last_name', 'contact_number')
-                        ->first();
+                    $suspect = $all_drivers->get($suspectDriverId);
                     
                     $unit->suspect_driver = $suspect 
                         ? trim($suspect->first_name . ' ' . $suspect->last_name)
@@ -874,9 +944,8 @@ class UnitController extends Controller
                     $unit->is_vacant = true;
                 }
 
-                // Keep last driver info for reference context
                 if ($lastBoundaryDriverId) {
-                    $lastD = DB::table('drivers')->where('id', $lastBoundaryDriverId)->select('first_name', 'last_name')->first();
+                    $lastD = $all_drivers->get($lastBoundaryDriverId);
                     $unit->last_known_driver = $lastD ? trim($lastD->first_name . ' ' . $lastD->last_name) : 'Unknown';
                 } else {
                     $unit->last_known_driver = 'None';
@@ -888,17 +957,8 @@ class UnitController extends Controller
                 $unit->last_driver_contact = null;
             }
 
-            // Manual stolen/taken report: use operator-entered days + driver details from latest matching incident
             if (($unit->flag_source ?? '') === 'manual_stolen') {
-                $stolenMeta = DB::table('driver_behavior')
-                    ->where('unit_id', $unit->id)
-                    ->whereNull('deleted_at')
-                    ->where(function ($q) {
-                        $q->where('incident_type', 'like', '%taken%')
-                            ->orWhere('incident_type', 'like', '%stolen%');
-                    })
-                    ->orderByDesc('id')
-                    ->first();
+                $stolenMeta = $stolen_metas->get($unit->id);
 
                 if ($stolenMeta) {
                     if ($stolenMeta->missing_days_reported !== null) {

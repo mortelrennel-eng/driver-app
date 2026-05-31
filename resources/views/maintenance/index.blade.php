@@ -186,8 +186,8 @@
 {{-- Filter + Add --}}
 <div class="bg-white rounded-lg shadow p-4 mb-5">
     <form method="GET" action="{{ route('maintenance.index') }}" class="flex flex-wrap gap-3">
-        <input type="text" name="search" value="{{ $search }}" placeholder="Search plate or mechanic..."
-            class="flex-1 min-w-[150px] px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-yellow-500 focus:outline-none" autocomplete="off">
+        <input type="search" name="search" value="{{ $search }}" placeholder="Search plate or mechanic..."
+            class="flex-1 min-w-[150px] px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-yellow-500 focus:outline-none" autocomplete="new-password" spellcheck="false" autocorrect="off" autocapitalize="off" readonly onfocus="this.removeAttribute('readonly');">
         <select name="status" onchange="this.form.submit()" class="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-yellow-500 focus:outline-none">
             <option value="">All Status</option>
             <option value="pending" @selected($status=='pending')>Pending</option>
@@ -522,8 +522,8 @@
                         <div id="addMechRow{{ $i }}" class="{{ $i == 1 ? '' : 'hidden animate-fade-in' }}">
                             <div class="flex items-center gap-2">
                                 <div class="relative flex-1">
-                                    <input type="text" name="mechanic_name[]" id="addMechDisplay{{ $i }}" placeholder="Search mechanic {{ $i }}..." {{ $i == 1 ? 'required' : '' }}
-                                        class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-yellow-500 focus:outline-none">
+                                    <input type="search" name="mechanic_name[]" id="addMechDisplay{{ $i }}" placeholder="Search mechanic {{ $i }}..." {{ $i == 1 ? 'required' : '' }}
+                                        class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-yellow-500 focus:outline-none" autocomplete="new-password" spellcheck="false" autocorrect="off" autocapitalize="off" readonly onfocus="this.removeAttribute('readonly');">
                                     <div id="addMechDropdown{{ $i }}" class="search-dropdown hidden">
                                         @foreach($staff as $s)
                                         <div class="search-option mech-option" data-name="{{ $s->name }}" onclick="selectMech('addMechDisplay{{ $i }}', '{{ $s->name }}', 'addMechDropdown{{ $i }}')">
@@ -733,8 +733,8 @@
                         <div id="editMechRow{{ $i }}" class="{{ $i == 1 ? '' : 'hidden animate-fade-in' }}">
                             <div class="flex items-center gap-2">
                                 <div class="relative flex-1">
-                                    <input type="text" name="mechanic_name[]" id="editMechDisplay{{ $i }}" placeholder="Search mechanic {{ $i }}..." {{ $i == 1 ? 'required' : '' }}
-                                        class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-yellow-500 focus:outline-none">
+                                    <input type="search" name="mechanic_name[]" id="editMechDisplay{{ $i }}" placeholder="Search mechanic {{ $i }}..." {{ $i == 1 ? 'required' : '' }}
+                                        class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-yellow-500 focus:outline-none" autocomplete="new-password" spellcheck="false" autocorrect="off" autocapitalize="off" readonly onfocus="this.removeAttribute('readonly');">
                                     <div id="editMechDropdown{{ $i }}" class="search-dropdown hidden">
                                         @foreach($staff as $s)
                                         <div class="search-option mech-option" data-name="{{ $s->name }}" onclick="selectMech('editMechDisplay{{ $i }}', '{{ $s->name }}', 'editMechDropdown{{ $i }}')">
@@ -976,10 +976,10 @@
                 <div class="px-6 pt-4 pb-2 shrink-0">
                     <div class="relative">
                         <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none"></i>
-                        <input type="text" id="partsSearchInput"
+                        <input type="search" id="partsSearchInput"
                             placeholder="Search parts by name or supplier..."
                             oninput="filterPartsTable(this.value)"
-                            class="w-full pl-9 pr-8 py-2 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-400 focus:outline-none bg-gray-50">
+                            class="w-full pl-9 pr-8 py-2 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-400 focus:outline-none bg-gray-50" autocomplete="new-password" spellcheck="false" autocorrect="off" autocapitalize="off" readonly onfocus="this.removeAttribute('readonly');">
                         <button id="btnClearPartsSearch" onclick="clearPartsSearch()" class="hidden absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-red-500 transition">
                             <i data-lucide="x-circle" class="w-4 h-4"></i>
                         </button>

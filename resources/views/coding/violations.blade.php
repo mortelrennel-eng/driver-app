@@ -62,8 +62,8 @@
                     <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                         <i data-lucide="search" class="h-3 w-3 text-gray-400"></i>
                     </div>
-                    <input type="text" name="search" value="{{ $search }}" placeholder="Search plate..."
-                        class="block w-full pl-8 pr-3 py-2 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-yellow-500 focus:outline-none text-xs font-bold text-gray-700">
+                    <input type="search" name="search" value="{{ $search }}" placeholder="Search plate..."
+                        class="block w-full pl-8 pr-3 py-2 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-yellow-500 focus:outline-none text-xs font-bold text-gray-700" autocomplete="new-password" spellcheck="false" autocorrect="off" autocapitalize="off" readonly onfocus="this.removeAttribute('readonly');">
                 </div>
                 @if($date || $search)
                     <a href="{{ route('coding.violations') }}" class="p-2 text-gray-400 hover:text-red-500 transition-colors flex items-center justify-center">

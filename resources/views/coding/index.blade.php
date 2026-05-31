@@ -211,8 +211,8 @@
                     <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                         <i data-lucide="search" class="h-4 w-4 text-gray-400"></i>
                     </div>
-                    <input type="text" name="search" id="plateSearch" autocomplete="off" value="{{ $search }}" placeholder="Search plate..."
-                        class="block w-full pl-10 pr-3 py-1.5 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 focus:outline-none text-xs font-bold text-gray-700 shadow-sm transition-all">
+                    <input type="search" name="search" id="plateSearch" value="{{ $search }}" placeholder="Search plate..."
+                        class="block w-full pl-10 pr-3 py-1.5 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 focus:outline-none text-xs font-bold text-gray-700 shadow-sm transition-all" autocomplete="new-password" spellcheck="false" autocorrect="off" autocapitalize="off" readonly onfocus="this.removeAttribute('readonly');">
                     
                     <!-- Industry Standard Suggestions Dropdown -->
                     <div id="suggestionsDropdown" class="hidden absolute z-50 mt-2 w-full bg-white rounded-2xl shadow-xl border border-gray-200 overflow-hidden">

@@ -68,6 +68,13 @@ class BoundaryController extends Controller
             ->limit($limit)
             ->get();
 
+        // Bulk fetch 'Absent / No Show' for today to prevent N+1
+        $absentDriversToday = DB::table('driver_behavior')
+            ->whereDate('incident_date', date('Y-m-d'))
+            ->where('incident_type', 'Absent / No Show')
+            ->pluck('driver_id')
+            ->toArray();
+
         // Get units for dropdowns
         $units = DB::table('units')
             ->whereNull('deleted_at')
@@ -76,18 +83,14 @@ class BoundaryController extends Controller
             ->select('id', 'plate_number', 'make', 'model', 'year', 'boundary_rate', 'coding_day', 'driver_id', 'secondary_driver_id', 'current_turn_driver_id', 'last_swapping_at', 'shift_deadline_at')
             ->orderBy('plate_number')
             ->get()
-            ->map(function ($unit) {
+            ->map(function ($unit) use ($absentDriversToday) {
                 $unitArray = (array) $unit;
                 $unitArray['make_model'] = ($unitArray['make'] ?? '') . ' ' . ($unitArray['model'] ?? '');
                 
                 // Smart Integration: Check if expected driver has an 'Absent / No Show' incident recorded for today
                 $unitArray['has_absent_today'] = false;
                 if ($unit->current_turn_driver_id) {
-                    $unitArray['has_absent_today'] = DB::table('driver_behavior')
-                        ->where('driver_id', $unit->current_turn_driver_id)
-                        ->whereDate('incident_date', date('Y-m-d'))
-                        ->where('incident_type', 'Absent / No Show')
-                        ->exists();
+                    $unitArray['has_absent_today'] = in_array($unit->current_turn_driver_id, $absentDriversToday);
                 }
                 
                 return $unitArray;
@@ -126,19 +129,25 @@ class BoundaryController extends Controller
         $assigned_drivers = array_map(function($d) { return (array) $d; }, $assigned_drivers);
 
         // Unit drivers
+        $unit_driver_rows = DB::select("
+            SELECT d.id, CONCAT(COALESCE(d.first_name,''), ' ', COALESCE(d.last_name,'')) as name, 
+                   ua.plate_number as current_plate,
+                   ua.plate_number as current_unit,
+                   ua.id as unit_id
+            FROM drivers d 
+            INNER JOIN units ua ON (d.id = ua.driver_id OR d.id = ua.secondary_driver_id)
+            WHERE d.deleted_at IS NULL AND d.driver_status != 'banned'
+            ORDER BY ua.id, d.last_name, d.first_name
+        ");
+        
         $unit_drivers = [];
         foreach ($units as $unit) {
-            $unit_id = $unit['id'];
-            $res = DB::select("
-                SELECT d.id, CONCAT(COALESCE(d.first_name,''), ' ', COALESCE(d.last_name,'')) as name, 
-                       ua.plate_number as current_plate,
-                       ua.plate_number as current_unit
-                FROM drivers d 
-                LEFT JOIN units ua ON (d.id = ua.driver_id OR d.id = ua.secondary_driver_id)
-                WHERE ua.id = ? AND d.deleted_at IS NULL AND d.driver_status != 'banned'
-                ORDER BY d.last_name, d.first_name
-            ", [$unit_id]);
-            $unit_drivers[$unit_id] = array_map(function($d) { return (array) $d; }, $res);
+            $unit_drivers[$unit['id']] = [];
+        }
+        foreach ($unit_driver_rows as $row) {
+            if (isset($unit_drivers[$row->unit_id])) {
+                $unit_drivers[$row->unit_id][] = (array) $row;
+            }
         }
 
         $total_pages = ceil($total_boundaries / $limit);

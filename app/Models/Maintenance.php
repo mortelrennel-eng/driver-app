@@ -22,33 +22,54 @@ class Maintenance extends Model
         static::saved($clearCache);
         static::deleted($clearCache);
 
-        // Auto FCM Push on creation
+        // Auto FCM Push on creation — notify ONLY the assigned driver of this unit
         static::created(function ($maintenance) {
             try {
                 $unit = $maintenance->unit;
                 $plate = $unit ? $unit->plate_number : 'Unknown Unit';
                 $type = ucfirst($maintenance->maintenance_type);
-                
-                $title = "🔧 New Maintenance Scheduled";
-                $body = "Unit {$plate} is scheduled for {$type} maintenance today.";
 
-                // Only send to the driver of this maintenance (or unit's driver)
-                $tokens = [];
-                $driverId = $maintenance->driver_id ?? ($unit ? $unit->driver_id : null);
-                if ($driverId) {
-                    $driver = \App\Models\Driver::with('user')->find($driverId);
-                    if ($driver && $driver->user && !empty($driver->user->fcm_token)) {
-                        $tokens[] = $driver->user->fcm_token;
-                    }
+                $title = "🔧 Maintenance Scheduled";
+                $body  = "Your unit ({$plate}) is scheduled for {$type} maintenance.";
+
+                // Find the driver(s) assigned to this unit and notify only them
+                $driverIds = [];
+                if ($unit) {
+                    if (!empty($unit->driver_id))           $driverIds[] = $unit->driver_id;
+                    if (!empty($unit->secondary_driver_id)) $driverIds[] = $unit->secondary_driver_id;
                 }
 
-                foreach ($tokens as $token) {
-                    \App\Services\FirebasePushService::sendPush($title, $body, $token, 'maintenance_today');
+                // If maintenance record has a direct driver_id, include that too
+                if (!empty($maintenance->driver_id)) {
+                    $driverIds[] = $maintenance->driver_id;
+                }
+
+                $driverIds = array_unique(array_filter($driverIds));
+
+                if (!empty($driverIds)) {
+                    // Get user_ids from drivers table
+                    $userIds = \Illuminate\Support\Facades\DB::table('drivers')
+                        ->whereIn('id', $driverIds)
+                        ->whereNotNull('user_id')
+                        ->pluck('user_id');
+
+                    // Get FCM tokens for those users
+                    $tokens = \Illuminate\Support\Facades\DB::table('users')
+                        ->whereIn('id', $userIds)
+                        ->whereNotNull('fcm_token')
+                        ->where('fcm_token', '!=', '')
+                        ->pluck('fcm_token')
+                        ->unique();
+
+                    foreach ($tokens as $token) {
+                        \App\Services\FirebasePushService::sendPush($title, $body, $token, 'maintenance_today');
+                    }
                 }
             } catch (\Exception $e) {
                 \Illuminate\Support\Facades\Log::error('FCM Auto-Push Maintenance Error: ' . $e->getMessage());
             }
         });
+
     }
  
     protected $fillable = [

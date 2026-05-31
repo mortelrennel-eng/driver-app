@@ -165,7 +165,7 @@ class SalaryController extends Controller
 
         system_log('Processed Salary', "Employee: {$employeeName}\nTotal: ₱" . number_format($total_salary, 2) . "\nPeriod: {$data['month']}/{$data['year']}\nSource: " . ucfirst($source));
 
-        return redirect()->route('salary.index')->with('success', 'Salary record added successfully');
+        return $this->preserveStateAndRedirect('salary.index', ['success' => 'Salary record added successfully']);
     }
 
     public function update(Request $request, $id)
@@ -205,14 +205,14 @@ class SalaryController extends Controller
 
         system_log('Updated Salary Record', "Employee: {$employeeName}\nRecord #{$id}\nNew Total: ₱" . number_format($total_salary, 2));
 
-        return redirect()->route('salary.index')->with('success', 'Salary record updated successfully');
+        return $this->preserveStateAndRedirect('salary.index', ['success' => 'Salary record updated successfully']);
     }
 
     public function destroy($id)
     {
         system_log('Deleted Salary Record', "Record #{$id} was removed from the system.");
         DB::table('salaries')->where('id', $id)->delete();
-        return redirect()->route('salary.index')->with('success', 'Salary record deleted successfully');
+        return $this->preserveStateAndRedirect('salary.index', ['success' => 'Salary record deleted successfully']);
     }
 
     public function monthlyReport(Request $request)

@@ -225,7 +225,7 @@ class MaintenanceController extends Controller
         }
 
         // Use Eloquent to trigger TrackChanges trait
-        return DB::transaction(function () use ($data, $parsed) {
+        return DB::transaction(function () use ($data, $parsed, $request) {
             $maintenance = Maintenance::create($data);
 
             // Store individual parts for history
@@ -333,7 +333,7 @@ class MaintenanceController extends Controller
         }
 
         // Use Eloquent to trigger TrackChanges trait
-        return DB::transaction(function () use ($id, $data, $parsed) {
+        return DB::transaction(function () use ($id, $data, $parsed, $request) {
             $maintenance = Maintenance::findOrFail($id);
             $maintenance->update($data);
 

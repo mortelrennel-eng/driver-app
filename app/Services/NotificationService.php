@@ -120,19 +120,24 @@ class NotificationService
                     $type = 'low_stock';
                     $title = ($qty === 0 ? '⚠ OUT OF STOCK: ' : '⚠ Low Stock: ') . $p->name;
                     $msg = "Stock: {$qty} items. Source: " . ($p->supplier ?? 'Unspecified');
-                    
-                    $exists = DB::table('system_alerts')
+                    $existingAlert = DB::table('system_alerts')
                         ->where('type', $type)
-                        ->where('title', $title)
+                        ->where('title', 'like', '%: ' . $p->name)
                         ->where('is_resolved', false)
-                        ->exists();
-                    if (!$exists) {
+                        ->first();
+                    if (!$existingAlert) {
                         DB::table('system_alerts')->insert([
                             'type' => $type,
                             'title' => $title,
                             'message' => $msg,
                             'is_resolved' => false,
                             'created_at' => now(),
+                            'updated_at' => now()
+                        ]);
+                    } elseif ($existingAlert->title !== $title || $existingAlert->message !== $msg) {
+                        DB::table('system_alerts')->where('id', $existingAlert->id)->update([
+                            'title' => $title,
+                            'message' => $msg,
                             'updated_at' => now()
                         ]);
                     }
@@ -236,7 +241,7 @@ class NotificationService
                 $dbAlerts = DB::table('system_alerts')
                     ->where('is_resolved', false)
                     ->orderByDesc('created_at')
-                    ->limit(40)
+                    ->limit(500)
                     ->get();
                 
                 foreach ($dbAlerts as $a) {
@@ -486,7 +491,7 @@ class NotificationService
                 'message' => $ann->message ?? 'Tap to view details.',
                 'timestamp' => $ann->created_at,
                 'time_display' => Carbon::parse($ann->created_at)->diffForHumans(),
-                'severity' => $ann->is_pinned ? 'warning' : 'info',
+                'severity' => (isset($ann->type) && $ann->type === 'danger') ? 'danger' : (((isset($ann->type) && $ann->type === 'warning') || !empty($ann->is_pinned)) ? 'warning' : 'info'),
                 'icon' => 'megaphone-outline'
             ];
         }

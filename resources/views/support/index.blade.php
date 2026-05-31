@@ -87,7 +87,7 @@
             <!-- Messages Area -->
             <div id="chatMessages" class="flex-1 overflow-y-auto p-6 space-y-4 bg-gray-50/50 custom-scrollbar">
                 @forelse($chatMessages as $msg)
-                    <div class="flex {{ $msg->sender_type == 'admin' ? 'justify-end' : 'justify-start' }}">
+                    <div class="flex {{ $msg->sender_type == 'admin' ? 'justify-end' : 'justify-start' }}" data-msg-id="{{ $msg->id }}">
                         <div class="max-w-[70%] group">
                             <div class="flex items-center gap-2 mb-1 {{ $msg->sender_type == 'admin' ? 'flex-row-reverse' : '' }}">
                                 <span class="text-[9px] font-bold text-gray-400 uppercase tracking-tighter">
@@ -285,13 +285,15 @@
                     const response = await fetch(`/support-center/${selectedDriverId}/messages`);
                     const data = await response.json();
                     
-                    if (data.success && data.messages.length > lastMessageCount) {
-                        const newMsgs = data.messages.slice(lastMessageCount);
-                        const hasDriverMsg = newMsgs.some(m => m.sender_type === 'driver');
-                        
-                        if (hasDriverMsg) {
-                            notifSound.play().catch(e => console.log('Sound blocked by browser'));
-                            flashTitle('New Message!');
+                    if (data.success && data.messages.length !== lastMessageCount) {
+                        if (data.messages.length > lastMessageCount) {
+                            const newMsgs = data.messages.slice(lastMessageCount);
+                            const hasDriverMsg = newMsgs.some(m => m.sender_type === 'driver');
+                            
+                            if (hasDriverMsg) {
+                                notifSound.play().catch(e => console.log('Sound blocked by browser'));
+                                flashTitle('New Message!');
+                            }
                         }
 
                         renderMessages(data.messages);
@@ -333,6 +335,7 @@
                 const isSystem = msg.sender_type === 'admin';
                 const div = document.createElement('div');
                 div.className = `flex ${isSystem ? 'justify-end' : 'justify-start'}`;
+                div.setAttribute('data-msg-id', msg.id);
                 
                 const time = new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
                 
@@ -429,12 +432,16 @@
             
             const selectedType = document.querySelector('input[name="unsend_type"]:checked').value;
             const msgId = currentMessageToUnsend;
-            const btnElement = currentUnsendBtnElement;
             
             closeUnsendModal();
             
-            const msgDiv = btnElement.closest('.flex');
-            msgDiv.style.opacity = '0.5';
+            // Find the top-level message wrapper using data-msg-id or by traversing to the root flex div
+            let msgDiv = document.querySelector(`[data-msg-id="${msgId}"]`);
+            if (!msgDiv) {
+                // Fallback: traverse up from the button
+                msgDiv = currentUnsendBtnElement.closest('[data-msg-id]') || currentUnsendBtnElement.closest('#chatMessages > div');
+            }
+            if (msgDiv) msgDiv.style.opacity = '0.5';
             
             try {
                 const response = await fetch(`/support-center/message/${msgId}`, {
@@ -449,15 +456,25 @@
                 
                 const data = await response.json();
                 if (data.success) {
-                    msgDiv.remove();
+                    if (msgDiv) {
+                        msgDiv.style.transition = 'all 0.3s ease';
+                        msgDiv.style.opacity = '0';
+                        msgDiv.style.maxHeight = '0';
+                        msgDiv.style.overflow = 'hidden';
+                        msgDiv.style.marginBottom = '0';
+                        msgDiv.style.padding = '0';
+                        setTimeout(() => msgDiv.remove(), 300);
+                    }
+                    // Decrement so polling doesn't re-render the deleted message
+                    lastMessageCount = Math.max(0, lastMessageCount - 1);
                 } else {
                     alert(data.message || 'Failed to unsend message');
-                    msgDiv.style.opacity = '1';
+                    if (msgDiv) msgDiv.style.opacity = '1';
                 }
             } catch (e) {
                 console.error(e);
                 alert('Network error while unsending message');
-                msgDiv.style.opacity = '1';
+                if (msgDiv) msgDiv.style.opacity = '1';
             }
         });
 

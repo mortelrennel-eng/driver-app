@@ -298,10 +298,10 @@ foreach ($cases as $c) {
                 <!-- Advanced Search Bar -->
                 <div class="relative w-full sm:w-auto sm:min-w-[260px] flex-grow 2xl:flex-grow-0">
                     <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400"></i>
-                    <input type="text" id="franchiseSearch" 
+                    <input type="search" id="franchiseSearch" 
                            placeholder="Search Case #, Applicant, Plate..." 
                            class="w-full h-10 pl-10 pr-4 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-yellow-500 focus:bg-white transition-all shadow-sm outline-none"
-                           onkeyup="filterFranchiseItems()">
+                           onkeyup="filterFranchiseItems()" autocomplete="new-password" spellcheck="false" autocorrect="off" autocapitalize="off" readonly onfocus="this.removeAttribute('readonly');">
                 </div>
                 
                 <!-- Status Filter -->

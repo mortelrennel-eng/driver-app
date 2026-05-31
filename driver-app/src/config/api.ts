@@ -33,6 +33,7 @@ export const endpoints = {
   supportUnreadCount: `${API_BASE_URL}/driver/support/unread-count`,
   supportMessages: `${API_BASE_URL}/driver/support/messages`,
   sendSupportMessage: `${API_BASE_URL}/driver/support/messages/send`,
+  deleteSupportMessage: `${API_BASE_URL}/driver/support/messages`,
   uploadDocument: `${API_BASE_URL}/driver/upload-document`,
   performanceHistory: `${API_BASE_URL}/driver/performance-history`,
   driverIncidents: `${API_BASE_URL}/driver/incidents`,

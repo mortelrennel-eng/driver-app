@@ -41,7 +41,6 @@ class SuperAdminController extends Controller
         // ─── Legal & Admin ─────────────────────
         'decision-management.*' => ['icon' => 'file-text', 'label' => 'Franchise', 'group' => '4. Legal & Admin'],
         'staff.*' => ['icon' => 'user-cog', 'label' => 'Staff Records', 'group' => '4. Legal & Admin'],
-        'announcements.*' => ['icon' => 'megaphone', 'label' => 'Announcements', 'group' => '4. Legal & Admin'],
         'archive.*' => ['icon' => 'archive', 'label' => 'Archive Access', 'group' => '4. Legal & Admin'],
         'support.*' => ['icon' => 'message-square', 'label' => 'Support Center', 'group' => '4. Legal & Admin'],
 
@@ -422,9 +421,18 @@ class SuperAdminController extends Controller
             'approval_status' => 'approved',
         ]);
 
-        // Send welcome email with temp password
+        // Send welcome email with temp password (using send_custom_email for hPanel fallback support)
         try {
-            $mailResult = Mail::to($user->email)->send(new \App\Mail\StaffWelcomeMail($user, $tempPassword));
+            require_once app_path('Helpers/MailerHelper.php');
+            $emailBody = view('emails.staff_welcome', ['user' => $user, 'tempPassword' => $tempPassword])->render();
+            $sent = send_custom_email(
+                $user->email,
+                'Welcome to Eurotaxi Fleet Management System - Your Account Credentials',
+                $emailBody
+            );
+            if (!$sent) {
+                Log::error('StaffWelcomeMail failed: send_custom_email returned false for ' . $user->email);
+            }
         } catch (\Throwable $e) {
             Log::error('StaffWelcomeMail failed: ' . $e->getMessage());
         }

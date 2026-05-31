@@ -364,13 +364,12 @@
                     <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                         <i data-lucide="search" class="w-4 h-4 text-white/60"></i>
                     </div>
-                    <input 
-                        type="text" 
+                    <input type="search" 
                         id="maintenanceSearchInput"
                         placeholder="Search by unit number, plate, or maintenance type..."
                         class="w-full pl-10 pr-4 py-2 bg-white/20 backdrop-blur-sm border border-white/30 rounded-lg text-white placeholder-white/70 focus:outline-none focus:ring-2 focus:ring-white/50 focus:border-transparent transition-all duration-200 text-sm"
                         onkeyup="filterMaintenanceUnits()"
-                    >
+                     autocomplete="new-password" spellcheck="false" autocorrect="off" autocapitalize="off" readonly onfocus="this.removeAttribute('readonly');">
                     <div class="absolute inset-y-0 right-0 pr-3 flex items-center">
                         <button onclick="clearMaintenanceSearch()" class="text-white/60 hover:text-white transition-colors">
                             <i data-lucide="x-circle" class="w-4 h-4"></i>
@@ -507,13 +506,12 @@
                     <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                         <i data-lucide="search" class="w-4 h-4 text-white/60"></i>
                     </div>
-                    <input 
-                        type="text" 
+                    <input type="search" 
                         id="driversSearchInput"
                         placeholder="Search by name, license, or contact..."
                         class="w-full pl-10 pr-4 py-2 bg-white/20 backdrop-blur-sm border border-white/30 rounded-lg text-white placeholder-white/70 focus:outline-none focus:ring-2 focus:ring-white/50 focus:border-transparent transition-all duration-200 text-sm"
                         onkeyup="filterActiveDrivers()"
-                    >
+                     autocomplete="new-password" spellcheck="false" autocorrect="off" autocapitalize="off" readonly onfocus="this.removeAttribute('readonly');">
                     <div class="absolute inset-y-0 right-0 pr-3 flex items-center">
                         <button onclick="clearDriversSearch()" class="text-white/60 hover:text-white transition-colors">
                             <i data-lucide="x-circle" class="w-4 h-4"></i>
@@ -625,13 +623,12 @@
                     <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                         <i data-lucide="search" class="w-4 h-4 text-white/60"></i>
                     </div>
-                    <input 
-                        type="text" 
+                    <input type="search" 
                         id="codingSearchInput"
                         placeholder="Search by unit number, plate, or coding status..."
                         class="w-full pl-10 pr-4 py-2 bg-white/20 backdrop-blur-sm border border-white/30 rounded-lg text-white placeholder-white/70 focus:outline-none focus:ring-2 focus:ring-white/50 focus:border-transparent transition-all duration-200 text-sm"
                         oninput="filterCodingUnits()"
-                    >
+                     autocomplete="new-password" spellcheck="false" autocorrect="off" autocapitalize="off" readonly onfocus="this.removeAttribute('readonly');">
                     <div class="absolute inset-y-0 right-0 pr-3 flex items-center">
                         <button onclick="clearCodingSearch()" class="text-white/60 hover:text-white transition-colors">
                             <i data-lucide="x-circle" class="w-4 h-4"></i>
@@ -974,13 +971,12 @@
                     <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                         <i data-lucide="search" class="w-4 h-4 text-white/60"></i>
                     </div>
-                    <input 
-                        type="text" 
+                    <input type="search" 
                         id="boundarySearchInput"
                         placeholder="Search by unit number, driver, or amount..."
                         class="w-full pl-10 pr-4 py-2 bg-white/20 backdrop-blur-sm border border-white/30 rounded-lg text-white placeholder-white/70 focus:outline-none focus:ring-2 focus:ring-white/50 focus:border-transparent transition-all duration-200 text-sm"
                         onkeyup="filterBoundaryCollections()"
-                    >
+                     autocomplete="new-password" spellcheck="false" autocorrect="off" autocapitalize="off" readonly onfocus="this.removeAttribute('readonly');">
                     <div class="absolute inset-y-0 right-0 pr-3 flex items-center">
                         <button onclick="clearBoundarySearch()" class="text-white/60 hover:text-white transition-colors">
                             <i data-lucide="x-circle" class="w-4 h-4"></i>
@@ -1091,13 +1087,12 @@
                         <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                             <i data-lucide="search" class="w-4 h-4 text-white/60"></i>
                         </div>
-                        <input 
-                            type="text" 
+                        <input type="search" 
                             id="unitSearchInput"
                             placeholder="Search units by number, status, or performance..."
                             class="w-full pl-10 pr-4 py-2 bg-white/20 backdrop-blur-sm border border-white/30 rounded-lg text-white placeholder-white/70 focus:outline-none focus:ring-2 focus:ring-white/50 focus:border-transparent transition-all duration-200 text-sm"
                             onkeyup="filterUnits()"
-                        >
+                         autocomplete="new-password" spellcheck="false" autocorrect="off" autocapitalize="off" readonly onfocus="this.removeAttribute('readonly');">
                         <div class="absolute inset-y-0 right-0 pr-3 flex items-center">
                             <button onclick="clearSearch()" class="text-white/60 hover:text-white transition-colors">
                                 <i data-lucide="x-circle" class="w-4 h-4"></i>

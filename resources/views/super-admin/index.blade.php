@@ -459,7 +459,7 @@
                 <div class="flex items-center gap-3 flex-wrap">
                     <div class="relative">
                         <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400"></i>
-                        <input type="text" id="userSearch" class="sa-input pl-10" style="max-width:280px;" placeholder="Search users..." autocomplete="new-password" oninput="filterUserTable(this.value)">
+                        <input type="search" id="userSearch" class="sa-input pl-10" style="max-width:280px;" placeholder="Search users..." oninput="filterUserTable(this.value)" autocomplete="new-password" spellcheck="false" autocorrect="off" autocapitalize="off" readonly onfocus="this.removeAttribute('readonly');">
                     </div>
                     <select id="statusFilter" class="sa-input" style="max-width:180px;" onchange="filterUserTable()">
                         <option value="">All Statuses</option>
@@ -627,7 +627,7 @@
             <div class="flex flex-wrap gap-3 mb-5">
                 <div class="relative flex-1" style="max-width: 320px;">
                     <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400"></i>
-                    <input type="text" id="auditSearch" class="sa-input pl-10" placeholder="Search logs by name, email, or notes..." autocomplete="off" oninput="debouncedAuditLog()">
+                    <input type="search" id="auditSearch" class="sa-input pl-10" placeholder="Search logs by name, email, or notes..." oninput="debouncedAuditLog()" autocomplete="new-password" spellcheck="false" autocorrect="off" autocapitalize="off" readonly onfocus="this.removeAttribute('readonly');">
                 </div>
                 <select id="auditActionFilter" class="sa-input" style="max-width:160px;" onchange="loadAuditLog(1)">
                     <option value="">All Actions</option>

@@ -17,8 +17,6 @@ class DecisionManagementController extends Controller
         $limit = 1000; // Removed pagination limit so grouped expiry dates work correctly across all cases
         $offset = ($page - 1) * $limit;
 
-        $hasUnitsTable = Schema::hasTable('franchise_case_units');
-
         // NEW: Handle loading a case for editing
         $edit_case = null;
         $edit_units = [];
@@ -26,13 +24,11 @@ class DecisionManagementController extends Controller
             $caseRecord = DB::table('franchise_cases')->where('id', $request->id)->first();
             if ($caseRecord) {
                 $edit_case = (array) $caseRecord;
-                if ($hasUnitsTable) {
-                    $edit_units = DB::table('franchise_case_units')
-                        ->where('franchise_case_id', $request->id)
-                        ->get()
-                        ->map(fn($u) => (array)$u)
-                        ->toArray();
-                }
+                $edit_units = DB::table('franchise_case_units')
+                    ->where('franchise_case_id', $request->id)
+                    ->get()
+                    ->map(fn($u) => (array)$u)
+                    ->toArray();
             }
         }
 
@@ -52,21 +48,22 @@ class DecisionManagementController extends Controller
         $total = $query->count();
         $casesCollection = $query->orderByDesc('created_at')->offset($offset)->limit($limit)->get();
         
+        // Pre-fetch all units for the loaded cases to avoid N+1 queries
+        $caseIds = $casesCollection->pluck('id')->toArray();
+        $allUnits = collect();
+        if (!empty($caseIds)) {
+            $allUnits = DB::table('franchise_case_units')
+                ->whereIn('franchise_case_id', $caseIds)
+                ->get()
+                ->groupBy('franchise_case_id');
+        }
+        
         // Convert cases and add unit_count safely
-        $cases = collect($casesCollection)->map(function($c) use ($hasUnitsTable) {
+        $cases = collect($casesCollection)->map(function($c) use ($allUnits) {
             $row = (array)$c;
-            if ($hasUnitsTable) {
-                $units = DB::table('franchise_case_units')
-                    ->where('franchise_case_id', $row['id'] ?? 0)
-                    ->get()
-                    ->map(fn($u) => (array)$u)
-                    ->toArray();
-                $row['units'] = $units;
-                $row['unit_count'] = count($units);
-            } else {
-                $row['units'] = [];
-                $row['unit_count'] = 0;
-            }
+            $units = isset($allUnits[$row['id']]) ? $allUnits[$row['id']]->map(fn($u) => (array)$u)->toArray() : [];
+            $row['units'] = $units;
+            $row['unit_count'] = count($units);
             return $row;
         })->toArray();
 
@@ -246,8 +243,8 @@ class DecisionManagementController extends Controller
             $message = 'Case added successfully';
         }
 
-        // Save units if provided and table exists
-        if ($request->has('units') && Schema::hasTable('franchise_case_units')) {
+        // Save units if provided
+        if ($request->has('units')) {
             // Delete old units for this case
             DB::table('franchise_case_units')->where('franchise_case_id', $id)->delete();
             
@@ -269,7 +266,7 @@ class DecisionManagementController extends Controller
 
         ActivityLogController::log(($caseId > 0 ? 'Updated Franchise Case' : 'Created Franchise Case'), "Case No: {$request->case_no}\nApplicant: {$request->applicant_name}\nType: {$request->type_of_application}");
 
-        return redirect()->route('decision-management.index')->with('success', $message);
+        return $this->preserveStateAndRedirect('decision-management.index', ['success' => $message]);
     }
 
     public function update(Request $request, $id)
@@ -280,9 +277,7 @@ class DecisionManagementController extends Controller
 
     public function destroy($id)
     {
-        if (Schema::hasTable('franchise_case_units')) {
-            DB::table('franchise_case_units')->where('franchise_case_id', $id)->delete();
-        }
+        DB::table('franchise_case_units')->where('franchise_case_id', $id)->delete();
         
         $case = \App\Models\FranchiseCase::findOrFail($id);
         $caseNo = $case->case_no;
@@ -290,7 +285,7 @@ class DecisionManagementController extends Controller
         
         ActivityLogController::log('Archived Franchise Case', "Case No: {$caseNo} moved to archive.");
 
-        return redirect()->route('decision-management.index')->with('success', 'Case archived successfully');
+        return $this->preserveStateAndRedirect('decision-management.index', ['success' => 'Case archived successfully']);
     }
 
     public function approve($id)
@@ -303,7 +298,7 @@ class DecisionManagementController extends Controller
         $caseNo = DB::table('franchise_cases')->where('id', $id)->value('case_no');
         ActivityLogController::log('Approved Franchise Case', "Case No: {$caseNo} has been approved.");
 
-        return redirect()->route('decision-management.index')->with('success', 'Case approved successfully');
+        return $this->preserveStateAndRedirect('decision-management.index', ['success' => 'Case approved successfully']);
     }
 
     public function reject($id)
@@ -316,6 +311,6 @@ class DecisionManagementController extends Controller
         $caseNo = DB::table('franchise_cases')->where('id', $id)->value('case_no');
         ActivityLogController::log('Rejected Franchise Case', "Case No: {$caseNo} has been rejected.");
 
-        return redirect()->route('decision-management.index')->with('success', 'Case rejected successfully');
+        return $this->preserveStateAndRedirect('decision-management.index', ['success' => 'Case rejected successfully']);
     }
 }

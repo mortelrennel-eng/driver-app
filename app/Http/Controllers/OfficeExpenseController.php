@@ -202,7 +202,7 @@ class OfficeExpenseController extends Controller
 
         ActivityLogController::log('Created Office Expense', "Category: {$request->category}\nDescription: {$finalDescription}\nAmount: ₱" . number_format($request->amount, 2));
 
-        return redirect()->route('office-expenses.index')->with('success', 'Expense added successfully');
+        return $this->preserveStateAndRedirect('office-expenses.index', ['success' => 'Expense added successfully']);
     }
 
     public function update(Request $request, $id)
@@ -250,7 +250,7 @@ class OfficeExpenseController extends Controller
 
         ActivityLogController::log('Updated Office Expense', "Record #{$id}\nCategory: {$expense->category}\nNew Amount: ₱" . number_format($expense->amount, 2));
 
-        return redirect()->route('office-expenses.index')->with('success', 'Expense updated successfully');
+        return $this->preserveStateAndRedirect('office-expenses.index', ['success' => 'Expense updated successfully']);
     }
 
     public function destroy($id)
@@ -270,6 +270,6 @@ class OfficeExpenseController extends Controller
 
         ActivityLogController::log('Archived Office Expense', "Expense: {$desc} moved to archive.");
 
-        return redirect()->route('office-expenses.index')->with('success', 'Expense archived successfully');
+        return $this->preserveStateAndRedirect('office-expenses.index', ['success' => 'Expense archived successfully']);
     }
 }

@@ -21,12 +21,14 @@ if (!function_exists('send_custom_email')) {
      */
     function send_custom_email($to, $subject, $body, $altBody = null)
     {
+        if (app()->environment('testing')) {
+            return true;
+        }
         $mail = new PHPMailer(true);
 
         try {
             // Server settings
-            $mail->SMTPDebug = SMTP::DEBUG_SERVER;
-            // Redirect debug output to a file for easier troubleshooting without huge logs
+            $mail->SMTPDebug = SMTP::DEBUG_OFF;
             $debugFile = base_path('scratch/smtp_debug.log');
             $mail->Debugoutput = function($str, $level) use ($debugFile) {
                 file_put_contents($debugFile, "[" . date('Y-m-d H:i:s') . "] $str\n", FILE_APPEND);
@@ -46,7 +48,6 @@ if (!function_exists('send_custom_email')) {
             $mail->Username = $user;
             $mail->Password = $pass;
             
-            // Hostinger Optimization: Use SMTPS (465) if possible as it's less likely to be blocked
             if ($port === 465 || strtolower($encryption) === 'ssl') {
                 $mail->SMTPSecure = PHPMailer::ENCRYPTION_SMTPS;
                 $mail->Port = 465;
@@ -55,7 +56,6 @@ if (!function_exists('send_custom_email')) {
                 $mail->Port = $port ?: 587;
             }
             
-            // Shared Hosting Certificate Fix
             $mail->SMTPOptions = array(
                 'ssl' => array(
                     'verify_peer' => false,
@@ -83,21 +83,22 @@ if (!function_exists('send_custom_email')) {
             $mail->addCustomHeader('X-Priority', '3');
             $mail->addCustomHeader('X-Mailer', 'EuroTaxiSystem-PHPMailer');
 
-            \Log::info("Attempting SMTP send to: {$to} via {$mail->Host}:{$mail->Port}");
-
-            $sent = $mail->send();
-            
-            if ($sent) {
-                \Log::info("Email successfully sent to: {$to}");
-                // Clear debug log on success to save space
-                if (file_exists($debugFile)) @unlink($debugFile);
-            }
-            return $sent;
+            return $mail->send();
             
         } catch (Exception $e) {
-            \Log::error("PHPMailer Exception for {$to}: " . $e->getMessage());
-            \Log::error("SMTP Error Info: " . $mail->ErrorInfo);
-            return false;
+            \Log::warning("SMTP failed (possible 554 5.7.1 block). Attempting PHP mail() fallback. Error: " . $e->getMessage());
+            
+            // Fallback to native PHP mail()
+            $headers = [
+                'MIME-Version: 1.0',
+                'Content-type: text/html; charset=UTF-8',
+                'From: ' . config('mail.from.name', 'Euro Taxi System') . ' <' . config('mail.from.address', 'noreply@eurotaxisystem.site') . '>',
+                'Reply-To: ' . config('mail.from.address', 'noreply@eurotaxisystem.site'),
+                'X-Mailer: PHP/' . phpversion()
+            ];
+            
+            return mail($to, $subject, $body, implode("\r\n", $headers));
+            
         } catch (\Throwable $t) {
             \Log::error("Fatal Mailer Error for {$to}: " . $t->getMessage());
             return false;

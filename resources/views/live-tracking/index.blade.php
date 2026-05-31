@@ -214,7 +214,7 @@
 
 #mapToggleBtn {
     position: absolute;
-    top: 95px;        /* 56px + 34px button + 5px gap = 95px — matches right side */
+    top: 115px;       /* Significantly increased gap to ensure no touching */
     left: 10px;
     z-index: 900;
     width: 34px;
@@ -254,10 +254,11 @@
     z-index: 900;
     display: flex;
     flex-direction: column;
-    gap: 5px;
+    gap: 10px; /* Increased gap */
 }
 .map-type-btn {
     width: 36px; height: 36px;
+    margin-bottom: 10px; /* Force spacing */
     border-radius: 9px; border: 2px solid rgba(255,255,255,0.2);
     background: rgba(15,23,42,0.78);
     backdrop-filter: blur(8px);
@@ -408,19 +409,120 @@
                 </span>
             </div>
 
+            {{-- 
+                AUTOFILL NUCLEAR FIX:
+                Browsers and password managers aggressively autofill username/email fields.
+                To prevent autofill completely:
+                1. We do NOT put any username, email, or password bait inputs on the page.
+                2. We use a fake contenteditable <div> that browsers cannot autofill.
+                3. We track user interaction. If there is text in the search box before the user
+                   ever interacts with it, we identify it as browser autofill and immediately wipe it!
+            --}}
+
             <div class="relative">
-                <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none z-10">
                     <i data-lucide="search" class="h-3.5 w-3.5 text-gray-400"></i>
                 </div>
-                <input type="text" id="unitSearchInput"
-                    class="block w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 transition-all outline-none"
-                    placeholder="Search plate...">
+
+                {{-- Visible fake search: contenteditable div, immune to Chrome autofill --}}
+                <div
+                    id="unitSearchDisplay"
+                    contenteditable="true"
+                    role="searchbox"
+                    aria-label="Search plate number"
+                    class="block w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:outline-none transition-all cursor-text bg-white min-h-[38px] leading-[22px]"
+                    data-placeholder="Search plate..."
+                    spellcheck="false"
+                    autocorrect="off"
+                    autocapitalize="off"
+                ></div>
+
+                {{-- Real hidden input that realtime-tracking.js reads --}}
+                <input
+                    type="hidden"
+                    id="unitSearchInput"
+                >
             </div>
+
+            {{-- CSS for placeholder on contenteditable --}}
+            <style>
+                #unitSearchDisplay:empty::before {
+                    content: attr(data-placeholder);
+                    color: #9ca3af;
+                    pointer-events: none;
+                }
+                #unitSearchDisplay:focus {
+                    ring: 2px solid #eab308;
+                }
+            </style>
+
+            {{-- JS Bridge: syncs contenteditable → hidden input → filter --}}
+            <script>
+            (function() {
+                document.addEventListener('DOMContentLoaded', function () {
+                    const display = document.getElementById('unitSearchDisplay');
+                    const hidden  = document.getElementById('unitSearchInput');
+
+                    if (!display || !hidden) return;
+
+                    let userInteracted = false;
+
+                    // Track active user interaction
+                    const markInteracted = () => { userInteracted = true; };
+                    display.addEventListener('focus', markInteracted);
+                    display.addEventListener('keydown', markInteracted);
+                    display.addEventListener('mousedown', markInteracted);
+
+                    function clearAutofill() {
+                        if (userInteracted) return;
+                        const val = (display.innerText || display.textContent || '').trim();
+                        if (val.length > 0) {
+                            // Clear un-prompted text injection (autofill)
+                            display.innerText = '';
+                            hidden.value = '';
+                            hidden.dispatchEvent(new Event('keyup', { bubbles: true }));
+                        }
+                    }
+
+                    // Sync text content → hidden input → trigger filter
+                    function syncValue() {
+                        const rawText = display.innerText || display.textContent || '';
+                        const cleaned = rawText.trim();
+                        hidden.value = cleaned;
+                        hidden.dispatchEvent(new Event('keyup', { bubbles: true }));
+                    }
+
+                    display.addEventListener('input',   syncValue);
+                    display.addEventListener('keyup',   syncValue);
+                    display.addEventListener('paste', function (e) {
+                        e.preventDefault();
+                        const text = (e.clipboardData || window.clipboardData).getData('text/plain');
+                        document.execCommand('insertText', false, text);
+                    });
+
+                    // Prevent Enter from adding newline
+                    display.addEventListener('keydown', function (e) {
+                        if (e.key === 'Enter') e.preventDefault();
+                    });
+
+                    // Run the autofill checker repeatedly on load to wipe browser injection
+                    clearAutofill();
+                    let checkCount = 0;
+                    const interval = setInterval(() => {
+                        clearAutofill();
+                        checkCount++;
+                        if (checkCount >= 25) { // Check for 5 seconds (25 * 200ms)
+                            clearInterval(interval);
+                        }
+                    }, 200);
+                });
+            })();
+            </script>
 
             <select id="statusFilterSelect"
                 class="block w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 transition-all outline-none bg-white">
                 <option value="">All Fleet Units</option>
-                <option value="moving">Moving / Active</option>
+                <option value="active">Active (On/Idle)</option>
                 <option value="offline">Offline / Stopped</option>
             </select>
         </div>
@@ -739,8 +841,13 @@
     function getSatelliteLayer() {
         if (!satelliteLayer) {
             satelliteLayer = L.tileLayer(
-                'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-                { attribution: 'Tiles &copy; Esri &mdash; Source: Esri, USDA, USGS, GIS User Community', maxZoom: 19 }
+                // Google Satellite (Hybrid) — sharper tiles, supports zoom up to 22
+                'https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}',
+                {
+                    attribution: '&copy; Google Maps',
+                    maxNativeZoom: 19,   // Upscale tiles beyond zoom 19 to prevent reverting to roadmaps
+                    maxZoom: 22          // Allow Leaflet to over-zoom beyond that
+                }
             );
         }
         return satelliteLayer;
@@ -750,12 +857,17 @@
         const lm = window.liveMap;
         if (!lm) { setTimeout(() => window.setMapType(type), 300); return; }
 
+        const sat = getSatelliteLayer();
+        const def = window.defaultTileLayer || window.googleTrafficLayer;
+
         if (type === 'satellite') {
-            if (window.defaultTileLayer) lm.removeLayer(window.defaultTileLayer);
-            getSatelliteLayer().addTo(lm);
+            // Remove default layer first, then add satellite
+            if (def && lm.hasLayer(def)) lm.removeLayer(def);
+            if (!lm.hasLayer(sat)) sat.addTo(lm);
         } else {
-            lm.removeLayer(getSatelliteLayer());
-            if (window.defaultTileLayer) window.defaultTileLayer.addTo(lm);
+            // Remove satellite, restore default traffic layer
+            if (lm.hasLayer(sat)) lm.removeLayer(sat);
+            if (def && !lm.hasLayer(def)) def.addTo(lm);
         }
 
         currentType = type;
@@ -765,12 +877,19 @@
         document.getElementById('mapBtnSatellite')?.classList.toggle('active', type === 'satellite');
     };
 
-    // Apply persisted type on load
+    // Apply persisted map type on load (after liveMap is initialised)
+    function applyOnLoad() {
+        if (window.liveMap) {
+            window.setMapType(currentType);
+        } else {
+            setTimeout(applyOnLoad, 300);
+        }
+    }
+
     if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', () => window.setMapType(currentType));
+        document.addEventListener('DOMContentLoaded', applyOnLoad);
     } else {
-        // Wait for liveMap to be initialized by realtime-tracking.js
-        setTimeout(() => window.setMapType(currentType), 600);
+        applyOnLoad();
     }
 })();
 </script>

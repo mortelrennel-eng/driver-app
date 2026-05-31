@@ -14,16 +14,14 @@
                 <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                     <i data-lucide="search" class="h-5 w-5 text-gray-400"></i>
                 </div>
-                <input
-                    type="text"
+                <input type="search"
                     id="liveSearchInput"
                     name="search"
                     value="{{ $search }}"
                     oninput="performLiveSearch()"
-                    autocomplete="off"
                     class="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 focus:outline-none"
                     placeholder="Search by plate number or driver..."
-                >
+                 autocomplete="new-password" spellcheck="false" autocorrect="off" autocapitalize="off" readonly onfocus="this.removeAttribute('readonly');">
             </div>
         </div>
         
@@ -950,6 +948,16 @@ function initializeDriverDropdown() {
                 alert('Please select a valid Driver from the dropdown list. You cannot just type the name; you must click the driver in the list.');
                 document.getElementById('driverDisplay').focus();
                 return;
+            }
+
+            // Concurrency protection: Lock button on submission to prevent race-condition TOCTOU duplicates
+            const submitBtn = form.querySelector('button[type="submit"]');
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 animate-spin inline-block mr-1.5"></i> Saving...`;
+                if (window.lucide) {
+                    window.lucide.createIcons();
+                }
             }
         });
         

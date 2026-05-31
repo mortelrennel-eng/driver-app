@@ -518,6 +518,16 @@ class DriverBehaviorController extends Controller
 
         ActivityLogController::log('Released Incentive', "Driver: {$name}\nAll unreleased boundaries and violations have been cleared.");
 
+        // Notify Driver via Push
+        try {
+            app(\App\Services\NotificationService::class)->notifyDriver(
+                $driver_id,
+                'Incentives Released',
+                "Congratulations! Your performance incentives have been successfully released and your violations counter has been reset.",
+                'incentive'
+            );
+        } catch (\Exception $e) {}
+
         return redirect()->route('driver-behavior.index', ['tab' => 'incentives'])
             ->with('success', "Incentive released for {$name}. Counter reset.");
     }

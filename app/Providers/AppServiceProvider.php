@@ -38,6 +38,7 @@ class AppServiceProvider extends ServiceProvider
         }
 
         // Auto-intercept and send Realtime FCM Push Notifications for all raw system_alerts table inserts
+        // NOTE: Only admin/staff receive global system alerts. Drivers get targeted pushes from their controllers.
         try {
             \Illuminate\Support\Facades\DB::listen(function ($query) {
                 if (str_contains($query->sql, 'insert into `system_alerts`')) {
@@ -61,11 +62,12 @@ class AppServiceProvider extends ServiceProvider
                             }
                         }
 
-                        // Broadcast to admins and staff with active FCM tokens
+                        // Broadcast ONLY to admin/staff users (NOT drivers)
+                        // Drivers receive targeted push notifications from their own controllers
                         $tokens = \Illuminate\Support\Facades\DB::table('users')
-                            ->whereIn('role', ['admin', 'superadmin', 'staff'])
                             ->whereNotNull('fcm_token')
                             ->where('fcm_token', '!=', '')
+                            ->where('role', '!=', 'driver')
                             ->pluck('fcm_token')
                             ->unique();
 
@@ -80,6 +82,7 @@ class AppServiceProvider extends ServiceProvider
         } catch (\Exception $e) {
             // Silence
         }
+
 
         // Global Notifications for Franchise Expirations
         // Global Notifications for Franchise Expirations and Maintenance

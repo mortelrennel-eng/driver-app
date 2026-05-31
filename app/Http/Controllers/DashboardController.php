@@ -443,83 +443,37 @@ class DashboardController extends Controller
 
             // Try different expense table names - but handle gracefully
             try {
-                // Check for office_expenses table
-                if (Schema::hasTable('office_expenses')) {
-                    $expenseTable = 'office_expenses';
-                }
-                // Check for expenses table
-                elseif (Schema::hasTable('expenses')) {
-                    $expenseTable = 'expenses';
-                }
-                // Check for office_expense table (singular)
-                elseif (Schema::hasTable('office_expense')) {
-                    $expenseTable = 'office_expense';
-                }
-
-                if ($expenseTable) {
-                    if ($expenseTable === 'expenses') {
-                        // The 'expenses' table has different column names
-                        $expenseData = DB::table('expenses as oe')
-                            ->leftJoin('users as u', 'oe.created_by', '=', 'u.id')
-                            ->select([
-                                'oe.id',
-                                'oe.category as expense_type',
-                                'oe.amount',
-                                'oe.description',
-                                'oe.date',
-                                'oe.created_by as user_id',
-                                'u.name as user_name'
-                            ])
-                            ->whereNull('oe.deleted_at')
-                            ->orderBy('oe.date', 'desc')
-                            ->orderBy('oe.id', 'desc')
-                            ->get()
-                            ->map(function($item) {
-                                return [
-                                    'id' => $item->id,
-                                    'type' => 'expense',
-                                    'description' => $item->description ?: $item->expense_type,
-                                    'category' => $item->expense_type,
-                                    'amount' => (float) $item->amount,
-                                    'date' => $item->date,
-                                    'source' => $item->user_name ?: 'Office / System',
-                                    'reference' => 'Expense #' . $item->id,
-                                    'expense_type' => $item->expense_type,
-                                    'user_name' => $item->user_name ?: 'System Admin'
-                                ];
-                            });
-                    } else {
-                        $expenseData = DB::table($expenseTable . ' as oe')
-                            ->leftJoin('users as u', 'oe.user_id', '=', 'u.id')
-                            ->select([
-                                'oe.id',
-                                'oe.expense_type',
-                                'oe.amount',
-                                'oe.description',
-                                'oe.date',
-                                'oe.user_id',
-                                'u.name as user_name'
-                            ])
-                            ->whereNull('oe.deleted_at')
-                            ->orderBy('oe.date', 'desc')
-                            ->orderBy('oe.id', 'desc')
-                            ->get()
-                            ->map(function($item) {
-                                return [
-                                    'id' => $item->id,
-                                    'type' => 'expense',
-                                    'description' => $item->description ?: $item->expense_type,
-                                    'category' => $item->expense_type,
-                                    'amount' => (float) $item->amount,
-                                    'date' => $item->date,
-                                    'source' => $item->user_name,
-                                    'reference' => 'Expense #' . $item->id,
-                                    'expense_type' => $item->expense_type,
-                                    'user_name' => $item->user_name
-                                ];
-                            });
-                    }
-                }
+                // Hardcoded to 'expenses' based on audit
+                $expenseTable = 'expenses';
+                $expenseData = DB::table('expenses as oe')
+                    ->leftJoin('users as u', 'oe.created_by', '=', 'u.id')
+                    ->select([
+                        'oe.id',
+                        'oe.category as expense_type',
+                        'oe.amount',
+                        'oe.description',
+                        'oe.date',
+                        'oe.created_by as user_id',
+                        'u.name as user_name'
+                    ])
+                    ->whereNull('oe.deleted_at')
+                    ->orderBy('oe.date', 'desc')
+                    ->orderBy('oe.id', 'desc')
+                    ->get()
+                    ->map(function($item) {
+                        return [
+                            'id' => $item->id,
+                            'type' => 'expense',
+                            'description' => $item->description ?: $item->expense_type,
+                            'category' => $item->expense_type,
+                            'amount' => (float) $item->amount,
+                            'date' => $item->date,
+                            'source' => $item->user_name ?: 'Office / System',
+                            'reference' => 'Expense #' . $item->id,
+                            'expense_type' => $item->expense_type,
+                            'user_name' => $item->user_name ?: 'System Admin'
+                        ];
+                    });
             } catch (\Exception $expenseError) {
                 Log::error('Error loading expense data: ' . $expenseError->getMessage());
                 // Continue with empty expense data
@@ -659,8 +613,6 @@ class DashboardController extends Controller
     {
         try {
             $filter = $request->query('filter', 'all'); // 'all', 'preventive', 'complete'
-            $hasMaintenances = Schema::hasTable('maintenance');
-            $hasDrivers = Schema::hasTable('drivers');
 
             if ($filter === 'complete' || $filter === 'completed') {
                 // Query historical completed maintenance records
@@ -689,10 +641,7 @@ class DashboardController extends Controller
                 }
             }
 
-            if ($hasDrivers) {
-                $unitsQuery
-                    ->leftJoin('drivers as d', 'u.driver_id', '=', 'd.id');
-            }
+            $unitsQuery->leftJoin('drivers as d', 'u.driver_id', '=', 'd.id');
 
             $select = [
                 'u.id',
@@ -701,26 +650,22 @@ class DashboardController extends Controller
                 'u.purchase_cost',
                 'u.boundary_rate',
                 'u.created_at',
-                $hasDrivers ? DB::raw("CONCAT(COALESCE(d.first_name,''), ' ', COALESCE(d.last_name,'')) as driver_name") : DB::raw('NULL as driver_name'),
-                $hasMaintenances ? 'm.id as maintenance_id' : DB::raw('NULL as maintenance_id'),
-                $hasMaintenances ? 'm.maintenance_type' : DB::raw('NULL as maintenance_type'),
-                $hasMaintenances ? 'm.description' : DB::raw('NULL as description'),
-                $hasMaintenances ? 'm.date_started as start_date' : DB::raw('NULL as start_date'),
-                $hasMaintenances ? 'm.date_completed as end_date' : DB::raw('NULL as end_date'),
-                $hasMaintenances ? 'm.status as maintenance_status' : DB::raw('NULL as maintenance_status'),
-                $hasMaintenances ? 'm.cost as maintenance_cost' : DB::raw('NULL as maintenance_cost'),
+                DB::raw("CONCAT(COALESCE(d.first_name,''), ' ', COALESCE(d.last_name,'')) as driver_name"),
+                'm.id as maintenance_id',
+                'm.maintenance_type',
+                'm.description',
+                'm.date_started as start_date',
+                'm.date_completed as end_date',
+                'm.status as maintenance_status',
+                'm.cost as maintenance_cost',
             ];
 
             $maintenanceUnits = $unitsQuery
                 ->select($select)
                 ->when($filter === 'complete', function ($q) {
                     $q->orderBy('m.date_completed', 'desc');
-                }, function ($q) use ($hasMaintenances) {
-                    $q->when($hasMaintenances, function ($sq) {
-                        $sq->orderBy('m.date_started', 'desc');
-                    }, function ($sq) {
-                        $sq->orderBy('u.id', 'desc');
-                    });
+                }, function ($q) {
+                    $q->orderBy('m.date_started', 'desc');
                 })
                 ->get()
                 ->map(function($unit) {
@@ -805,22 +750,6 @@ class DashboardController extends Controller
     public function getActiveDrivers()
     {
         try {
-            if (!Schema::hasTable('drivers')) {
-                return response()->json([
-                    'success' => true,
-                    'drivers' => [],
-                    'stats' => [
-                        'active_drivers' => 0,
-                        'assigned_units' => 0,
-                        'avg_boundary' => 0,
-                        'top_performers' => 0,
-                        'total_boundary_collected' => 0
-                    ],
-                    'data_source' => 'real_database',
-                    'last_updated' => now()->toDateTimeString()
-                ]);
-            }
-
             $select = [
                 'd.id',
                 'd.user_id',
@@ -830,39 +759,16 @@ class DashboardController extends Controller
                 DB::raw('COALESCE(SUM(b.actual_boundary), 0) as total_boundary'),
                 DB::raw('COALESCE(AVG(b.actual_boundary), 0) as avg_boundary'),
                 DB::raw('GROUP_CONCAT(DISTINCT unit.plate_number) as plate_numbers'),
+                'd.hire_date',
+                'd.license_number',
+                'd.contact_number as phone',
+                'd.address'
             ];
-            $groupBy = ['d.id', 'd.user_id', 'd.first_name', 'd.last_name'];
-
-            if (Schema::hasColumn('drivers', 'hire_date')) {
-                $select[] = 'd.hire_date';
-                $groupBy[] = 'd.hire_date';
-            } else {
-                $select[] = DB::raw('NULL as hire_date');
-            }
-
-            if (Schema::hasColumn('drivers', 'license_number')) {
-                $select[] = 'd.license_number';
-                $groupBy[] = 'd.license_number';
-            } else {
-                $select[] = DB::raw('NULL as license_number');
-            }
-
-            if (Schema::hasColumn('drivers', 'contact_number')) {
-                $select[] = 'd.contact_number as phone';
-                $groupBy[] = 'd.contact_number';
-            } elseif (Schema::hasColumn('drivers', 'phone')) {
-                $select[] = 'd.phone';
-                $groupBy[] = 'd.phone';
-            } else {
-                $select[] = DB::raw('NULL as phone');
-            }
-
-            if (Schema::hasColumn('drivers', 'address')) {
-                $select[] = 'd.address';
-                $groupBy[] = 'd.address';
-            } else {
-                $select[] = DB::raw('NULL as address');
-            }
+            
+            $groupBy = [
+                'd.id', 'd.user_id', 'd.first_name', 'd.last_name',
+                'd.hire_date', 'd.license_number', 'd.contact_number', 'd.address'
+            ];
 
             $query = DB::table('drivers as d')
                 ->leftJoin('units as unit', function($join) {
@@ -875,11 +781,8 @@ class DashboardController extends Controller
                          ->whereNull('b.deleted_at');
                 })
                 ->select($select)
-                ->whereNull('d.deleted_at');
-
-            if (Schema::hasColumn('drivers', 'status')) {
-                $query->where('d.status', '=', 'active');
-            }
+                ->whereNull('d.deleted_at')
+                ->whereIn('d.driver_status', ['available', 'assigned', 'active']);
 
             $activeDrivers = $query
                 ->groupBy($groupBy)
@@ -954,30 +857,19 @@ class DashboardController extends Controller
     public function getCodingUnits()
     {
         try {
-            $hasMaintenances = Schema::hasTable('maintenance');
-            $hasDrivers = Schema::hasTable('drivers');
             $unitsQuery = DB::table('units as u')->whereNull('u.deleted_at');
             $today = now()->format('l');
 
-            if ($hasDrivers) {
-                $unitsQuery
-                    ->leftJoin('drivers as d', 'u.driver_id', '=', 'd.id');
-            }
+            $unitsQuery->leftJoin('drivers as d', 'u.driver_id', '=', 'd.id');
 
-            if ($hasMaintenances) {
-                // Join with the separate coding_records table instead of maintenance
-                $hasCodingRecords = Schema::hasTable('coding_records');
-                if ($hasCodingRecords) {
-                    $latestC = DB::table('coding_records')
-                        ->select('unit_id', DB::raw('MAX(id) as latest_id'))
-                        ->whereNull('deleted_at')
-                        ->groupBy('unit_id');
+            $latestC = DB::table('coding_records')
+                ->select('unit_id', DB::raw('MAX(id) as latest_id'))
+                ->whereNull('deleted_at')
+                ->groupBy('unit_id');
 
-                    $unitsQuery->leftJoinSub($latestC, 'latest_c', function($join) {
-                        $join->on('u.id', '=', 'latest_c.unit_id');
-                    })->leftJoin('coding_records as c', 'latest_c.latest_id', '=', 'c.id');
-                }
-            }
+            $unitsQuery->leftJoinSub($latestC, 'latest_c', function($join) {
+                $join->on('u.id', '=', 'latest_c.unit_id');
+            })->leftJoin('coding_records as c', 'latest_c.latest_id', '=', 'c.id');
 
             $select = [
                 'u.id',
@@ -986,7 +878,7 @@ class DashboardController extends Controller
                 'u.purchase_cost',
                 'u.boundary_rate',
                 'u.created_at',
-                $hasDrivers ? DB::raw("CONCAT(COALESCE(d.first_name,''), ' ', COALESCE(d.last_name,'')) as driver_name") : DB::raw('NULL as driver_name'),
+                DB::raw("CONCAT(COALESCE(d.first_name,''), ' ', COALESCE(d.last_name,'')) as driver_name"),
                 'c.id as coding_id',
                 DB::raw("'Coding' as coding_type"),
                 'c.description',

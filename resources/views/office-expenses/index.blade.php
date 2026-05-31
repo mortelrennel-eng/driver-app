@@ -104,11 +104,10 @@
                         <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                             <i data-lucide="search" class="h-5 w-5 text-gray-400"></i>
                         </div>
-                        <input type="text" name="search" id="liveSearchInput" value="{{ $search ?? '' }}"
+                        <input type="search" name="search" id="liveSearchInput" value="{{ $search ?? '' }}"
                             oninput="performLiveSearch()"
-                            autocomplete="off"
                             class="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 focus:outline-none h-[42px]"
-                            placeholder="Search by description, category, or reference...">
+                            placeholder="Search by description, category, or reference..." autocomplete="new-password" spellcheck="false" autocorrect="off" autocapitalize="off" readonly onfocus="this.removeAttribute('readonly');">
                     </div>
                 </div>
 
@@ -238,8 +237,8 @@
                                 <div class="px-3 pb-2 sticky top-0 bg-white border-b border-gray-50 mb-1 pt-1">
                                     <div class="relative">
                                         <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 w-3 h-3 text-gray-400"></i>
-                                        <input type="text" id="catSearch" placeholder="Search categories..." onkeyup="filterCategories(this.value)"
-                                            class="w-full pl-8 pr-3 py-1.5 bg-gray-50 border border-transparent rounded-lg focus:bg-white focus:border-yellow-200 focus:outline-none text-xs font-bold">
+                                        <input type="search" id="catSearch" placeholder="Search categories..." onkeyup="filterCategories(this.value)"
+                                            class="w-full pl-8 pr-3 py-1.5 bg-gray-50 border border-transparent rounded-lg focus:bg-white focus:border-yellow-200 focus:outline-none text-xs font-bold" autocomplete="new-password" spellcheck="false" autocorrect="off" autocapitalize="off" readonly onfocus="this.removeAttribute('readonly');">
                                     </div>
                                 </div>
                                 <div id="catItemsContainer">
@@ -341,8 +340,8 @@
                                             <div class="p-3 border-b border-amber-50 bg-amber-50/30">
                                                 <div class="relative">
                                                     <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-amber-400"></i>
-                                                    <input type="text" id="partSearch" oninput="filterParts(this.value)" placeholder="Search part..." 
-                                                        class="w-full pl-9 pr-4 py-2 bg-white border border-amber-100 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-amber-500 font-bold">
+                                                    <input type="search" id="partSearch" oninput="filterParts(this.value)" placeholder="Search part..." 
+                                                        class="w-full pl-9 pr-4 py-2 bg-white border border-amber-100 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-amber-500 font-bold" autocomplete="new-password" spellcheck="false" autocorrect="off" autocapitalize="off" readonly onfocus="this.removeAttribute('readonly');">
                                                 </div>
                                             </div>
                                             <div class="max-h-60 overflow-y-auto custom-scrollbar p-2 space-y-1" id="partListContainer">
@@ -429,8 +428,8 @@
                                         <div class="p-3 border-b border-amber-50 bg-amber-50/30">
                                             <div class="relative">
                                                 <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-amber-400"></i>
-                                                <input type="text" id="supSearch" oninput="filterSuppliers(this.value)" placeholder="Search supplier..." 
-                                                    class="w-full pl-9 pr-4 py-2 bg-white border border-amber-100 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-amber-500 font-bold">
+                                                <input type="search" id="supSearch" oninput="filterSuppliers(this.value)" placeholder="Search supplier..." 
+                                                    class="w-full pl-9 pr-4 py-2 bg-white border border-amber-100 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-amber-500 font-bold" autocomplete="new-password" spellcheck="false" autocorrect="off" autocapitalize="off" readonly onfocus="this.removeAttribute('readonly');">
                                             </div>
                                         </div>
                                         <div class="max-h-48 overflow-y-auto custom-scrollbar p-2 space-y-1" id="supplierListContainer">
@@ -493,8 +492,8 @@
                                             <div class="p-3 border-b border-emerald-50 bg-emerald-50/30">
                                                 <div class="relative">
                                                     <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-emerald-400"></i>
-                                                    <input type="text" id="franSearch" oninput="filterFranchises(this.value)" placeholder="Search case no or name..." 
-                                                        class="w-full pl-9 pr-4 py-2 bg-white border border-emerald-100 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500 font-bold">
+                                                    <input type="search" id="franSearch" oninput="filterFranchises(this.value)" placeholder="Search case no or name..." 
+                                                        class="w-full pl-9 pr-4 py-2 bg-white border border-emerald-100 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500 font-bold" autocomplete="new-password" spellcheck="false" autocorrect="off" autocapitalize="off" readonly onfocus="this.removeAttribute('readonly');">
                                                 </div>
                                             </div>
                                             <div class="max-h-48 overflow-y-auto custom-scrollbar p-2 space-y-1" id="franListContainer">

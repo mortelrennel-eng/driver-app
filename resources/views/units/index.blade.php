@@ -14,7 +14,7 @@
         /* ── Modern Table — Separated Rounded Rows (matching Maintenance page) ── */
         .modern-table-sep {
             border-collapse: separate;
-            border-spacing: 0 0.55rem;
+            border-spacing: 0; /* No default vertical spacing so sub-rows merge seamlessly */
         }
         .modern-row {
             background-color: white;
@@ -24,6 +24,7 @@
         .modern-row:hover {
             box-shadow: 0 10px 15px -3px rgba(234, 179, 8, 0.18), 0 4px 6px -2px rgba(234, 179, 8, 0.08);
             transform: translateY(-1px);
+            background-color: #fefdf6; /* Subtle high-end highlight */
         }
         .modern-row td:first-child {
             border-top-left-radius: 0.75rem;
@@ -36,6 +37,48 @@
         .modern-row td:last-child {
             border-top-right-radius: 0.75rem;
             border-bottom-right-radius: 0.75rem;
+        }
+
+        /* ── Unified Cards for Rows with Maintenance Sub-rows ── */
+        .modern-row-has-sub {
+            background-color: white;
+            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05);
+            transition: all 0.2s ease-in-out;
+        }
+        .modern-row-has-sub td {
+            border-bottom: 1px solid rgba(243, 244, 246, 0.8); /* Elegant interior card divider */
+        }
+        .modern-row-has-sub td:first-child {
+            border-top-left-radius: 0.75rem;
+            border-left: 4px solid transparent;
+        }
+        .modern-row-has-sub td:last-child {
+            border-top-right-radius: 0.75rem;
+        }
+
+        .modern-sub-row {
+            background-color: white;
+            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05);
+            transition: all 0.2s ease-in-out;
+        }
+        .modern-sub-row td:first-child {
+            border-bottom-left-radius: 0.75rem;
+            border-left: 4px solid transparent;
+        }
+        .modern-sub-row td:last-child {
+            border-bottom-right-radius: 0.75rem;
+        }
+
+        /* Cohesive synchronized hover for both rows of the single card */
+        .modern-card-tbody:hover .modern-row-has-sub,
+        .modern-card-tbody:hover .modern-sub-row {
+            box-shadow: 0 10px 15px -3px rgba(234, 179, 8, 0.18), 0 4px 6px -2px rgba(234, 179, 8, 0.08);
+            transform: translateY(-1px);
+            background-color: #fefdf6; /* Matching high-end highlight */
+        }
+        .modern-card-tbody:hover .modern-row-has-sub td:first-child,
+        .modern-card-tbody:hover .modern-sub-row td:first-child {
+            border-left-color: #eab308; /* Cohesive continuous yellow border glow */
         }
 
         /* ── Live Status Dots ─────────────────────────────────── */
@@ -113,9 +156,9 @@
                 <!-- Search plate numbers: spans both columns on mobile, expands wide on desktop with min-width -->
                 <div class="col-span-2 lg:flex-grow lg:min-w-[260px] order-1 lg:order-2">
                     <div class="relative group">
-                        <input type="text" name="search" id="tableSearchInput" value="{{ $search }}"
+                        <input type="search" name="search" id="tableSearchInput" value="{{ $search }}"
                             class="block w-full pl-3 pr-10 py-2 lg:h-[38px] border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 focus:outline-none"
-                            placeholder="Search plate numbers...">
+                            placeholder="Search plate numbers..." autocomplete="new-password" spellcheck="false" autocorrect="off" autocapitalize="off" readonly onfocus="this.removeAttribute('readonly');">
                         <button type="submit" class="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-yellow-600 transition-colors">
                             <i data-lucide="search" class="h-4 w-4"></i>
                         </button>
@@ -934,28 +977,28 @@
     </div>
 
     {{-- Unit Details Modal --}}
-    <div id="unitDetailsModal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-6xl h-[95vh] flex flex-col overflow-hidden">
+    <div id="unitDetailsModal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/60 backdrop-blur-sm">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-6xl h-[95vh] sm:h-[90vh] flex flex-col overflow-hidden animate-fade-in">
             {{-- Modal Header (Deep Navy matching login page) --}}
-            <div class="bg-slate-800 p-4 shrink-0">
+            <div class="bg-slate-800 p-3 sm:p-4 shrink-0">
                 <div class="flex justify-between items-center">
-                    <div class="flex items-center gap-3">
-                        <div class="p-2 bg-white bg-opacity-20 rounded-lg">
-                            <i data-lucide="info" class="w-5 h-5 text-white"></i>
+                    <div class="flex items-center gap-2.5 sm:gap-3">
+                        <div class="p-1.5 sm:p-2 bg-white bg-opacity-20 rounded-lg">
+                            <i data-lucide="info" class="w-4.5 h-4.5 sm:w-5 sm:h-5 text-white"></i>
                         </div>
                         <div>
-                            <h3 class="text-lg font-bold text-white leading-tight">Unit Details</h3>
-                            <p class="text-sm text-blue-100 leading-tight">Complete unit information and management</p>
+                            <h3 class="text-sm sm:text-lg font-black text-white leading-tight uppercase tracking-wider">Unit Details</h3>
+                            <p class="text-[10px] sm:text-sm text-slate-300 leading-tight mt-0.5">Complete unit information and management</p>
                         </div>
                     </div>
-                    <button onclick="closeUnitDetailsModal()" class="text-white hover:text-gray-200 transition-colors">
-                        <i data-lucide="x" class="w-5 h-5"></i>
+                    <button onclick="closeUnitDetailsModal()" class="text-white hover:text-gray-200 transition-colors p-1 bg-white bg-opacity-5 hover:bg-opacity-10 rounded-lg">
+                        <i data-lucide="x" class="w-4.5 h-4.5 sm:w-5 sm:h-5"></i>
                     </button>
                 </div>
             </div>
 
             {{-- Single dynamic content area --}}
-            <div id="unitDetailsContent" class="p-2 overflow-y-auto flex-1">
+            <div id="unitDetailsContent" class="p-3 sm:p-4 overflow-y-auto flex-1">
                 {{-- Loading state --}}
                 <div class="text-center py-8">
                     <i data-lucide="loader-2" class="w-8 h-8 mx-auto mb-4 text-gray-300 animate-spin"></i>
@@ -1095,7 +1138,14 @@
         tableContainer.style.opacity = '0.5';
         tableContainer.style.pointerEvents = 'none';
 
-        fetch(`{{ route('units.index') }}?search=${encodeURIComponent(query)}&status=${status}&sort=${sort}&page=${page}&view=${currentViewMode}`, {
+        const finalUrl = `{{ route('units.index') }}?search=${encodeURIComponent(query)}&status=${status}&sort=${sort}&page=${page}&view=${currentViewMode}`;
+        
+        // Dynamic state sync with global state engine
+        if (typeof window.history.replaceState === 'function') {
+            window.history.replaceState({}, '', finalUrl);
+        }
+
+        fetch(finalUrl, {
             headers: {
                 'X-Requested-With': 'XMLHttpRequest'
             }
@@ -1612,13 +1662,39 @@
 
                 let boundaryRowsHtml = '';
                 if (bHist.length > 0) {
-                    bHist.forEach(bh => {
-                        boundaryRowsHtml += `<tr>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${bh.date || ''}</td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${bh.full_name || 'N/A'}</td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${bh.remarks || '---'}</td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-green-600">₱${parseFloat(bh.actual_boundary || 0).toLocaleString('en-PH', {minimumFractionDigits:2})}</td>
-                        </tr>`;
+                    bHist.forEach((bh, idx) => {
+                        const rawRemarks = (bh.remarks || bh.notes || '').trim();
+                        const safeRemarks = rawRemarks.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+                        
+                        boundaryRowsHtml += `
+                        <tr onclick="toggleBndHistoryRemarks(${idx})" class="hover:bg-slate-50 transition-colors cursor-pointer sm:cursor-default">
+                            <td class="px-3 sm:px-6 py-3 whitespace-nowrap text-xs text-gray-700 font-medium">
+                                <div class="flex items-center gap-1.5">
+                                    ${rawRemarks ? `<i data-lucide="chevron-down" id="chevron-bnd-js-${idx}" class="w-3.5 h-3.5 text-blue-500 transition-transform duration-200 sm:hidden"></i>` : ''}
+                                    <span>${bh.date || ''}</span>
+                                </div>
+                            </td>
+                            <td class="px-3 sm:px-6 py-3 whitespace-nowrap text-xs text-gray-700 font-bold">${bh.full_name || 'N/A'}</td>
+                            <td class="px-3 sm:px-6 py-3 whitespace-nowrap text-xs text-gray-500 hidden sm:table-cell">${rawRemarks || '---'}</td>
+                            <td class="px-3 sm:px-6 py-3 whitespace-nowrap text-xs text-right font-extrabold text-green-600">
+                                <span>₱${parseFloat(bh.actual_boundary || 0).toLocaleString('en-PH', {minimumFractionDigits:2})}</span>
+                            </td>
+                        </tr>
+                        ${rawRemarks ? `
+                        <tr id="remarks-bnd-js-${idx}" class="hidden bg-blue-50/40">
+                            <td colspan="3" class="px-3.5 py-2.5 text-xs text-slate-700">
+                                <div class="flex items-start gap-2 bg-white p-2.5 rounded-lg border border-blue-100 shadow-xs text-left">
+                                    <div class="p-1 bg-blue-100 rounded text-blue-700 mt-0.5">
+                                        <i data-lucide="message-square" class="w-3.5 h-3.5"></i>
+                                    </div>
+                                    <div>
+                                        <span class="text-[8px] text-blue-600 font-black uppercase tracking-widest block mb-0.5">Remarks / Notes</span>
+                                        <p class="font-semibold text-slate-800 leading-relaxed">${safeRemarks}</p>
+                                    </div>
+                                </div>
+                            </td>
+                        </tr>` : ''}
+                        `;
                     });
                 }
 
@@ -1739,42 +1815,47 @@
                 const bndPrgW = targetAmount > 0 ? Math.min(100, (mthBnd / targetAmount) * 100).toFixed(1) : 0;
 
                 document.getElementById('unitDetailsContent').innerHTML = `
-                <div class="space-y-6">
+                <div class="space-y-4 sm:space-y-6">
                     <!-- Unit Summary Card (Top) -->
-                    <div class="bg-slate-800 p-6 rounded-2xl text-white shadow-lg">
-                        <div class="flex justify-between items-center">
-                            <div class="flex items-center gap-4">
-                                <div class="p-3 bg-white bg-opacity-20 rounded-xl">
-                                    <i data-lucide="car" class="w-8 h-8 text-white"></i>
+                    <div class="bg-gradient-to-r from-slate-800 to-slate-900 p-4 sm:p-6 rounded-2xl text-white shadow-lg">
+                        <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
+                            <div class="flex items-center gap-3 sm:gap-4">
+                                <div class="p-2.5 sm:p-3 bg-white bg-opacity-10 rounded-xl">
+                                    <i data-lucide="car" class="w-6 h-6 sm:w-8 sm:h-8 text-white"></i>
                                 </div>
                                 <div>
-                                    <div class="flex items-center gap-3 mb-1">
-                                        <h3 class="text-2xl font-black tracking-tight leading-none">${unit.plate_number || ''}</h3>
-                                        ${unit.status !== 'at_risk' ? `<span class="px-2.5 py-1 bg-white bg-opacity-20 rounded-full text-[10px] font-black uppercase tracking-widest border border-white/20">${unit.status || ''}</span>` : ''}
-                                        <span class="px-2.5 py-1 bg-white bg-opacity-20 rounded-full text-[10px] font-black uppercase tracking-widest border border-white/20">${unit.unit_type || 'Standard'}</span>
-                                        ${unit.status === 'at_risk' ? `<span class="px-2.5 py-1 bg-red-500 text-white rounded-full text-[10px] font-black uppercase tracking-widest animate-pulse border border-red-400">🚨 AT RISK</span>` : ''}
+                                    <div class="flex flex-wrap items-center gap-1.5 sm:gap-3 mb-1">
+                                        <h3 class="text-base sm:text-2xl font-black tracking-tight leading-none">${unit.plate_number || ''}</h3>
+                                        ${unit.status !== 'at_risk' ? `<span class="px-2 py-0.5 bg-white bg-opacity-10 rounded text-[9px] font-bold uppercase tracking-wider">${unit.status || ''}</span>` : ''}
+                                        <span class="px-2 py-0.5 bg-white bg-opacity-10 rounded text-[9px] font-bold uppercase tracking-wider">${unit.unit_type || 'Standard'}</span>
+                                        ${unit.status === 'at_risk' ? `<span class="px-2 py-0.5 bg-red-500 text-white rounded text-[9px] font-bold uppercase tracking-wider animate-pulse">🚨 AT RISK</span>` : ''}
                                     </div>
-                                    <p class="text-blue-100 font-medium">${(unit.make || '') + ' ' + (unit.model || '') + ' (' + (unit.year || '') + ')'}</p>
+                                    <p class="text-slate-300 text-xs font-semibold">${(unit.make || '') + ' ' + (unit.model || '') + ' (' + (unit.year || '') + ')'}</p>
                                 </div>
                             </div>
-                            <div class="text-right">
-                                <div class="text-2xl font-black leading-none mb-1">₱${parseFloat(unit.boundary_rate || 0).toLocaleString('en-PH', {minimumFractionDigits:2})}</div>
-                                <p class="text-blue-100 text-xs font-bold uppercase tracking-widest opacity-80">Daily Boundary Rate</p>
+                            <div class="sm:text-right flex sm:flex-col justify-between items-center sm:items-end bg-white bg-opacity-5 p-2.5 rounded-xl sm:p-0 sm:bg-transparent">
+                                <p class="text-slate-400 text-[9px] font-black uppercase tracking-widest sm:hidden">Daily Boundary Rate</p>
+                                <div class="text-right">
+                                    <div class="text-base sm:text-2xl font-black text-blue-400 sm:text-white">₱${parseFloat(unit.boundary_rate || 0).toLocaleString('en-PH', {minimumFractionDigits:2})}</div>
+                                    <p class="text-slate-300 text-[10px] sm:text-xs font-bold hidden sm:block">Daily Boundary Rate</p>
+                                </div>
                             </div>
                         </div>
                     </div>
 
-                    <!-- Justified Tabs Navigation -->
-                    <div class="border-b border-gray-100 bg-gray-50/50 rounded-t-xl p-1">
-                        <nav class="flex w-full gap-1">
-                            <button onclick="showTab('overview')" class="tab-btn flex-1 py-3 px-1 border-b-2 border-blue-600 font-black text-[10px] uppercase tracking-widest text-blue-600 transition-all duration-200" data-tab="overview">Overview</button>
-                            <button onclick="showTab('drivers')" class="tab-btn flex-1 py-3 px-1 border-b-2 border-transparent font-black text-[10px] uppercase tracking-widest text-gray-400 hover:text-gray-600 hover:border-gray-300 transition-all duration-200" data-tab="drivers">Drivers</button>
-                            <button onclick="showTab('coding')" class="tab-btn flex-1 py-3 px-1 border-b-2 border-transparent font-black text-[10px] uppercase tracking-widest text-gray-400 hover:text-gray-600 hover:border-gray-300 transition-all duration-200" data-tab="coding">Coding</button>
-                            <button onclick="showTab('boundary')" class="tab-btn flex-1 py-3 px-1 border-b-2 border-transparent font-black text-[10px] uppercase tracking-widest text-gray-400 hover:text-gray-600 hover:border-gray-300 transition-all duration-200" data-tab="boundary">Boundary</button>
-                            <button onclick="showTab('maintenance')" class="tab-btn flex-1 py-3 px-1 border-b-2 border-transparent font-black text-[10px] uppercase tracking-widest text-gray-400 hover:text-gray-600 hover:border-gray-300 transition-all duration-200" data-tab="maintenance">Maintenance</button>
-                            <button onclick="showTab('roi')" class="tab-btn flex-1 py-3 px-1 border-b-2 border-transparent font-black text-[10px] uppercase tracking-widest text-gray-400 hover:text-gray-600 hover:border-gray-300 transition-all duration-200" data-tab="roi">ROI</button>
-                            <button onclick="showTab('location')" class="tab-btn flex-1 py-3 px-1 border-b-2 border-transparent font-black text-[10px] uppercase tracking-widest text-gray-400 hover:text-gray-600 hover:border-gray-300 transition-all duration-200" data-tab="location">Location</button>
-                        </nav>
+                    <!-- Swipeable Tabs Navigation on Mobile -->
+                    <div class="border-b border-gray-200">
+                        <div class="overflow-x-auto scrollbar-none" style="-webkit-overflow-scrolling: touch;">
+                            <nav class="-mb-px flex space-x-1 min-w-max px-1">
+                                <button onclick="showTab('overview')" class="tab-btn py-3 px-3.5 border-b-2 border-blue-600 font-black text-[10px] uppercase tracking-widest text-blue-600 transition-all duration-200 whitespace-nowrap" data-tab="overview">Overview</button>
+                                <button onclick="showTab('drivers')" class="tab-btn py-3 px-3.5 border-b-2 border-transparent font-black text-[10px] uppercase tracking-widest text-gray-400 hover:text-gray-600 hover:border-gray-300 transition-all duration-200 whitespace-nowrap" data-tab="drivers">Drivers</button>
+                                <button onclick="showTab('coding')" class="tab-btn py-3 px-3.5 border-b-2 border-transparent font-black text-[10px] uppercase tracking-widest text-gray-400 hover:text-gray-600 hover:border-gray-300 transition-all duration-200 whitespace-nowrap" data-tab="coding">Coding</button>
+                                <button onclick="showTab('boundary')" class="tab-btn py-3 px-3.5 border-b-2 border-transparent font-black text-[10px] uppercase tracking-widest text-gray-400 hover:text-gray-600 hover:border-gray-300 transition-all duration-200 whitespace-nowrap" data-tab="boundary">Boundary</button>
+                                <button onclick="showTab('maintenance')" class="tab-btn py-3 px-3.5 border-b-2 border-transparent font-black text-[10px] uppercase tracking-widest text-gray-400 hover:text-gray-600 hover:border-gray-300 transition-all duration-200 whitespace-nowrap" data-tab="maintenance">Maintenance</button>
+                                <button onclick="showTab('roi')" class="tab-btn py-3 px-3.5 border-b-2 border-transparent font-black text-[10px] uppercase tracking-widest text-gray-400 hover:text-gray-600 hover:border-gray-300 transition-all duration-200 whitespace-nowrap" data-tab="roi">ROI</button>
+                                <button onclick="showTab('location')" class="tab-btn py-3 px-3.5 border-b-2 border-transparent font-black text-[10px] uppercase tracking-widest text-gray-400 hover:text-gray-600 hover:border-gray-300 transition-all duration-200 whitespace-nowrap" data-tab="location">Location</button>
+                            </nav>
+                        </div>
                     </div>
 
                     <!-- Tab Content Area -->
@@ -1911,8 +1992,8 @@
 
                         <!-- Boundary Tab -->
                         <div id="boundary-tab" class="tab-content hidden animate-in fade-in duration-300">
-                            <div class="bg-white border border-gray-100 rounded-2xl p-6 shadow-sm">
-                                <h4 class="text-sm font-black text-gray-900 mb-6 flex items-center gap-2 uppercase tracking-widest border-b border-gray-50 pb-4">
+                            <div class="bg-white border border-gray-100 rounded-2xl p-4 sm:p-6 shadow-sm">
+                                <h4 class="text-xs sm:text-sm font-black text-gray-900 mb-4 sm:mb-6 flex items-center gap-2 uppercase tracking-widest border-b border-gray-50 pb-3 sm:pb-4">
                                     <i data-lucide="coins" class="w-5 h-5 text-blue-600"></i> Boundary Collection History
                                 </h4>
                                 ${boundaryRowsHtml ? `
@@ -1920,10 +2001,10 @@
                                         <table class="min-w-full divide-y divide-gray-200">
                                             <thead class="bg-gray-50">
                                                 <tr>
-                                                    <th class="px-6 py-4 text-left text-[10px] font-black text-gray-400 uppercase tracking-widest">Date</th>
-                                                    <th class="px-6 py-4 text-left text-[10px] font-black text-gray-400 uppercase tracking-widest">Driver</th>
-                                                    <th class="px-6 py-4 text-left text-[10px] font-black text-gray-400 uppercase tracking-widest">Remarks</th>
-                                                    <th class="px-6 py-4 text-right text-[10px] font-black text-gray-400 uppercase tracking-widest">Amount</th>
+                                                    <th class="px-3 sm:px-6 py-3 text-left text-[10px] font-black text-gray-400 uppercase tracking-widest">Date</th>
+                                                    <th class="px-3 sm:px-6 py-3 text-left text-[10px] font-black text-gray-400 uppercase tracking-widest">Driver</th>
+                                                    <th class="px-3 sm:px-6 py-3 text-left text-[10px] font-black text-gray-400 uppercase tracking-widest hidden sm:table-cell">Remarks</th>
+                                                    <th class="px-3 sm:px-6 py-3 text-right text-[10px] font-black text-gray-400 uppercase tracking-widest">Amount</th>
                                                 </tr>
                                             </thead>
                                             <tbody class="bg-white divide-y divide-gray-100">
@@ -2049,15 +2130,15 @@
                                             <i data-lucide="satellite" class="w-6 h-6 ${locInfo.gps_enabled ? 'text-green-500' : 'text-red-400'}"></i>
                                         </div>
                                     </div>
-                                    <div id="unitDetailMapContainer" class="relative rounded-2xl overflow-hidden border border-gray-100 bg-gray-50 flex flex-col items-center justify-center p-12 text-center shadow-inner" style="height: 400px;">
-                                        <div class="mb-6 p-6 bg-blue-100 rounded-full shadow-sm animate-pulse">
-                                            <i data-lucide="navigation" class="w-12 h-12 text-blue-600"></i>
+                                    <div id="unitDetailMapContainer" class="relative rounded-2xl overflow-hidden border border-gray-100 bg-gray-50 flex flex-col items-center justify-center p-4 sm:p-12 text-center shadow-inner" style="height: 400px;">
+                                        <div class="mb-4 sm:mb-6 p-4 sm:p-6 bg-blue-100 rounded-full shadow-sm animate-pulse">
+                                            <i data-lucide="navigation" class="w-8 h-8 sm:w-12 sm:h-12 text-blue-600"></i>
                                         </div>
-                                        <h4 class="text-lg font-black text-gray-900 mb-2 uppercase tracking-tight">Tracksolid Pro Enterprise</h4>
-                                        <p class="text-sm text-gray-500 mb-8 max-w-md mx-auto">This unit is tracked via real-time satellite identification. Access the full live map for movement history and geofencing.</p>
+                                        <h4 class="text-base sm:text-lg font-black text-gray-900 mb-1.5 sm:mb-2 uppercase tracking-tight">Tracksolid Pro Enterprise</h4>
+                                        <p class="text-xs sm:text-sm text-gray-500 mb-6 sm:mb-8 max-w-md mx-auto">This unit is tracked via real-time satellite identification. Access the full live map for movement history and geofencing.</p>
                                         
-                                        <a href="/live-tracking?unit=${unit.id}" class="inline-flex items-center gap-3 px-8 py-4 bg-blue-600 hover:bg-blue-700 text-white text-sm font-black rounded-2xl transition-all shadow-lg hover:shadow-blue-200 hover:-translate-y-1 uppercase tracking-widest">
-                                            <i data-lucide="map" class="w-5 h-5"></i>
+                                        <a href="/live-tracking?unit=${unit.id}" class="inline-flex items-center gap-2.5 sm:gap-3 px-6 sm:px-8 py-3.5 sm:py-4 bg-blue-600 hover:bg-blue-700 text-white text-xs sm:text-sm font-black rounded-2xl transition-all shadow-lg hover:shadow-blue-200 hover:-translate-y-1 uppercase tracking-widest">
+                                            <i data-lucide="map" class="w-4 h-4 sm:w-5 sm:h-5"></i>
                                             Open Live Tracking Map
                                         </a>
                                     </div>
@@ -2088,6 +2169,31 @@
 
         function closeUnitDetailsModal() {
             document.getElementById('unitDetailsModal').classList.add('hidden');
+        }
+
+        function toggleBndHistoryRemarks(idx) {
+            if (window.innerWidth >= 640) {
+                return; // Do nothing on Desktop/Web! "wag mo gagalwin ang web ko"
+            }
+            const row = document.getElementById('remarks-bnd-js-' + idx);
+            const chev = document.getElementById('chevron-bnd-js-' + idx);
+            if (row) {
+                const isHidden = row.classList.contains('hidden');
+                if (isHidden) {
+                    row.classList.remove('hidden');
+                    row.classList.add('animate-fade-in');
+                    if (chev) {
+                        chev.classList.add('rotate-180');
+                        chev.classList.replace('text-gray-400', 'text-blue-600');
+                    }
+                } else {
+                    row.classList.add('hidden');
+                    if (chev) {
+                        chev.classList.remove('rotate-180');
+                        chev.classList.replace('text-blue-600', 'text-gray-400');
+                    }
+                }
+            }
         }
 
         // showTab() - matches backup's exact tab switching logic

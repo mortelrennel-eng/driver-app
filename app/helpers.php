@@ -113,6 +113,9 @@ if (!function_exists('send_custom_email')) {
      */
     function send_custom_email($to, $subject, $body, $altBody = null)
     {
+        if (app()->environment('testing')) {
+            return true;
+        }
         $mail = new PHPMailer(true);
 
         try {

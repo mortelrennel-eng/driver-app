@@ -553,9 +553,9 @@
      ════════════════════════════════════════ --}}
 <div id="tab-profiles" class="tab-content {{ ($tab ?? '') === 'profiles' ? '' : 'hidden' }}">
     <div class="mb-4">
-        <input type="text" id="profileSearch" placeholder="Search driver name..."
+        <input type="search" id="profileSearch" placeholder="Search driver name..."
             class="w-full md:w-80 px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm font-medium focus:ring-2 focus:ring-yellow-500 focus:outline-none shadow-sm"
-            onkeyup="filterProfiles(this.value)">
+            onkeyup="filterProfiles(this.value)" autocomplete="new-password" spellcheck="false" autocorrect="off" autocapitalize="off" readonly onfocus="this.removeAttribute('readonly');">
     </div>
 
     <div id="profileGrid" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
@@ -678,8 +678,8 @@
                         </div>
                         <div class="relative">
                             <label class="block text-[10px] font-black text-gray-500 uppercase mb-2 ml-1">Assignee Driver *</label>
-                            <input type="text" id="driverSearchDisplay" placeholder="Search Driver..." required
-                                class="w-full px-4 py-3.5 bg-gray-50 border border-gray-200 rounded-2xl text-sm font-bold focus:ring-4 focus:ring-yellow-500/10 focus:border-yellow-500 focus:outline-none transition-all placeholder:text-gray-300" autocomplete="off">
+                            <input type="search" id="driverSearchDisplay" placeholder="Search Driver..." required
+                                class="w-full px-4 py-3.5 bg-gray-50 border border-gray-200 rounded-2xl text-sm font-bold focus:ring-4 focus:ring-yellow-500/10 focus:border-yellow-500 focus:outline-none transition-all placeholder:text-gray-300" autocomplete="new-password" spellcheck="false" autocorrect="off" autocapitalize="off" readonly onfocus="this.removeAttribute('readonly');">
                             <input type="hidden" name="driver_id" id="incidentDriverId" required>
                             <div id="driverSearchDropdown" class="search-dropdown hidden">
                                 @foreach($drivers as $d)
