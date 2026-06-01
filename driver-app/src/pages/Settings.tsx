@@ -11,6 +11,7 @@ import {
   useIonToast,
   useIonRouter
 } from '@ionic/react';
+import { useLocation } from 'react-router-dom';
 import {
   personOutline,
   callOutline,
@@ -39,6 +40,7 @@ import { useTheme } from '../context/ThemeContext';
 const Settings: FC = () => {
   const [presentToast] = useIonToast();
   const ionRouter = useIonRouter();
+  const location = useLocation<{ openView?: string }>();
   const { refreshUser, logout } = useAuth();
   const { t, isDark, toggleTheme } = useTheme();
 
@@ -110,6 +112,14 @@ const Settings: FC = () => {
   } as any;
   
   const [view, setView] = useState<'main' | 'profile' | 'password'>('main');
+
+  // Auto-open profile view if navigated from the profile-incomplete banner
+  React.useEffect(() => {
+    const state = location.state as { openView?: string } | undefined;
+    if (state?.openView === 'profile') {
+      setView('profile');
+    }
+  }, [location.state]);
 
   // Profile State
   const [name, setName] = useState('');

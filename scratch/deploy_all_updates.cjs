@@ -85,6 +85,10 @@ const filesToUpload = [
     {
         local:  'public/assets/app.js',
         remote: `${BASE_REMOTE}/public/assets/app.js`
+    },
+    {
+        local:  'app/Http/Controllers/DriverBehaviorController.php',
+        remote: `${BASE_REMOTE}/app/Http/Controllers/DriverBehaviorController.php`
     }
 ];
 

@@ -224,7 +224,7 @@ const Performance: FC = () => {
           <IonRefresherContent></IonRefresherContent>
         </IonRefresher>
 
-        <div style={{ background: t.bg, minHeight: '100%', padding: '20px' }}>
+        <div style={{ background: t.bg, minHeight: '100%', padding: '20px 20px 140px 20px' }}>
           
           <div style={{ marginBottom: '24px' }}>
             <h1 style={{ color: t.textPrimary, fontSize: '28px', fontWeight: '900', margin: '0 0 8px' }}>Your Trends</h1>

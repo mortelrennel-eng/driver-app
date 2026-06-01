@@ -426,10 +426,22 @@ const Dashboard: FC = () => {
           
           {/* ── Profile Incomplete Banner ── */}
           {data?.profile_incomplete && (
-            <div onClick={() => history.push('/settings')} style={{ margin: '0 20px 12px', padding: '12px 16px', background: `${t.gold}1e`, border: `1px solid ${t.gold}4d`, borderRadius: '14px', display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }}>
-              <IonIcon icon={warningOutline} style={{ fontSize: '18px', color: t.gold }} />
-              <span style={{ fontSize: '12px', fontWeight: '700', color: t.gold }}>Complete your profile & emergency info in Settings</span>
-              <IonIcon icon={chevronForwardOutline} style={{ fontSize: '14px', color: t.gold, marginLeft: 'auto' }} />
+            <div
+              onClick={() => history.push('/settings', { openView: 'profile' })}
+              style={{
+                margin: '0 20px 12px', padding: '12px 16px',
+                background: 'rgba(239,68,68,0.1)',
+                border: '1px solid rgba(239,68,68,0.35)',
+                borderRadius: '14px',
+                display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer',
+                WebkitTapHighlightColor: 'transparent',
+              }}
+            >
+              <IonIcon icon={warningOutline} style={{ fontSize: '18px', color: '#ef4444', flexShrink: 0 }} />
+              <span style={{ fontSize: '12px', fontWeight: '700', color: '#ef4444', flex: 1 }}>
+                Complete your profile &amp; emergency info
+              </span>
+              <IonIcon icon={chevronForwardOutline} style={{ fontSize: '14px', color: '#ef4444' }} />
             </div>
           )}
 
@@ -587,8 +599,7 @@ const Dashboard: FC = () => {
           </div>
 
           <div style={{ textAlign: 'center', padding: '30px 20px', opacity: 0.5 }}>
-            <div style={{ fontSize: '11px', color: t.textMuted, fontStyle: 'italic', marginBottom: '4px' }}>"Drive safely. Your family is waiting."</div>
-            <div style={{ fontSize: '9px', color: t.textMuted }}>EuroTaxi v2.0 • Powered by Advanced AI</div>
+            <div style={{ fontSize: '11px', color: t.textMuted, fontStyle: 'italic' }}>"Drive safely. Your family is waiting."</div>
           </div>
 
         </div>

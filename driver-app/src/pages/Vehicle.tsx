@@ -22,7 +22,7 @@ interface VehicleData {
 
 const Vehicle: FC = () => {
   const history = useHistory();
-  const { t, isDark } = useTheme();
+  const { t } = useTheme();
   const [vehicle, setVehicle] = useState<VehicleData | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -88,78 +88,94 @@ const Vehicle: FC = () => {
             </div>
           ) : (
             <>
-              {/* Vehicle Hero Card */}
-              <div style={{ margin: '4px 20px 20px', padding: '28px 20px', background: t.card, ...t.glass, border: t.border, borderRadius: '20px', boxShadow: t.shadow, textAlign: 'center' }}>
-                <div style={{ width: '80px', height: '80px', borderRadius: '20px', background: t.goldGrad, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px', boxShadow: '0 8px 24px rgba(234,179,8,0.25)' }}>
+              {/* ── Vehicle Hero Card ── */}
+              <div style={{
+                margin: '4px 20px 20px', padding: '28px 20px 24px',
+                background: t.card, ...t.glass, border: t.border,
+                borderRadius: '24px', boxShadow: t.shadow, textAlign: 'center'
+              }}>
+                {/* Icon */}
+                <div style={{
+                  width: '80px', height: '80px', borderRadius: '22px',
+                  background: t.goldGrad,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  margin: '0 auto 16px',
+                  boxShadow: '0 8px 24px rgba(234,179,8,0.28)'
+                }}>
                   <IonIcon icon={carSportOutline} style={{ fontSize: '40px', color: t.textInverse }} />
                 </div>
-                <div style={{ fontSize: '28px', fontWeight: '900', color: t.textPrimary, letterSpacing: '-0.5px' }}>{vehicle.plate_number}</div>
-                <div style={{ fontSize: '14px', color: t.textSecondary, marginTop: '4px' }}>
-                  {vehicle.brand && vehicle.brand !== 'Unknown' ? vehicle.brand : ''} {vehicle.model}
+
+                {/* Plate */}
+                <div style={{ fontSize: '30px', fontWeight: '900', color: t.textPrimary, letterSpacing: '-0.5px', lineHeight: 1 }}>
+                  {vehicle.plate_number}
+                </div>
+
+                {/* Make + Model */}
+                <div style={{ fontSize: '15px', color: t.textSecondary, marginTop: '6px', fontWeight: '600' }}>
+                  {[vehicle.brand && vehicle.brand !== 'Unknown' ? vehicle.brand : '', vehicle.model].filter(Boolean).join(' ')}
+                </div>
+
+                {/* Status badge */}
+                <div style={{ marginTop: '14px', display: 'flex', justifyContent: 'center' }}>
+                  <span style={{
+                    fontSize: '11px', fontWeight: '900',
+                    textTransform: 'uppercase', letterSpacing: '1px',
+                    padding: '5px 14px', borderRadius: '99px',
+                    background: vehicle.maintenance_status === 'active'
+                      ? 'rgba(34,197,94,0.15)' : 'rgba(100,116,139,0.15)',
+                    color: vehicle.maintenance_status === 'active' ? '#22c55e' : '#64748b',
+                    border: `1px solid ${vehicle.maintenance_status === 'active'
+                      ? 'rgba(34,197,94,0.3)' : 'rgba(100,116,139,0.25)'}`,
+                  }}>
+                    {(vehicle.maintenance_status || 'Unknown').toUpperCase()}
+                  </span>
                 </div>
               </div>
 
-              {/* Details */}
-              <div style={{ padding: '0 20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              {/* ── Details Grid ── */}
+              <div style={{ padding: '0 20px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                 {[
                   {
-                    label: 'Plate Number',
-                    value: vehicle.plate_number,
-                    badge: true
-                  },
-                  {
-                    label: 'Vehicle',
-                    value: `${vehicle.brand && vehicle.brand !== 'Unknown' ? vehicle.brand : ''} ${vehicle.model || ''}`.trim() || 'N/A',
-                    badge: false
-                  },
-                  {
                     label: 'Year',
-                    value: vehicle.year && vehicle.year > 0 ? vehicle.year : (vehicle.registration_date ? new Date(vehicle.registration_date).getFullYear() : 'N/A'),
-                    badge: false
-                  },
-                  {
-                    label: 'Status',
-                    value: (vehicle.maintenance_status || 'N/A').toUpperCase(),
-                    badge: true,
-                    color: vehicle.maintenance_status === 'active' ? '#22c55e' : '#64748b'
+                    value: vehicle.year && vehicle.year > 0
+                      ? vehicle.year
+                      : (vehicle.registration_date ? new Date(vehicle.registration_date).getFullYear() : '—'),
                   },
                   {
                     label: 'License ID',
-                    value: vehicle.license_id || 'N/A',
-                    badge: false
+                    value: vehicle.license_id || '—',
                   },
                   {
                     label: 'Odometer',
                     value: `${Number(vehicle.odo).toLocaleString()} km`,
-                    badge: false
-                  }
+                    wide: true,
+                  },
                 ].map((item, i) => (
-                  <div key={i} style={{ 
-                    padding: '18px 20px', 
-                    background: t.card, 
-                    ...t.glass, 
-                    border: t.border, 
-                    borderRadius: '16px', 
-                    display: 'flex', 
-                    justifyContent: 'space-between', 
-                    alignItems: 'center' 
-                  }}>
-                    <div style={{ fontSize: '11px', fontWeight: '800', color: t.textMuted, textTransform: 'uppercase', letterSpacing: '1px' }}>{item.label}</div>
-                    <div style={{ 
-                      fontSize: '15px', 
-                      fontWeight: '900', 
-                      color: item.color || t.textPrimary,
-                      padding: item.badge ? '4px 12px' : '0',
-                      background: item.badge ? (isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)') : 'none',
-                      borderRadius: item.badge ? '8px' : '0',
-                      textTransform: item.badge ? 'uppercase' : 'none'
+                  <div
+                    key={i}
+                    style={{
+                      gridColumn: (item as any).wide ? 'span 2' : 'span 1',
+                      padding: '16px 18px',
+                      background: t.card,
+                      ...t.glass,
+                      border: t.border,
+                      borderRadius: '16px',
+                    }}
+                  >
+                    <div style={{
+                      fontSize: '10px', fontWeight: '800', color: t.textMuted,
+                      textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '6px'
                     }}>
+                      {item.label}
+                    </div>
+                    <div style={{ fontSize: '16px', fontWeight: '900', color: t.textPrimary }}>
                       {item.value}
                     </div>
                   </div>
                 ))}
               </div>
             </>
+
           )}
         </div>
       </IonContent>
