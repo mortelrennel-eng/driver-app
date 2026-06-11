@@ -246,7 +246,8 @@ const Register: FC = () => {
     key: keyof typeof formData,
     placeholder: string,
     type: string = 'text',
-    maxLen: number = 50
+    maxLen: number = 50,
+    isRequired: boolean = true
   ) => (
     <div>
       <label style={styles.label}>{label}</label>
@@ -262,7 +263,7 @@ const Register: FC = () => {
             setFormData({ ...formData, [key]: val });
           }}
           placeholder={placeholder}
-          required
+          required={isRequired}
           maxlength={maxLen}
           style={inputStyle}
         />
@@ -343,7 +344,7 @@ const Register: FC = () => {
                 </div>
                 {field(personOutline, 'First Name', 'first_name', 'e.g. Juan', 'text', 50)}
                 {field(personOutline, 'Last Name', 'last_name', 'e.g. Dela Cruz', 'text', 50)}
-                {field(personOutline, 'Suffix (Optional)', 'suffix', 'e.g. Jr., Sr., III', 'text', 10)}
+                {field(personOutline, 'Suffix (Optional)', 'suffix', 'e.g. Jr., Sr., III', 'text', 10, false)}
                 {field(mailOutline, 'Email', 'email', 'email@example.com', 'email', 50)}
                 {field(callOutline, 'Phone', 'phone', '09123456789', 'tel', 11)}
                 {field(lockClosedOutline, 'Password', 'password', '••••••••', 'password', 20)}
