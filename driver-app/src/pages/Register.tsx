@@ -120,7 +120,8 @@ const Register: FC = () => {
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const [formData, setFormData] = useState({
-    name: '',
+    first_name: '',
+    last_name: '',
     email: '',
     phone: '',
     password: '',
@@ -156,8 +157,10 @@ const Register: FC = () => {
     e.preventDefault();
     
     // Name validation
-    if (formData.name.trim() === '') { setError('Name cannot be just spaces.'); return; }
-    if (!formData.name.match(/^[a-zA-ZñÑ\s]*$/)) { setError('Name must only contain letters.'); return; }
+    if (formData.first_name.trim() === '') { setError('First name is required.'); return; }
+    if (!formData.first_name.match(/^[a-zA-ZñÑ\s]*$/)) { setError('First name must only contain letters.'); return; }
+    if (formData.last_name.trim() === '') { setError('Last name is required.'); return; }
+    if (!formData.last_name.match(/^[a-zA-ZñÑ\s]*$/)) { setError('Last name must only contain letters.'); return; }
     
     // Email validation
     const emailCheck = validateEmail(formData.email);
@@ -253,7 +256,7 @@ const Register: FC = () => {
           value={formData[key]}
           onIonInput={(e) => {
             let val = e.detail.value!;
-            if (key === 'name') val = val.replace(/[^a-zA-Z\s]/g, '');
+            if (key === 'first_name' || key === 'last_name') val = val.replace(/[^a-zA-ZñÑ\s]/g, '');
             if (key === 'phone') val = val.replace(/[^0-9]/g, '');
             setFormData({ ...formData, [key]: val });
           }}
@@ -337,7 +340,8 @@ const Register: FC = () => {
                   <div style={styles.sectionDot}></div>
                   <span style={styles.sectionLabel}>Account</span>
                 </div>
-                {field(personOutline, 'Full Name', 'name', 'e.g. Juan Dela Cruz', 'text', 50)}
+                {field(personOutline, 'First Name', 'first_name', 'e.g. Juan', 'text', 50)}
+                {field(personOutline, 'Last Name', 'last_name', 'e.g. Dela Cruz', 'text', 50)}
                 {field(mailOutline, 'Email', 'email', 'email@example.com', 'email', 50)}
                 {field(callOutline, 'Phone', 'phone', '09123456789', 'tel', 11)}
                 {field(lockClosedOutline, 'Password', 'password', '••••••••', 'password', 20)}
