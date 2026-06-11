@@ -34,6 +34,26 @@ const Charges: React.FC = () => {
   const [incentives, setIncentives] = useState<IncentiveRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<'charges' | 'incentives'>('charges');
+
+  // Month Filter Logic
+  const [selectedMonth, setSelectedMonth] = useState(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+  });
+
+  const months = React.useMemo(() => {
+    const result = [];
+    for (let i = 0; i < 3; i++) {
+      const d = new Date();
+      d.setMonth(d.getMonth() - i);
+      result.push({
+        value: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`,
+        label: d.toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
+      });
+    }
+    return result;
+  }, []);
+
   const [currentPage, setCurrentPage] = useState(1);
   const ITEMS_PER_PAGE = 10;
 
@@ -53,13 +73,16 @@ const Charges: React.FC = () => {
   // Reset pagination when tab changes
   useEffect(() => {
     setCurrentPage(1);
-  }, [tab]);
+  }, [tab, selectedMonth]);
 
-  const currentList = tab === 'charges' ? charges : incentives;
+  const filteredCharges = charges.filter(c => c.incident_date?.startsWith(selectedMonth));
+  const filteredIncentives = incentives.filter(i => i.date?.startsWith(selectedMonth));
+
+  const currentList = tab === 'charges' ? filteredCharges : filteredIncentives;
   const totalPages = Math.ceil(currentList.length / ITEMS_PER_PAGE);
   const paginatedList = currentList.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
 
-  const totalCharges = charges.reduce((a, c) => a + Number(c.remaining_balance), 0);
+  const totalCharges = filteredCharges.reduce((a, c) => a + Number(c.remaining_balance), 0);
 
   const severityConfig = (s: string) =>
     s === 'high' ? { color: '#ef4444', bg: 'rgba(239,68,68,0.12)', icon: flameOutline } :
@@ -89,8 +112,49 @@ const Charges: React.FC = () => {
 
         <div style={{ minHeight: '100vh', background: t.bg, paddingBottom: '120px' }}>
 
+          {/* Month Selector Chips */}
+          <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', padding: '10px 20px 4px', alignItems: 'center', msOverflowStyle: 'none', scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch' }}>
+            {months.map(m => (
+              <div 
+                key={m.value}
+                onClick={() => { setSelectedMonth(m.value); setCurrentPage(1); }}
+                style={{
+                  padding: '8px 16px',
+                  borderRadius: '20px',
+                  whiteSpace: 'nowrap',
+                  fontSize: '12px',
+                  fontWeight: '800',
+                  background: selectedMonth === m.value ? '#3b82f6' : t.subtleBg,
+                  color: selectedMonth === m.value ? '#ffffff' : t.textPrimary,
+                  boxShadow: selectedMonth === m.value ? '0 4px 12px rgba(59,130,246,0.3)' : 'none',
+                  border: selectedMonth === m.value ? 'none' : t.border,
+                  cursor: 'pointer',
+                  transition: 'all 0.2s',
+                }}
+              >
+                {m.label}
+              </div>
+            ))}
+
+            {/* Custom Month Picker */}
+            <input 
+              type="month" 
+              value={selectedMonth}
+              max={`${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`}
+              onChange={(e) => { if (e.target.value) { setSelectedMonth(e.target.value); setCurrentPage(1); } }}
+              style={{
+                padding: '7px 12px', borderRadius: '20px', fontSize: '12px', fontWeight: '800',
+                background: !months.find(m => m.value === selectedMonth) ? '#3b82f6' : t.subtleBg,
+                color: !months.find(m => m.value === selectedMonth) ? '#ffffff' : t.textPrimary,
+                border: !months.find(m => m.value === selectedMonth) ? 'none' : t.border,
+                outline: 'none', cursor: 'pointer', fontFamily: 'inherit',
+                flexShrink: 0
+              }}
+            />
+          </div>
+
           {/* Tab Switcher */}
-          <div style={{ margin: '4px 20px 20px', display: 'grid', gridTemplateColumns: '1fr 1fr', background: t.subtleBg, borderRadius: '14px', padding: '4px', border: t.border }}>
+          <div style={{ margin: '16px 20px 20px', display: 'grid', gridTemplateColumns: '1fr 1fr', background: t.subtleBg, borderRadius: '14px', padding: '4px', border: t.border }}>
             {(['charges', 'incentives'] as const).map(tabKey => (
               <button key={tabKey} onClick={() => setTab(tabKey)} style={{
                 padding: '10px', borderRadius: '10px', border: 'none', fontWeight: '700', fontSize: '13px', cursor: 'pointer',
@@ -104,19 +168,19 @@ const Charges: React.FC = () => {
           </div>
 
           {/* Summary Banner */}
-          {tab === 'charges' && charges.length > 0 && (
-            <div style={{ padding: '20px', background: t.card, ...t.glass, border: t.border, borderRadius: '16px' }}>
+          {tab === 'charges' && filteredCharges.length > 0 && (
+            <div style={{ margin: '0 20px 16px', padding: '20px', background: t.card, ...t.glass, border: t.border, borderRadius: '16px' }}>
               <div style={{ fontSize: '10px', fontWeight: '800', color: t.textMuted, textTransform: 'uppercase', letterSpacing: '2px', marginBottom: '4px' }}>Total Charges</div>
               <div style={{ fontSize: '32px', fontWeight: '900', color: '#ef4444' }}>₱{totalCharges.toLocaleString()}</div>
-              <div style={{ fontSize: '12px', color: t.textMuted, marginTop: '2px' }}>{charges.length} charge(s)</div>
+              <div style={{ fontSize: '12px', color: t.textMuted, marginTop: '2px' }}>{filteredCharges.length} charge(s)</div>
             </div>
           )}
 
-          {tab === 'incentives' && incentives.length > 0 && (
+          {tab === 'incentives' && filteredIncentives.length > 0 && (
             <div style={{ margin: '0 20px 16px', padding: '16px', background: 'rgba(234,179,8,0.1)', border: '1px solid rgba(234,179,8,0.2)', borderRadius: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div>
                 <div style={{ fontSize: '10px', color: t.gold, textTransform: 'uppercase', letterSpacing: '1px', fontWeight: '700' }}>Eligible Incentives</div>
-                <div style={{ fontSize: '24px', fontWeight: '900', color: t.gold }}>{incentives.length} Days</div>
+                <div style={{ fontSize: '24px', fontWeight: '900', color: t.gold }}>{filteredIncentives.length} Days</div>
               </div>
               <div style={{ width: '44px', height: '44px', borderRadius: '14px', background: 'rgba(234,179,8,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <IonIcon icon={starOutline} style={{ fontSize: '24px', color: t.gold }} />
@@ -131,7 +195,7 @@ const Charges: React.FC = () => {
                 <IonSpinner name="crescent" color="warning" />
               </div>
             ) : tab === 'charges' ? (
-              charges.length === 0 ? (
+              filteredCharges.length === 0 ? (
                 <div style={{ textAlign: 'center', padding: '60px 20px' }}>
                   <div style={{ width: '72px', height: '72px', borderRadius: '50%', background: 'rgba(34,197,94,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
                     <IonIcon icon={checkmarkCircleOutline} style={{ fontSize: '36px', color: '#22c55e' }} />
@@ -170,7 +234,7 @@ const Charges: React.FC = () => {
                 </div>
               )
             ) : (
-              incentives.length === 0 ? (
+              filteredIncentives.length === 0 ? (
                 <div style={{ textAlign: 'center', padding: '60px 20px' }}>
                   <IonIcon icon={giftOutline} style={{ fontSize: '48px', color: '#1e293b' }} />
                   <div style={{ fontSize: '14px', fontWeight: '600', color: '#475569', marginTop: '12px' }}>No incentives recorded yet.</div>

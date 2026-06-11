@@ -41,6 +41,25 @@ const History: React.FC = () => {
   const [records, setRecords] = useState<BoundaryRecord[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // Month Filter Logic
+  const [selectedMonth, setSelectedMonth] = useState(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+  });
+
+  const months = React.useMemo(() => {
+    const result = [];
+    for (let i = 0; i < 3; i++) {
+      const d = new Date();
+      d.setMonth(d.getMonth() - i);
+      result.push({
+        value: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`,
+        label: d.toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
+      });
+    }
+    return result;
+  }, []);
+
   const [currentPage, setCurrentPage] = useState(1);
   const ITEMS_PER_PAGE = 10;
 
@@ -63,14 +82,19 @@ const History: React.FC = () => {
     fetchHistory(); 
   }, []);
 
-  const totalPages = Math.ceil((Array.isArray(records) ? records.length : 0) / ITEMS_PER_PAGE);
-  const paginatedRecords = (Array.isArray(records) ? records : []).slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
-
   const safeRecords = Array.isArray(records) ? records : [];
-  const totalCollected = safeRecords.reduce((a, r) => a + Number(r.actual_boundary || 0), 0);
-  const totalTarget = safeRecords.reduce((a, r) => a + Number(r.boundary_amount || 0), 0);
-  const paidCount = safeRecords.filter(r => ['paid', 'excess'].includes(r.status?.toLowerCase())).length;
-  const shortCount = safeRecords.filter(r => r.status?.toLowerCase() === 'shortage').length;
+  const filteredRecords = safeRecords.filter(r => {
+    if (!r.date) return false;
+    return r.date.startsWith(selectedMonth);
+  });
+
+  const totalPages = Math.ceil(filteredRecords.length / ITEMS_PER_PAGE);
+  const paginatedRecords = filteredRecords.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
+
+  const totalCollected = filteredRecords.reduce((a, r) => a + Number(r.actual_boundary || 0), 0);
+  const totalTarget = filteredRecords.reduce((a, r) => a + Number(r.boundary_amount || 0), 0);
+  const paidCount = filteredRecords.filter(r => ['paid', 'excess'].includes(r.status?.toLowerCase())).length;
+  const shortCount = filteredRecords.filter(r => r.status?.toLowerCase() === 'shortage').length;
 
   return (
     <IonPage>
@@ -95,7 +119,48 @@ const History: React.FC = () => {
 
         <div style={{ minHeight: '100vh', background: t.bg, paddingBottom: '120px' }}>
 
-          {/* Summary Hero Card (Enhanced from Earnings) */}
+          {/* Month Selector Chips */}
+          <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', padding: '10px 20px 16px', alignItems: 'center', msOverflowStyle: 'none', scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch' }}>
+            {months.map(m => (
+              <div 
+                key={m.value}
+                onClick={() => { setSelectedMonth(m.value); setCurrentPage(1); }}
+                style={{
+                  padding: '8px 16px',
+                  borderRadius: '20px',
+                  whiteSpace: 'nowrap',
+                  fontSize: '12px',
+                  fontWeight: '800',
+                  background: selectedMonth === m.value ? '#3b82f6' : t.subtleBg,
+                  color: selectedMonth === m.value ? '#ffffff' : t.textPrimary,
+                  boxShadow: selectedMonth === m.value ? '0 4px 12px rgba(59,130,246,0.3)' : 'none',
+                  border: selectedMonth === m.value ? 'none' : t.border,
+                  cursor: 'pointer',
+                  transition: 'all 0.2s',
+                }}
+              >
+                {m.label}
+              </div>
+            ))}
+            
+            {/* Custom Month Picker */}
+            <input 
+              type="month" 
+              value={selectedMonth}
+              max={`${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`}
+              onChange={(e) => { if (e.target.value) { setSelectedMonth(e.target.value); setCurrentPage(1); } }}
+              style={{
+                padding: '7px 12px', borderRadius: '20px', fontSize: '12px', fontWeight: '800',
+                background: !months.find(m => m.value === selectedMonth) ? '#3b82f6' : t.subtleBg,
+                color: !months.find(m => m.value === selectedMonth) ? '#ffffff' : t.textPrimary,
+                border: !months.find(m => m.value === selectedMonth) ? 'none' : t.border,
+                outline: 'none', cursor: 'pointer', fontFamily: 'inherit',
+                flexShrink: 0
+              }}
+            />
+          </div>
+
+          {/* Summary Hero Card */}
           <div style={{ margin: '4px 20px 20px', padding: '24px', background: t.card, ...t.glass, border: t.border, borderRadius: '20px', boxShadow: t.shadow }}>
             <div style={{ fontSize: '11px', fontWeight: '800', color: t.textMuted, textTransform: 'uppercase', letterSpacing: '2px', marginBottom: '8px' }}>Total Collected</div>
             <div style={{ fontSize: '38px', fontWeight: '900', color: t.textPrimary, lineHeight: 1, marginBottom: '4px' }}>₱{totalCollected.toLocaleString()}</div>
@@ -128,7 +193,7 @@ const History: React.FC = () => {
               <div style={{ display: 'flex', justifyContent: 'center', padding: '60px' }}>
                 <IonSpinner name="crescent" color="warning" />
               </div>
-            ) : records.length === 0 ? (
+            ) : filteredRecords.length === 0 ? (
               <div style={{ textAlign: 'center', padding: '60px 20px' }}>
                 <IonIcon icon={cashOutline} style={{ fontSize: '48px', color: '#1e293b' }} />
                 <div style={{ color: '#475569', fontSize: '13px', marginTop: '12px' }}>No records found.</div>

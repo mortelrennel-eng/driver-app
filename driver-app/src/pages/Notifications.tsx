@@ -66,6 +66,11 @@ const Notifications: FC = () => {
     fetchNotifications();
   }, []);
 
+  const handleClear = () => {
+    setNotifications([]);
+    localStorage.removeItem('cached_driver_notifications');
+  };
+
   const doRefresh = (event: CustomEvent) => {
     fetchNotifications().then(() => event.detail.complete());
   };
@@ -122,9 +127,23 @@ const Notifications: FC = () => {
             </div>
           </div>
 
-          <div style={{ padding: '0 20px 12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <IonIcon icon={notificationsOutline} style={{ fontSize: '16px', color: t.gold }} />
-            <span style={{ fontSize: '12px', fontWeight: '800', color: t.gold, textTransform: 'uppercase', letterSpacing: '1px' }}>Recent Notifications</span>
+          <div style={{ padding: '0 20px 12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <IonIcon icon={notificationsOutline} style={{ fontSize: '16px', color: t.gold }} />
+              <span style={{ fontSize: '12px', fontWeight: '800', color: t.gold, textTransform: 'uppercase', letterSpacing: '1px' }}>Recent Notifications</span>
+            </div>
+            
+            {notifications.length > 0 && (
+              <button 
+                onClick={handleClear}
+                style={{ 
+                  background: 'transparent', border: 'none', color: t.textSecondary, 
+                  fontSize: '11px', fontWeight: '800', cursor: 'pointer', padding: '4px 8px', borderRadius: '8px'
+                }}
+              >
+                CLEAR ALL
+              </button>
+            )}
           </div>
 
           {loading && notifications.length === 0 ? (

@@ -45,6 +45,25 @@ const Incidents: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
 
+  // Month Filter Logic
+  const [selectedMonth, setSelectedMonth] = useState(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+  });
+
+  const months = React.useMemo(() => {
+    const result = [];
+    for (let i = 0; i < 3; i++) {
+      const d = new Date();
+      d.setMonth(d.getMonth() - i);
+      result.push({
+        value: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`,
+        label: d.toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
+      });
+    }
+    return result;
+  }, []);
+
   const fetchIncidents = async () => {
     try {
       const response = await axios.get(endpoints.driverIncidents);
@@ -61,15 +80,18 @@ const Incidents: React.FC = () => {
 
   useEffect(() => { fetchIncidents(); }, []);
 
+  // ── Filter by Month ─────────────────────────────────────
+  const filteredIncidents = incidents.filter(i => i.incident_date?.startsWith(selectedMonth));
+
   // ── Pagination ──────────────────────────────────────────
-  const totalPages = Math.ceil(incidents.length / ITEMS_PER_PAGE);
-  const paginated  = incidents.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
+  const totalPages = Math.ceil(filteredIncidents.length / ITEMS_PER_PAGE);
+  const paginated  = filteredIncidents.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
 
   // ── Stats ───────────────────────────────────────────────
-  const totalCharge    = incidents.reduce((s, i) => s + Number(i.total_charge_to_driver || 0), 0);
-  const totalBalance   = incidents.reduce((s, i) => s + Number(i.remaining_balance || 0), 0);
-  const criticalCount  = incidents.filter(i => i.severity.toLowerCase() === 'critical').length;
-  const unpaidCount    = incidents.filter(i => i.charge_status !== 'paid' && Number(i.total_charge_to_driver) > 0).length;
+  const totalCharge    = filteredIncidents.reduce((s, i) => s + Number(i.total_charge_to_driver || 0), 0);
+  const totalBalance   = filteredIncidents.reduce((s, i) => s + Number(i.remaining_balance || 0), 0);
+  const criticalCount  = filteredIncidents.filter(i => i.severity.toLowerCase() === 'critical').length;
+  const unpaidCount    = filteredIncidents.filter(i => i.charge_status !== 'paid' && Number(i.total_charge_to_driver) > 0).length;
 
   const gold   = '#eab308';
   const danger = '#ef4444';
@@ -97,16 +119,57 @@ const Incidents: React.FC = () => {
         <div style={{ minHeight: '100%', background: t.bg, padding: '20px 20px 140px 20px' }}>
 
           {/* Page header */}
-          <div style={{ marginBottom: '24px' }}>
+          <div style={{ marginBottom: '16px' }}>
             <h1 style={{ color: t.textPrimary, fontSize: '28px', fontWeight: '900', margin: '0 0 6px' }}>My Incidents</h1>
             <p style={{ color: t.textSecondary, fontSize: '14px', margin: 0 }}>Review recorded behaviors and violations.</p>
+          </div>
+
+          {/* Month Selector Chips */}
+          <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '16px', alignItems: 'center', msOverflowStyle: 'none', scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch' }}>
+            {months.map(m => (
+              <div 
+                key={m.value}
+                onClick={() => { setSelectedMonth(m.value); setCurrentPage(1); }}
+                style={{
+                  padding: '8px 16px',
+                  borderRadius: '20px',
+                  whiteSpace: 'nowrap',
+                  fontSize: '12px',
+                  fontWeight: '800',
+                  background: selectedMonth === m.value ? '#3b82f6' : t.subtleBg,
+                  color: selectedMonth === m.value ? '#ffffff' : t.textPrimary,
+                  boxShadow: selectedMonth === m.value ? '0 4px 12px rgba(59,130,246,0.3)' : 'none',
+                  border: selectedMonth === m.value ? 'none' : t.border,
+                  cursor: 'pointer',
+                  transition: 'all 0.2s',
+                }}
+              >
+                {m.label}
+              </div>
+            ))}
+
+            {/* Custom Month Picker */}
+            <input 
+              type="month" 
+              value={selectedMonth}
+              max={`${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`}
+              onChange={(e) => { if (e.target.value) { setSelectedMonth(e.target.value); setCurrentPage(1); } }}
+              style={{
+                padding: '7px 12px', borderRadius: '20px', fontSize: '12px', fontWeight: '800',
+                background: !months.find(m => m.value === selectedMonth) ? '#3b82f6' : t.subtleBg,
+                color: !months.find(m => m.value === selectedMonth) ? '#ffffff' : t.textPrimary,
+                border: !months.find(m => m.value === selectedMonth) ? 'none' : t.border,
+                outline: 'none', cursor: 'pointer', fontFamily: 'inherit',
+                flexShrink: 0
+              }}
+            />
           </div>
 
           {loading ? (
             <div style={{ display: 'flex', justifyContent: 'center', padding: '60px' }}>
               <IonSpinner name="crescent" color="warning" />
             </div>
-          ) : incidents.length === 0 ? (
+          ) : filteredIncidents.length === 0 ? (
             /* ── Empty state ── */
             <div style={{ textAlign: 'center', padding: '80px 20px', background: t.card, ...t.glass, border: t.border, borderRadius: '24px' }}>
               <div style={{ width: '80px', height: '80px', borderRadius: '50%', background: 'rgba(34,197,94,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px' }}>
@@ -133,7 +196,7 @@ const Incidents: React.FC = () => {
                         <IonIcon icon={alertCircleOutline} style={{ fontSize: '16px', color: info }} />
                       </div>
                     </div>
-                    <div style={{ fontSize: '24px', fontWeight: '900', color: t.textPrimary, lineHeight: 1 }}>{incidents.length}</div>
+                    <div style={{ fontSize: '24px', fontWeight: '900', color: t.textPrimary, lineHeight: 1 }}>{filteredIncidents.length}</div>
                     <div style={{ fontSize: '10px', color: t.textMuted, fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.5px', marginTop: '4px' }}>Total Incidents</div>
                   </div>
 
@@ -304,7 +367,7 @@ const Incidents: React.FC = () => {
 
               {/* Record count label */}
               <div style={{ textAlign: 'center', marginTop: '12px', color: t.textMuted, fontSize: '12px', fontWeight: '600' }}>
-                Showing {(currentPage - 1) * ITEMS_PER_PAGE + 1}–{Math.min(currentPage * ITEMS_PER_PAGE, incidents.length)} of {incidents.length} records
+                Showing {filteredIncidents.length > 0 ? (currentPage - 1) * ITEMS_PER_PAGE + 1 : 0}–{Math.min(currentPage * ITEMS_PER_PAGE, filteredIncidents.length)} of {filteredIncidents.length} records
               </div>
             </>
           )}

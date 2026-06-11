@@ -18,7 +18,8 @@ import {
   bookmarkOutline,
   closeOutline,
   chevronForwardOutline,
-  archiveOutline
+  archiveOutline,
+  chevronBackOutline
 } from 'ionicons/icons';
 import { useHistory } from 'react-router-dom';
 import { useTheme } from '../context/ThemeContext';
@@ -42,6 +43,14 @@ const Announcements: FC = () => {
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<Announcement | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 5;
+
+  const handleClear = () => {
+    setAnnouncements([]);
+    localStorage.removeItem('cached_driver_announcements');
+    setCurrentPage(1);
+  };
 
   const fetchAnnouncements = async () => {
     try {
@@ -81,8 +90,11 @@ const Announcements: FC = () => {
   const isExpired = (ann: Announcement) =>
     !ann.is_active || (ann.valid_until !== null && new Date(ann.valid_until) < new Date());
 
-  const activeAnnouncements = announcements.filter(a => !isExpired(a));
-  const pastAnnouncements   = announcements.filter(a =>  isExpired(a));
+  const totalPages = Math.ceil(announcements.length / ITEMS_PER_PAGE);
+  const paginatedAnnouncements = announcements.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
+
+  const activeAnnouncements = paginatedAnnouncements.filter(a => !isExpired(a));
+  const pastAnnouncements   = paginatedAnnouncements.filter(a =>  isExpired(a));
 
   const AnnouncementCard = ({ ann, muted = false }: { ann: Announcement; muted?: boolean }) => (
     <div
@@ -222,18 +234,30 @@ const Announcements: FC = () => {
           ) : (
             <>
               {/* ── Active / Current Announcements ── */}
-              <div style={{ padding: '0 20px 12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <IonIcon icon={megaphoneOutline} style={{ fontSize: '16px', color: t.gold }} />
-                <span style={{ fontSize: '12px', fontWeight: '800', color: t.gold, textTransform: 'uppercase', letterSpacing: '1px' }}>
-                  Current Announcements
-                </span>
-                {activeAnnouncements.length > 0 && (
-                  <span style={{
-                    background: t.gold, color: isDark ? '#000' : '#fff',
-                    fontSize: '10px', fontWeight: '900',
-                    padding: '2px 7px', borderRadius: '99px'
-                  }}>{activeAnnouncements.length}</span>
-                )}
+              <div style={{ padding: '0 20px 12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <IonIcon icon={megaphoneOutline} style={{ fontSize: '16px', color: t.gold }} />
+                  <span style={{ fontSize: '12px', fontWeight: '800', color: t.gold, textTransform: 'uppercase', letterSpacing: '1px' }}>
+                    Announcements
+                  </span>
+                  {activeAnnouncements.length > 0 && (
+                    <span style={{
+                      background: t.gold, color: isDark ? '#000' : '#fff',
+                      fontSize: '10px', fontWeight: '900',
+                      padding: '2px 7px', borderRadius: '99px'
+                    }}>{activeAnnouncements.length}</span>
+                  )}
+                </div>
+
+                <button 
+                  onClick={handleClear}
+                  style={{ 
+                    background: 'transparent', border: 'none', color: t.textSecondary, 
+                    fontSize: '11px', fontWeight: '800', cursor: 'pointer', padding: '4px 8px', borderRadius: '8px'
+                  }}
+                >
+                  CLEAR ALL
+                </button>
               </div>
 
               {activeAnnouncements.length === 0 ? (
@@ -278,6 +302,69 @@ const Announcements: FC = () => {
               )}
             </>
           )}
+
+          {/* ── Pagination Controls ────────────────────────── */}
+          {totalPages > 1 && (
+            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '12px', marginTop: '24px' }}>
+              <button
+                disabled={currentPage === 1}
+                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                style={{
+                  width: '40px', height: '40px', borderRadius: '12px', border: 'none', cursor: currentPage === 1 ? 'default' : 'pointer',
+                  background: currentPage === 1 ? t.subtleBg : t.card,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  opacity: currentPage === 1 ? 0.35 : 1,
+                  boxShadow: t.cardShadow,
+                  transition: 'all 0.2s ease',
+                }}
+              >
+                <IonIcon icon={chevronBackOutline} style={{ fontSize: '18px', color: t.textPrimary }} />
+              </button>
+
+              <div style={{ display: 'flex', gap: '6px' }}>
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+                  <button
+                    key={page}
+                    onClick={() => setCurrentPage(page)}
+                    style={{
+                      width: '36px', height: '36px', borderRadius: '10px', border: 'none',
+                      cursor: 'pointer',
+                      background: page === currentPage ? `linear-gradient(135deg, ${t.gold}, #f59e0b)` : t.subtleBg,
+                      color: page === currentPage ? '#000' : t.textMuted,
+                      fontWeight: page === currentPage ? '900' : '600',
+                      fontSize: '13px',
+                      transition: 'all 0.2s ease',
+                      boxShadow: page === currentPage ? `0 4px 12px rgba(234,179,8,0.3)` : 'none',
+                    }}
+                  >
+                    {page}
+                  </button>
+                ))}
+              </div>
+
+              <button
+                disabled={currentPage === totalPages}
+                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                style={{
+                  width: '40px', height: '40px', borderRadius: '12px', border: 'none', cursor: currentPage === totalPages ? 'default' : 'pointer',
+                  background: currentPage === totalPages ? t.subtleBg : t.card,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  opacity: currentPage === totalPages ? 0.35 : 1,
+                  boxShadow: t.cardShadow,
+                  transition: 'all 0.2s ease',
+                }}
+              >
+                <IonIcon icon={chevronForwardOutline} style={{ fontSize: '18px', color: t.textPrimary }} />
+              </button>
+            </div>
+          )}
+
+          {announcements.length > 0 && (
+            <div style={{ textAlign: 'center', marginTop: '12px', color: t.textMuted, fontSize: '12px', fontWeight: '600' }}>
+              Showing {(currentPage - 1) * ITEMS_PER_PAGE + 1}–{Math.min(currentPage * ITEMS_PER_PAGE, announcements.length)} of {announcements.length} records
+            </div>
+          )}
+
         </div>
       </IonContent>
 
