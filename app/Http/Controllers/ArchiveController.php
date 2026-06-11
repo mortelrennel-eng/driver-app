@@ -19,13 +19,13 @@ class ArchiveController extends Controller
 {
     public function index()
     {
-        $archivedUnits = Unit::onlyTrashed()->get();
-        $archivedDrivers = Driver::onlyTrashed()->get();
-        $archivedExpenses = Expense::onlyTrashed()->get();
-        $archivedBoundaries = Boundary::onlyTrashed()->get();
-        $archivedMaintenance = Maintenance::with('unit')->onlyTrashed()->get();
-        $archivedFranchiseCases = FranchiseCase::onlyTrashed()->get();
-        $archivedStaff = Staff::onlyTrashed()->get();
+        $archivedUnits = Unit::onlyTrashed()->orderByDesc('deleted_at')->get();
+        $archivedDrivers = Driver::onlyTrashed()->orderByDesc('deleted_at')->get();
+        $archivedExpenses = Expense::onlyTrashed()->orderByDesc('deleted_at')->get();
+        $archivedBoundaries = Boundary::onlyTrashed()->orderByDesc('deleted_at')->get();
+        $archivedMaintenance = Maintenance::with('unit')->onlyTrashed()->orderByDesc('deleted_at')->get();
+        $archivedFranchiseCases = FranchiseCase::onlyTrashed()->orderByDesc('deleted_at')->get();
+        $archivedStaff = Staff::onlyTrashed()->orderByDesc('deleted_at')->get();
         $archivedIncidents = \App\Models\DriverBehavior::onlyTrashed()
             ->leftJoin('units as u', 'driver_behavior.unit_id', '=', 'u.id')
             ->leftJoin('drivers as d', 'driver_behavior.driver_id', '=', 'd.id')
@@ -33,14 +33,15 @@ class ArchiveController extends Controller
                 'driver_behavior.*',
                 'u.plate_number',
                 DB::raw("TRIM(CONCAT(COALESCE(d.first_name,''), ' ', COALESCE(d.last_name,''))) as driver_name")
-            )->get();
+            )->orderByDesc('driver_behavior.deleted_at')->get();
         
-        $archivedPricingRules = BoundaryRule::onlyTrashed()->get();
-        $archivedSuppliers = Supplier::onlyTrashed()->get();
+        $archivedPricingRules = BoundaryRule::onlyTrashed()->orderByDesc('deleted_at')->get();
+        $archivedSuppliers = Supplier::onlyTrashed()->orderByDesc('deleted_at')->get();
 
         // ─── Archived User Accounts (System Login Access) ───
         $archivedUserAccounts = \App\Models\User::onlyTrashed()
             ->where('role', '!=', 'super_admin')
+            ->orderByDesc('deleted_at')
             ->get();
 
 
