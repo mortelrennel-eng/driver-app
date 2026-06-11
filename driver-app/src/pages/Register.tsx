@@ -122,6 +122,7 @@ const Register: FC = () => {
   const [formData, setFormData] = useState({
     first_name: '',
     last_name: '',
+    suffix: '',
     email: '',
     phone: '',
     password: '',
@@ -256,7 +257,7 @@ const Register: FC = () => {
           value={formData[key]}
           onIonInput={(e) => {
             let val = e.detail.value!;
-            if (key === 'first_name' || key === 'last_name') val = val.replace(/[^a-zA-ZñÑ\s]/g, '');
+            if (key === 'first_name' || key === 'last_name' || key === 'suffix') val = val.replace(/[^a-zA-ZñÑ.\s]/g, '');
             if (key === 'phone') val = val.replace(/[^0-9]/g, '');
             setFormData({ ...formData, [key]: val });
           }}
@@ -342,6 +343,7 @@ const Register: FC = () => {
                 </div>
                 {field(personOutline, 'First Name', 'first_name', 'e.g. Juan', 'text', 50)}
                 {field(personOutline, 'Last Name', 'last_name', 'e.g. Dela Cruz', 'text', 50)}
+                {field(personOutline, 'Suffix (Optional)', 'suffix', 'e.g. Jr., Sr., III', 'text', 10)}
                 {field(mailOutline, 'Email', 'email', 'email@example.com', 'email', 50)}
                 {field(callOutline, 'Phone', 'phone', '09123456789', 'tel', 11)}
                 {field(lockClosedOutline, 'Password', 'password', '••••••••', 'password', 20)}

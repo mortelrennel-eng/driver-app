@@ -43,6 +43,7 @@ class DriverAppController extends Controller
             'last_name'    => ['required', 'string', 'max:100', 'regex:/^[a-zA-ZñÑ\s]+$/', function($attribute, $value, $fail) {
                                 if (trim($value) === '') $fail('Last name cannot be just spaces.');
                               }],
+            'suffix'       => ['nullable', 'string', 'max:20', 'regex:/^[a-zA-ZñÑ.\s]+$/'],
             'email'        => ['required', 'string', 'email', 'max:255', 'unique:users,email', function($attribute, $value, $fail) {
                                 if (Str::endsWith($value, '@gmail.com')) {
                                     $prefix = Str::before($value, '@gmail.com');
@@ -89,6 +90,9 @@ class DriverAppController extends Controller
         // Find Driver (Strict checking against unit's assigned drivers)
         $firstName = trim($request->first_name);
         $lastName = trim($request->last_name);
+        if ($request->filled('suffix')) {
+            $lastName .= ' ' . trim($request->suffix);
+        }
 
         $driver = null;
         $driverIds = array_filter([$unit->driver_id, $unit->secondary_driver_id]);
