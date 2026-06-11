@@ -6,6 +6,29 @@ let updateInterval;
 let isUpdating = false;
 let suppressAddressReset = false; // Flag to prevent popupopen from resetting address during auto-update
 
+/**
+ * Convert a UTC datetime string from the API into Philippine Time (UTC+8) for display.
+ * Aika168 stores GPS time as UTC. Users in PH expect local time.
+ * Example: "2026-06-06 05:11:39" (UTC) → "2026-06-06 13:11:39" (PHT)
+ */
+function utcToPht(utcStr) {
+    if (!utcStr || utcStr === 'N/A') return utcStr || 'N/A';
+    try {
+        // Append ' UTC' so JS Date() parses it as UTC regardless of browser locale
+        const d = new Date(utcStr.trim().replace(' ', 'T') + 'Z');
+        if (isNaN(d.getTime())) return utcStr; // Fallback to raw value if unparseable
+        // Format in PHT (Asia/Manila = UTC+8)
+        return d.toLocaleString('en-PH', {
+            timeZone: 'Asia/Manila',
+            year: 'numeric', month: '2-digit', day: '2-digit',
+            hour: '2-digit', minute: '2-digit', second: '2-digit',
+            hour12: false
+        }).replace(',', '');
+    } catch (e) {
+        return utcStr;
+    }
+}
+
 document.addEventListener('DOMContentLoaded', function() {
     initMap();
     startTracking();
@@ -84,40 +107,11 @@ function startTracking() {
     // Poll every 5 seconds to match Tracksolid API real-time push
     updateInterval = setInterval(updateFleetData, 5000);
 
-    let geocodeQueue = [];
-    let isGeocoding = false;
-
-    async function processGeocodeQueue() {
-        if (isGeocoding || geocodeQueue.length === 0) return;
-        isGeocoding = true;
-        
-        const { lat, lng, unitId, resolve } = geocodeQueue.shift();
-        
-        try {
-            const addr = await getAddress(lat, lng, unitId, false);
-            resolve(addr);
-        } catch (e) {
-            resolve("Address service unavailable");
-        }
-        
-        setTimeout(() => {
-            isGeocoding = false;
-            processGeocodeQueue();
-        }, 1100); // Nominatim 1-second rate limit safety
-    }
-
-    function queueAddressFetch(lat, lng, unitId) {
-        return new Promise(resolve => {
-            geocodeQueue.push({ lat, lng, unitId, resolve });
-            processGeocodeQueue();
-        });
-    }
+    // Note: queueAddressFetch and processGeocodeQueue were moved to global scope
 
     // ==========================================
-    // THE BULLETPROOF ADDRESS GUARDIAN
+    // THE ADDRESS GUARDIAN (Fixed - no longer reverts new addresses)
     // ==========================================
-    // Leaflet has a fatal flaw where setIcon() recreates the DOM and resets it to the default string.
-    // This Guardian runs independently of Leaflet and forces the DOM to show the cached address.
     setInterval(() => {
         Object.keys(markers).forEach(unitId => {
             const marker = markers[unitId];
@@ -128,23 +122,18 @@ function startTracking() {
             
             const txt = addrEl.textContent.trim();
             
-            // If it says Loading or Unavailable, try to force the cache in
+            // ONLY fill in if it's blank/loading — never revert a valid address!
             if (txt === 'Loading address...' || txt === 'Address service unavailable' || txt === '') {
                 const cached = unitAddressCache[unitId];
-                if (cached) {
+                if (cached && typeof cached === 'string') {
                     addrEl.textContent = cached;
-                    addrEl.style.color = '#374151'; // Ensure it doesn't look faded
-                    // Also force it into the Leaflet internal string so future redraws have it
-                    if (marker._popup) {
-                        marker._popup._content = marker._popup._content.replace('Loading address...', cached);
-                    }
+                    addrEl.style.color = '#374151';
                 }
-            } else if (unitAddressCache[unitId] && txt !== unitAddressCache[unitId]) {
-                // Failsafe: if the DOM somehow has garbage, force it back to the strict cached value
-                addrEl.textContent = unitAddressCache[unitId];
             }
+            // NOTE: We intentionally do NOT force back cached value if DOM shows a different
+            // valid address — this was causing the "stuck address" bug.
         });
-    }, 250);
+    }, 500);
 
     // Hardening: Pause polling when browser tab is sent to background
     document.addEventListener('visibilitychange', function() {
@@ -354,14 +343,41 @@ function updateListItemUI(unit) {
 // --- Persistent Address Cache (survives auto-refresh, backed by localStorage) ---
 const addressCache = {}; // In-memory fast cache: Key "lat3,lng3" (3 decimal = ~111m tolerance)
 const unitAddressCache = {}; // Per-unit last known address
+const unitAddressCoords = {}; // Per-unit coordinates at time of last address fetch
+
+// Calculate approximate distance in meters between two lat/lng points
+function haversineDistance(lat1, lng1, lat2, lng2) {
+    const R = 6371000; // Earth radius in meters
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLng = (lng2 - lng1) * Math.PI / 180;
+    const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+              Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+              Math.sin(dLng/2) * Math.sin(dLng/2);
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
+
+// Invalidate per-unit address cache if the vehicle has moved more than 200 meters
+function invalidateAddressIfMoved(unitId, lat, lng) {
+    const prev = unitAddressCoords[unitId];
+    if (!prev) return; // No previous position, nothing to invalidate
+    const dist = haversineDistance(prev.lat, prev.lng, parseFloat(lat), parseFloat(lng));
+    if (dist > 200) {
+        // Vehicle moved significantly — clear old address so a fresh one is fetched
+        delete unitAddressCache[unitId];
+        unitAddressCoords[unitId] = { lat: parseFloat(lat), lng: parseFloat(lng) };
+    }
+}
 
 // Load previously saved addresses from localStorage on startup
+// NOTE: We load coordinate-keyed cache (valid if vehicle is at same spot)
+// but we do NOT restore unitAddressCache \u2014 it will be rebuilt fresh from current positions.
+// This prevents "stuck address" from previous sessions when vehicles have moved.
 try {
     const saved = JSON.parse(localStorage.getItem('eurotaxi_address_cache') || '{}');
     Object.assign(addressCache, saved);
-    const savedUnit = JSON.parse(localStorage.getItem('eurotaxi_unit_address_cache') || '{}');
-    Object.assign(unitAddressCache, savedUnit);
+    // intentionally NOT loading unitAddressCache from localStorage \u2014 let it rebuild from live coords
 } catch(e) { /* localStorage unavailable, proceed with empty cache */ }
+
 
 function saveAddressCache() {
     try {
@@ -375,22 +391,60 @@ function saveAddressCache() {
     } catch(e) { /* ignore */ }
 }
 
+let geocodeQueue = [];
+let isGeocoding = false;
+
+async function processGeocodeQueue() {
+    if (isGeocoding || geocodeQueue.length === 0) return;
+    isGeocoding = true;
+
+    const { lat, lng, unitId, resolve } = geocodeQueue.shift();
+
+    try {
+        const addr = await getAddress(lat, lng, unitId, false);
+        resolve(addr);
+    } catch (e) {
+        resolve("Address service unavailable");
+    }
+
+    setTimeout(() => {
+        isGeocoding = false;
+        processGeocodeQueue();
+    }, 1100); // Nominatim 1-second rate limit safety
+}
+
+function queueAddressFetch(lat, lng, unitId) {
+    return new Promise(resolve => {
+        geocodeQueue.push({ lat, lng, unitId, resolve });
+        processGeocodeQueue();
+    });
+}
+
 async function getAddress(lat, lng, unitId) {
     // Use 3 decimal places (~111m tolerance) to absorb GPS drift for stationary vehicles
     const cacheKey = `${Number(lat).toFixed(3)},${Number(lng).toFixed(3)}`;
     // Also check 4-decimal for moving vehicles where precision matters
     const preciseCacheKey = `${Number(lat).toFixed(4)},${Number(lng).toFixed(4)}`;
 
-    // 1. Check precise in-memory cache first (fastest)
+    // 1. Check precise coordinate cache first (fastest, location-specific)
     if (typeof addressCache[preciseCacheKey] === 'string') {
+        if (unitId) {
+            unitAddressCache[unitId] = addressCache[preciseCacheKey];
+            unitAddressCoords[unitId] = { lat: parseFloat(lat), lng: parseFloat(lng) };
+        }
         return Promise.resolve(addressCache[preciseCacheKey]);
     }
-    // 2. Check drift-tolerant cache (covers GPS micro-drift on parked vehicles)
+    // 2. Check drift-tolerant coordinate cache (~111m radius)
     if (typeof addressCache[cacheKey] === 'string') {
-        addressCache[preciseCacheKey] = addressCache[cacheKey]; // promote to precise key
+        addressCache[preciseCacheKey] = addressCache[cacheKey];
+        if (unitId) {
+            unitAddressCache[unitId] = addressCache[cacheKey];
+            unitAddressCoords[unitId] = { lat: parseFloat(lat), lng: parseFloat(lng) };
+        }
         return Promise.resolve(addressCache[cacheKey]);
     }
-    // 3. Check per-unit cache (survives popup rebuilds even if coordinates changed slightly)
+    // 3. Check per-unit cache ONLY if vehicle hasn't moved significantly
+    // (unitAddressCache is already invalidated by invalidateAddressIfMoved if >200m moved)
     if (unitId && unitAddressCache[unitId]) {
         return Promise.resolve(unitAddressCache[unitId]);
     }
@@ -399,13 +453,18 @@ async function getAddress(lat, lng, unitId) {
         return addressCache[preciseCacheKey];
     }
 
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 4000);
+
     const promise = fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`, {
+        signal: controller.signal,
         headers: { 
             'Accept-Language': 'en',
-            'User-Agent': 'EuroTaxiSystem-Geocoding-Hardened'
+            'User-Agent': 'admin@eurotaxisystem.site'
         }
     })
     .then(response => {
+        clearTimeout(timeoutId);
         if (!response.ok) throw new Error("Network response was not ok");
         return response.json();
     })
@@ -413,15 +472,18 @@ async function getAddress(lat, lng, unitId) {
         const addr = data.display_name || "Address not found";
         addressCache[cacheKey] = addr;
         addressCache[preciseCacheKey] = addr;
-        if (unitId) unitAddressCache[unitId] = addr;
-        saveAddressCache(); // Persist to localStorage
+        if (unitId) {
+            unitAddressCache[unitId] = addr;
+            unitAddressCoords[unitId] = { lat: parseFloat(lat), lng: parseFloat(lng) }; // Track coords for this address
+        }
+        saveAddressCache();
         return addr;
     })
     .catch(e => {
         delete addressCache[preciseCacheKey];
         // If we have any fallback, use it rather than showing error
         if (unitId && unitAddressCache[unitId]) return unitAddressCache[unitId];
-        return "Address service unavailable";
+        return "Address unavailable (Timeout)";
     });
     
     addressCache[preciseCacheKey] = promise;
@@ -504,6 +566,8 @@ function updateMarker(unit) {
         
         if (hasMoved) {
             markers[unit.unit_id].setLatLng([unit.latitude, unit.longitude]);
+            // Check if vehicle moved >200m and invalidate old address if so
+            invalidateAddressIfMoved(unit.unit_id, unit.latitude, unit.longitude);
         }
 
         const currentIconHtml = markers[unit.unit_id].options.icon.options.html;
@@ -540,11 +604,30 @@ function updateMarker(unit) {
         markers[unit.unit_id] = marker;
     }
 
-    // Resolve the best available address for this unit RIGHT NOW
-    const bestAddress = unitAddressCache[unit.unit_id]
+    // Resolve best address: coordinate-based cache takes priority over unit-based cache
+    // This ensures moving vehicles get fresh addresses instead of stale unit-cached ones
+    const bestAddress = addressCache[`${Number(unit.latitude).toFixed(4)},${Number(unit.longitude).toFixed(4)}`]
         || addressCache[`${Number(unit.latitude).toFixed(3)},${Number(unit.longitude).toFixed(3)}`]
-        || addressCache[`${Number(unit.latitude).toFixed(4)},${Number(unit.longitude).toFixed(4)}`]
+        || unitAddressCache[unit.unit_id]
         || null;
+
+    const engineStatus = unit.engine_status || null;
+    const isEngineKilled = engineStatus === 'killed' || engineStatus === 'pending_kill';
+    const isKillPending = false;
+    const isRestorePending = false;
+    const isEngineRestored = engineStatus === 'restored' || engineStatus === 'pending_restore';
+    const killDisabled = isEngineKilled || isKillPending;
+    const restoreDisabled = isEngineRestored || isRestorePending;
+    const killButtonClass = isKillPending
+        ? 'bg-orange-100 text-orange-700 cursor-not-allowed border border-orange-300'
+        : (isEngineKilled
+            ? 'bg-gray-100 text-gray-400 cursor-not-allowed border border-gray-200'
+            : 'bg-red-50 hover:bg-red-600 text-red-600 hover:text-white border border-red-200 hover:border-red-600 transition-colors');
+    const restoreButtonClass = isRestorePending
+        ? 'bg-orange-100 text-orange-700 cursor-not-allowed border border-orange-300'
+        : (isEngineRestored
+            ? 'bg-gray-100 text-gray-400 cursor-not-allowed border border-gray-200'
+            : 'bg-green-50 hover:bg-green-500 text-green-600 hover:text-white border border-green-200 hover:border-green-500 transition-colors');
 
     // Popup content - always uses best available address so template never shows "Loading address..." unnecessarily
     const popupContent = `
@@ -606,19 +689,30 @@ function updateMarker(unit) {
                 </div>
 
                 <!-- Engine Control -->
-                <div class="grid grid-cols-2 gap-2 mt-4 pt-3 border-t border-gray-100/50">
-                    <button onclick="toggleEngineControl(${unit.unit_id}, 'kill', this)" class="bg-red-50 hover:bg-red-600 text-red-600 hover:text-white border border-red-200 hover:border-red-600 transition-colors py-2 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-1 shadow-sm">
-                        <i data-lucide="power-off" class="w-3 h-3"></i> Kill Engine
-                    </button>
-                    <button onclick="toggleEngineControl(${unit.unit_id}, 'restore', this)" class="bg-green-50 hover:bg-green-500 text-green-600 hover:text-white border border-green-200 hover:border-green-500 transition-colors py-2 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-1 shadow-sm">
-                        <i data-lucide="power" class="w-3 h-3"></i> Restore
-                    </button>
+                <div class="mt-4 pt-3 border-t border-gray-100/50">
+                    ${isEngineKilled
+                        ? '<div class="mb-2 text-center py-1 bg-red-100 text-red-700 text-[10px] font-black uppercase tracking-widest rounded shadow-sm border border-red-200">Engine Currently Killed</div>'
+                        : ''}
+                    ${isKillPending
+                        ? '<div class="mb-2 text-center py-1 bg-orange-100 text-orange-700 text-[10px] font-black uppercase tracking-widest rounded shadow-sm border border-orange-200">Kill Submitted To Tracksolid</div>'
+                        : ''}
+                    ${isRestorePending
+                        ? '<div class="mb-2 text-center py-1 bg-orange-100 text-orange-700 text-[10px] font-black uppercase tracking-widest rounded shadow-sm border border-orange-200">Restore Submitted To Tracksolid</div>'
+                        : ''}
+                    <div class="grid grid-cols-2 gap-2">
+                        <button onclick="toggleEngineControl(${unit.unit_id}, 'kill', this)" class="${killButtonClass} py-2 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-1 shadow-sm" ${killDisabled ? 'disabled' : ''}>
+                            <i data-lucide="power-off" class="w-3 h-3"></i> ${isKillPending ? 'Kill Submitted' : (isEngineKilled ? 'Already Killed' : 'Kill Engine')}
+                        </button>
+                        <button onclick="toggleEngineControl(${unit.unit_id}, 'restore', this)" class="${restoreButtonClass} py-2 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-1 shadow-sm" ${restoreDisabled ? 'disabled' : ''}>
+                            <i data-lucide="power" class="w-3 h-3"></i> ${isRestorePending ? 'Restore Submitted' : (isEngineRestored ? 'Already Restored' : 'Restore')}
+                        </button>
+                    </div>
                 </div>
 
                 <div class="flex items-center justify-between pt-3 border-t border-gray-50 mt-3">
                     <div class="flex flex-col">
                         <div class="text-[10px] text-gray-400 font-bold italic popup-sync-val">
-                            Sync: ${unit.last_update || 'N/A'}
+                            Sync: ${utcToPht(unit.last_update)}
                         </div>
                         <div class="text-[10px] text-red-500 font-black uppercase tracking-widest mt-0.5 popup-offline-val" style="${unit.gps_status === 'offline' && unit.offline_display ? '' : 'display:none'}">
                             Offline for: ${unit.offline_display || ''}
@@ -661,7 +755,7 @@ function updateMarker(unit) {
             if (odoEl) odoEl.textContent = parseFloat(unit.odo || 0).toLocaleString(undefined, {minimumFractionDigits: 1, maximumFractionDigits: 1});
 
             const syncEl = node.querySelector('.popup-sync-val');
-            if (syncEl) syncEl.textContent = `Sync: ${unit.last_update || 'N/A'}`;
+            if (syncEl) syncEl.textContent = `Sync: ${utcToPht(unit.last_update)}`;
 
             const offlineEl = node.querySelector('.popup-offline-val');
             if (offlineEl) {
@@ -882,6 +976,22 @@ function drawRestrictedZones(group) {
 window.toggleEngineControl = async function(unitId, action, btn) {
     const originalText = btn.innerHTML;
     const isKill = action === 'kill';
+    let shouldRestoreButton = true;
+
+    const restoreButton = () => {
+        btn.innerHTML = originalText;
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+        btn.disabled = false;
+        btn.classList.remove('opacity-50', 'cursor-not-allowed');
+    };
+
+    const showAlert = (options) => {
+        if (window.Swal && typeof window.Swal.fire === 'function') {
+            window.Swal.fire(options);
+        } else {
+            alert(`${options.title || 'Notice'}\n${options.text || ''}`.trim());
+        }
+    };
     
     // Quick double-check UI logic without password
     if (isKill && confirm("WARNING: Are you sure you want to CUT OFF the engine for this unit? Ensure the vehicle is in a safe location.") === false) {
@@ -893,9 +1003,13 @@ window.toggleEngineControl = async function(unitId, action, btn) {
     btn.disabled = true;
     btn.classList.add('opacity-50', 'cursor-not-allowed');
 
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 60000); // Server command timeout is 45s.
+
     try {
         const response = await fetch('/live-tracking/engine-control', {
             method: 'POST',
+            signal: controller.signal,
             headers: {
                 'Content-Type': 'application/json',
                 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
@@ -904,20 +1018,78 @@ window.toggleEngineControl = async function(unitId, action, btn) {
             body: JSON.stringify({ unit_id: unitId, action: action })
         });
         
-        const data = await response.json();
+        let data;
+        try {
+            data = await response.json();
+        } catch (jsonError) {
+            data = {
+                success: false,
+                error: `Server returned ${response.status || 'an invalid'} response. Please check logs.`
+            };
+        }
+
+        if (!response.ok && !data.error) {
+            data.error = `Server error (${response.status}).`;
+        }
         
         if (data.success) {
-            Swal.fire({
+            shouldRestoreButton = false;
+            const isPending = false;
+            showAlert({
                 icon: 'success',
-                title: 'Command Sent!',
+                title: isKill ? 'Engine Kill Successful' : 'Engine Restore Successful',
                 text: data.message,
                 toast: true,
                 position: 'top-end',
                 showConfirmButton: false,
                 timer: 3000
             });
+
+            // ── Visual feedback: mark the button as "already done" ──
+            if (isKill) {
+                // Kill button → "Already Kill Engine" (orange, disabled)
+                btn.innerHTML = isPending
+                    ? `<i data-lucide="clock" class="w-3 h-3"></i> Kill Submitted`
+                    : `<i data-lucide="shield-off" class="w-3 h-3"></i> Already Kill Engine`;
+                btn.className = isPending
+                    ? 'bg-orange-100 text-orange-700 border border-orange-300 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-1 cursor-not-allowed opacity-80'
+                    : 'bg-orange-100 text-orange-700 border border-orange-300 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-1 cursor-not-allowed opacity-80';
+                btn.disabled = true;
+
+                // Also dim the Restore button to signal it hasn't been activated yet
+                const popupNode = btn.closest('.pro-popup-container');
+                if (popupNode) {
+                    const restoreBtn = popupNode.querySelector('button[onclick*="restore"]');
+                    if (restoreBtn) {
+                        restoreBtn.innerHTML = `<i data-lucide="power" class="w-3 h-3"></i> Restore`;
+                        restoreBtn.disabled = false;
+                        restoreBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+                    }
+                }
+            } else {
+                // Restore button → "Already Restored" (green, disabled)
+                btn.innerHTML = isPending
+                    ? `<i data-lucide="clock" class="w-3 h-3"></i> Restore Submitted`
+                    : `<i data-lucide="shield-check" class="w-3 h-3"></i> Already Restored`;
+                btn.className = isPending
+                    ? 'bg-orange-100 text-orange-700 border border-orange-300 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-1 cursor-not-allowed opacity-80'
+                    : 'bg-green-100 text-green-700 border border-green-300 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-1 cursor-not-allowed opacity-80';
+                btn.disabled = true;
+
+                // Also restore the Kill button to clickable state
+                const popupNode = btn.closest('.pro-popup-container');
+                if (popupNode) {
+                    const killBtn = popupNode.querySelector('button[onclick*="kill"]');
+                    if (killBtn) {
+                        killBtn.innerHTML = `<i data-lucide="power-off" class="w-3 h-3"></i> Kill Engine`;
+                        killBtn.disabled = false;
+                        killBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+                    }
+                }
+            }
+            if (typeof lucide !== 'undefined') lucide.createIcons();
         } else {
-            Swal.fire({
+            showAlert({
                 icon: 'error',
                 title: 'Command Failed',
                 text: data.error || 'The command was rejected by the API.',
@@ -925,16 +1097,17 @@ window.toggleEngineControl = async function(unitId, action, btn) {
         }
     } catch (e) {
         console.error(e);
-        Swal.fire({
+        showAlert({
             icon: 'error',
-            title: 'Network Error',
-            text: 'Could not connect to the server.'
+            title: e.name === 'AbortError' ? 'Command Timeout' : 'Network Error',
+            text: e.name === 'AbortError'
+                ? 'Tracksolid did not respond in time. Please try again when the device/API is online.'
+                : 'Could not connect to the server.'
         });
     } finally {
-        // Restore button state
-        btn.innerHTML = originalText;
-        if (typeof lucide !== 'undefined') lucide.createIcons();
-        btn.disabled = false;
-        btn.classList.remove('opacity-50', 'cursor-not-allowed');
+        clearTimeout(timeoutId);
+        if (shouldRestoreButton) {
+            restoreButton();
+        }
     }
 };

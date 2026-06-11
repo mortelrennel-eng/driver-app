@@ -1,0 +1,35 @@
+name: Code Quality Check
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Setup PHP
+      uses: shivammathur/setup-php@v2
+      with:
+        php-version: 8.2
+        tools: phpstan, pint
+
+    - name: Install Dependencies
+      run: composer install --no-progress --prefer-dist --optimize-autoloader
+
+    - name: Run PHPStan
+      run: phpstan analyse app --level=5 --no-progress
+      continue-on-error: true
+
+    - name: Run Pint (Code Style)
+      run: ./vendor/bin/pint --test --verbose
+      continue-on-error: true
+
+    - name: Run LaraStand
+      run: composer require larastan/larastan --dev && ./vendor/bin/phpstan
+      continue-on-error: true

@@ -138,17 +138,10 @@
                         </div>
                         <p class="text-[10px] text-slate-400 mt-1 font-bold">REG KEY: DRV-{{ str_pad($driver->id, 4, '0', STR_PAD_LEFT) }}</p>
                         @if($driver->driver_status === 'suspended')
-                            @if(($driver->days_left ?? 0) > 0)
-                                <p class="text-[10px] text-amber-600 mt-1 font-black flex items-center gap-1">
-                                    <i data-lucide="clock" class="w-3.5 h-3.5 animate-pulse"></i>
-                                    SUSPENSION: {{ $driver->days_left }} DAYS REMAINING
-                                </p>
-                            @else
-                                <p class="text-[10px] text-emerald-600 mt-1 font-black flex items-center gap-1">
-                                    <i data-lucide="check-circle-2" class="w-3.5 h-3.5"></i>
-                                    FINISHED - PENDING ACTIVATION
-                                </p>
-                            @endif
+                            <p class="text-[10px] text-amber-600 mt-1 font-black flex items-center gap-1">
+                                <i data-lucide="clock" class="w-3.5 h-3.5 animate-pulse"></i>
+                                SUSPENSION: {{ $driver->days_left ?? 0 }} DAYS REMAINING
+                            </p>
                         @endif
                     </div>
                 </div>
@@ -798,26 +791,6 @@ document.addEventListener('DOMContentLoaded', () => {
             );
         });
     });
-
-    const urlParams = new URLSearchParams(window.location.search);
-    const suspendDriverId = urlParams.get('suspend_driver_id');
-    if (suspendDriverId) {
-        const items = document.querySelectorAll('.driver-search-item');
-        let selectedItem = null;
-        items.forEach(item => {
-            if (item.getAttribute('data-id') == suspendDriverId) {
-                selectedItem = item;
-            }
-        });
-        if (selectedItem) {
-            const driverName = selectedItem.getAttribute('data-name');
-            const driverStatus = selectedItem.getAttribute('data-status');
-            selectDriver(suspendDriverId, driverName, driverStatus);
-            openAddBanModal();
-            const newUrl = window.location.protocol + "//" + window.location.host + window.location.pathname;
-            window.history.replaceState({path:newUrl}, '', newUrl);
-        }
-    }
 });
 </script>
 

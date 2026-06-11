@@ -5,14 +5,110 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use App\Services\TracksolidService;
+use App\Services\AkshGpsService;
 
 class LiveTrackingController extends Controller
 {
     protected $tracksolid;
+    protected $aksh;
 
-    public function __construct(TracksolidService $tracksolid)
+    public function __construct(TracksolidService $tracksolid, AkshGpsService $aksh)
     {
         $this->tracksolid = $tracksolid;
+        $this->aksh = $aksh;
+    }
+
+    private const GPS_ONLINE_WINDOW_SECONDS = 600;
+    private const GPS_SPEED_STALE_SECONDS = 300;
+
+    private function secondsSinceUtc(?string $time): int
+    {
+        if (!$time) {
+            return PHP_INT_MAX;
+        }
+
+        $timestamp = strtotime($time . ' UTC');
+        if ($timestamp === false) {
+            return PHP_INT_MAX;
+        }
+
+        return max(0, time() - $timestamp);
+    }
+
+    private function formatDuration(int $seconds): string
+    {
+        $hours = (int) floor($seconds / 3600);
+        $minutes = (int) floor(($seconds % 3600) / 60);
+
+        return $hours > 0 ? "{$hours}h {$minutes}m" : "{$minutes}m";
+    }
+
+    private function gpsDwellSeconds(?array $gps): ?int
+    {
+        if (!$gps || !isset($gps['dwellSeconds']) || !is_numeric($gps['dwellSeconds'])) {
+            return null;
+        }
+
+        return max(0, (int)$gps['dwellSeconds']);
+    }
+
+    private function resolveGpsStatus(?array $gps, ?string $lastUpdate, bool $ignition, float $rawSpeed): array
+    {
+        $heartbeatAge = PHP_INT_MAX;
+        $gpsAge = PHP_INT_MAX;
+
+        if ($gps && isset($gps['hbTime']) && isset($gps['gpsTime'])) {
+            $heartbeatAge = $this->secondsSinceUtc($gps['hbTime']);
+            $gpsAge = $this->secondsSinceUtc($gps['gpsTime']);
+        } else {
+            $fallbackAge = $this->secondsSinceUtc($lastUpdate);
+            $heartbeatAge = $fallbackAge;
+            $gpsAge = $fallbackAge;
+        }
+
+        $effectiveGpsAge = $gpsAge;
+        $dwellSeconds = $this->gpsDwellSeconds($gps);
+
+        if (!$ignition && $dwellSeconds !== null) {
+            $effectiveGpsAge = $gpsAge === PHP_INT_MAX
+                ? $dwellSeconds
+                : max($gpsAge, $dwellSeconds);
+        }
+
+        $providerOffline = (bool)($gps['providerOffline'] ?? false);
+        $status = 'offline';
+        $speed = 0.0;
+        $safeIgnition = $ignition;
+
+        if (!$providerOffline && $heartbeatAge < self::GPS_ONLINE_WINDOW_SECONDS) {
+            if ($ignition) {
+                $speed = $gpsAge > self::GPS_SPEED_STALE_SECONDS ? 0.0 : max(0.0, $rawSpeed);
+                $status = $speed > 2 ? 'moving' : 'idle';
+            } else {
+                $status = $effectiveGpsAge > self::GPS_ONLINE_WINDOW_SECONDS ? 'offline' : 'stopped';
+            }
+        }
+
+        if ($status === 'offline' || $status === 'stopped') {
+            $speed = 0.0;
+            $safeIgnition = false;
+        }
+
+        $offlineAge = PHP_INT_MAX;
+        if ($status === 'offline') {
+            $offlineAge = $effectiveGpsAge < PHP_INT_MAX ? $effectiveGpsAge : $heartbeatAge;
+        }
+
+        return [
+            'status'          => $status,
+            'speed'           => $speed,
+            'ignition'        => $safeIgnition,
+            'heartbeat_age'   => $heartbeatAge,
+            'gps_age'         => $gpsAge,
+            'effective_age'   => $effectiveGpsAge,
+            'offline_age'     => $offlineAge,
+            'offline_display' => ($status === 'offline' && $offlineAge < PHP_INT_MAX) ? $this->formatDuration($offlineAge) : '',
+        ];
     }
     // ─── Main Page ─────────────────────────────────────────
 
@@ -26,7 +122,7 @@ class LiveTrackingController extends Controller
                 ->leftJoin('drivers as d2', 'u.secondary_driver_id', '=', 'd2.id')
                 ->leftJoin('gps_tracking as g', 'u.id', '=', 'g.unit_id')
                 ->select(
-                    'u.id', 'u.plate_number', 'u.make', 'u.model', 'u.status', 'u.imei',
+                    'u.id', 'u.plate_number', 'u.make', 'u.model', 'u.status', 'u.imei', 'u.gps_provider', 'u.gps_password',
                     DB::raw("TRIM(CONCAT(COALESCE(d1.first_name,''), ' ', COALESCE(d1.last_name,''))) as driver_name"),
                     DB::raw("TRIM(CONCAT(COALESCE(d2.first_name,''), ' ', COALESCE(d2.last_name,''))) as secondary_driver"),
                     'd1.contact_number as driver_phone',
@@ -38,13 +134,22 @@ class LiveTrackingController extends Controller
             // Fetch live data from Tracksolid Pro API
             $liveData = $this->tracksolid->getAllLocations();
             $liveMap = $liveData ? collect($liveData)->keyBy('imei') : collect();
-            $apiActive = !is_null($liveData);
+            $apiActive = true; // Active hybrid system
 
             // Merge API data with local records and determine status in a single safe loop
             foreach ($tracked_units as $unit) {
+                $gps = null;
+
+                if ($unit->imei) {
+                    if (($unit->gps_provider ?? 'tracksolid') === 'aksh') {
+                        $gps = $this->aksh->getGpsData($unit->imei, $unit->gps_password);
+                    } else if (isset($liveMap[$unit->imei])) {
+                        $gps = $liveMap[$unit->imei];
+                    }
+                }
+
                 // 1. If we have fresh live data, merge it first
-                if ($unit->imei && isset($liveMap[$unit->imei])) {
-                    $gps = $liveMap[$unit->imei];
+                if ($gps) {
                     $unit->latitude = $gps['lat'] ?? $unit->latitude;
                     $unit->longitude = $gps['lng'] ?? $unit->longitude;
                     $unit->ignition_status = ($gps['accStatus'] ?? 0) == 1;
@@ -53,50 +158,16 @@ class LiveTrackingController extends Controller
                     $unit->last_update = $gps['gpsTime'] ?? $unit->last_update;
                 }
 
-                // 2. Determine GPS status
-                $status = 'offline';
-                $diff = PHP_INT_MAX; 
-                $gpsDiff = PHP_INT_MAX;
+                $statusInfo = $this->resolveGpsStatus(
+                    $gps,
+                    $unit->last_update,
+                    (bool)$unit->ignition_status,
+                    (float)($unit->speed ?? 0)
+                );
 
-                if (isset($gps['hbTime']) && isset($gps['gpsTime'])) {
-                    $hbTs = strtotime($gps['hbTime'] . ' UTC');
-                    $gpsTs = strtotime($gps['gpsTime'] . ' UTC');
-                    $diff = abs(time() - max($hbTs, $gpsTs));
-                    $gpsDiff = abs(time() - $gpsTs);
-                } else if ($unit->last_update) {
-                    $lastUpdateTs = strtotime($unit->last_update . ' UTC');
-                    if ($lastUpdateTs !== false) {
-                        $diff = abs(time() - $lastUpdateTs);
-                        $gpsDiff = $diff;
-                    }
-                }
-
-                if ($diff < 600) {
-                    if ($unit->ignition_status) {
-                        // ACC is ON: Use Heartbeat to keep alive even if GPS is lost (Idling under roof)
-                        $actualSpeed = ($gpsDiff > 300) ? 0 : (float)($unit->speed ?? 0);
-                        $status = $actualSpeed > 2 ? 'moving' : 'idle';
-                    } else {
-                        // ACC is OFF: If GPS is old, consider it Offline (User preference)
-                        if ($gpsDiff > 600) {
-                            $status = 'offline';
-                        } else {
-                            $status = 'stopped';
-                        }
-                    }
-                } else {
-                    $status = 'offline';
-                }
-
-                $unit->gps_status = $status;
-
-                // GHOST SPEED & IGNITION FIX: Force speed=0 and ignition=false for offline/stopped statuses
-                if ($status === 'offline' || $status === 'stopped') {
-                    $unit->speed = 0;
-                }
-                if ($status === 'offline') {
-                    $unit->ignition_status = false;
-                }
+                $unit->gps_status = $statusInfo['status'];
+                $unit->speed = $statusInfo['speed'];
+                $unit->ignition_status = $statusInfo['ignition'];
 
                 // 3. Update local cache table with the CORRECTED/SAFE values (if live data is active)
                 if ($unit->imei && isset($liveMap[$unit->imei])) {
@@ -161,40 +232,26 @@ class LiveTrackingController extends Controller
                 return response()->json(['success' => false, 'error' => 'Vehicle has no GPS IMEI registered.']);
             }
 
-            // Fetch live record for this specific IMEI
-            $liveData = $this->tracksolid->getLocations([$unit->imei]);
-            
-            if (!$liveData || empty($liveData)) {
-                return response()->json(['success' => false, 'error' => 'No signal retrieved from GPS provider.']);
-            }
-
-            $gps = $liveData[0]; // Result for the requested IMEI
-            
-            // Determine Status
-            $status = 'offline';
-            $lastUpdate = $gps['gpsTime'] ?? null;
-            $ignition = ($gps['accStatus'] ?? 0) == 1;
-            $speed = $ignition ? (float)($gps['speed'] ?? 0) : 0;
-
-            if ($lastUpdate) {
-                $lastUpdateTs = strtotime($lastUpdate . ' UTC');
-                $diff = time() - $lastUpdateTs;
-                if ($diff < 600) { // Within 10 minutes
-                    if ($ignition) {
-                        $status = $speed > 2 ? 'moving' : 'idle';
-                    } else {
-                        $status = 'stopped';
-                    }
+            $gps = null;
+            if (($unit->gps_provider ?? 'tracksolid') === 'aksh') {
+                $gps = $this->aksh->getGpsData($unit->imei, $unit->gps_password);
+            } else {
+                $liveData = $this->tracksolid->getLocations([$unit->imei]);
+                if ($liveData && !empty($liveData)) {
+                    $gps = $liveData[0];
                 }
             }
-
-            // UX Fix: Zero out speed if offline or stopped
-            if ($status === 'offline' || $status === 'stopped') {
-                $speed = 0;
+            
+            if (!$gps) {
+                return response()->json(['success' => false, 'error' => 'No signal retrieved from GPS provider.']);
             }
-            if ($status === 'offline') {
-                $ignition = false;
-            }
+            
+            $lastUpdate = $gps['gpsTime'] ?? null;
+            $ignition = ($gps['accStatus'] ?? 0) == 1;
+            $statusInfo = $this->resolveGpsStatus($gps, $lastUpdate, $ignition, (float)($gps['speed'] ?? 0));
+            $status = $statusInfo['status'];
+            $speed = $statusInfo['speed'];
+            $ignition = $statusInfo['ignition'];
 
             return response()->json([
                 'success' => true,
@@ -225,7 +282,8 @@ class LiveTrackingController extends Controller
                 ->leftJoin('drivers as d2', 'u.secondary_driver_id', '=', 'd2.id')
                 ->leftJoin('gps_tracking as g', 'u.id', '=', 'g.unit_id')
                 ->select(
-                    'u.id', 'u.plate_number', 'u.imei', 'u.status', 'u.driver_id',
+                    'u.id', 'u.plate_number', 'u.imei', 'u.status', 'u.driver_id', 'u.gps_provider', 'u.gps_password',
+                    'u.engine_status',
                     DB::raw("TRIM(CONCAT(COALESCE(d1.first_name,''), ' ', COALESCE(d1.last_name,''))) as driver_name"),
                     DB::raw("TRIM(CONCAT(COALESCE(d2.first_name,''), ' ', COALESCE(d2.last_name,''))) as secondary_driver"),
                     'd1.contact_number as driver_phone',
@@ -239,16 +297,21 @@ class LiveTrackingController extends Controller
             $liveMap = $liveData ? collect($liveData)->keyBy('imei') : collect();
 
             $result = $units->map(function ($unit) use ($liveMap) {
-                $gps = $liveMap[$unit->imei] ?? null;
+                $gps = null;
+                if ($unit->imei) {
+                    if (($unit->gps_provider ?? 'tracksolid') === 'aksh') {
+                        $gps = $this->aksh->getGpsData($unit->imei, $unit->gps_password);
+                    } else if (isset($liveMap[$unit->imei])) {
+                        $gps = $liveMap[$unit->imei];
+                    }
+                }
                 
-                // Determine Status
-                $status   = 'offline';
+                // Location and raw telemetry
                 $lastUpdate = $unit->last_update;
                 $lat      = $unit->latitude;
                 $lng      = $unit->longitude;
-                $speed    = 0;
                 $ignition = false;
-                $diff     = PHP_INT_MAX; // Default: assume very old signal
+                $rawSpeed = 0.0;
 
                 if ($gps) {
                     $lat        = $gps['lat'] ?? $lat;
@@ -262,55 +325,11 @@ class LiveTrackingController extends Controller
                     $rawSpeed   = (float)($unit->cached_speed ?? 0);
                 }
 
-                // Determine Status
-                $diff = PHP_INT_MAX;
-                $gpsDiff = PHP_INT_MAX;
-                
-                if ($gps && isset($gps['hbTime']) && isset($gps['gpsTime'])) {
-                    $hbTs = strtotime($gps['hbTime'] . ' UTC');
-                    $gpsTs = strtotime($gps['gpsTime'] . ' UTC');
-                    $diff = abs(time() - max($hbTs, $gpsTs));
-                    $gpsDiff = abs(time() - $gpsTs);
-                    
-                    if ($gpsDiff > 300) {
-                        $rawSpeed = 0;
-                    }
-                } else if ($lastUpdate) {
-                    $ts = strtotime($lastUpdate . ' UTC');
-                    if ($ts !== false) {
-                        $diff = abs(time() - $ts);
-                        $gpsDiff = $diff;
-                    }
-                }
-
-                if ($diff < 600) {
-                    if ($ignition) {
-                        $speed  = $rawSpeed;
-                        $status = $speed > 2 ? 'moving' : 'idle';
-                    } else {
-                        if ($gpsDiff > 600) {
-                            $status = 'offline';
-                        } else {
-                            $status = 'stopped';
-                        }
-                    }
-                } else {
-                    $status = 'offline';
-                }
-
-                // GHOST SPEED FIX: Guarantee speed=0 for non-active statuses
-                if ($status === 'offline' || $status === 'stopped') {
-                    $speed    = 0;
-                    $ignition = false;
-                }
-
-                // Build human-readable offline duration string
-                $offlineDuration = '';
-                if ($status === 'offline' && $diff < PHP_INT_MAX) {
-                    $hours   = (int) floor($diff / 3600);
-                    $minutes = (int) floor(($diff % 3600) / 60);
-                    $offlineDuration = $hours > 0 ? "{$hours}h {$minutes}m" : "{$minutes}m";
-                }
+                $statusInfo = $this->resolveGpsStatus($gps, $lastUpdate, $ignition, $rawSpeed);
+                $status = $statusInfo['status'];
+                $speed = $statusInfo['speed'];
+                $ignition = $statusInfo['ignition'];
+                $offlineDuration = $statusInfo['offline_display'];
 
                 return [
                     'unit_id'         => $unit->id,
@@ -328,6 +347,7 @@ class LiveTrackingController extends Controller
                     'angle'           => $gps['direction'] ?? $unit->cached_heading ?? 0,
                     'odo'             => $gps['currentMileage'] ?? $unit->cached_odo ?? 0,
                     'u_status'        => $unit->status,
+                    'engine_status'   => $unit->engine_status ?? null,
                     'daily_dist'      => 0 // Handled in sync below
                 ];
             });
@@ -508,21 +528,39 @@ class LiveTrackingController extends Controller
                 }
             }
 
-            // Send to Tracksolid
-            $result = $this->tracksolid->sendEngineCommand($unit->imei, $request->action);
+            // Send command depending on provider
+            if (($unit->gps_provider ?? 'tracksolid') === 'aksh') {
+                $result = $this->aksh->sendEngineCommand($unit->imei, $unit->gps_password, $request->action);
+                $providerName = 'AKSH GPS';
+            } else {
+                $result = $this->tracksolid->sendEngineCommand($unit->imei, $request->action);
+                $providerName = 'Tracksolid';
+            }
 
             if ($result['success']) {
+                $engineStatus = ($request->action === 'kill') ? 'killed' : 'restored';
+
+                // Update persistent engine status in units table
+                DB::table('units')->where('id', $unit->id)->update([
+                    'engine_status' => $engineStatus
+                ]);
+
                 // Log the action for auditing
                 DB::table('system_alerts')->insert([
                     'title' => "Engine " . strtoupper($request->action) . ": {$unit->plate_number}",
-                    'message' => "Remote engine {$request->action} command delivered successfully via Tracksolid.",
+                    'message' => "Remote engine {$request->action} command delivered successfully via {$providerName}.",
                     'type' => $request->action === 'kill' ? 'danger' : 'success',
                     'is_resolved' => false,
                     'created_at' => now(),
                     'updated_at' => now()
                 ]);
 
-                return response()->json(['success' => true, 'message' => "Engine " . ($request->action === 'kill' ? 'cut-off' : 'restored') . " command sent to unit."]);
+                return response()->json([
+                    'success' => true,
+                    'pending' => false,
+                    'message' => $result['message'] ?? ("Engine " . ($request->action === 'kill' ? 'cut-off' : 'restored') . " command sent to unit."),
+                    'engine_status' => $engineStatus,
+                ]);
             } else {
                 return response()->json(['success' => false, 'error' => $result['error']]);
             }

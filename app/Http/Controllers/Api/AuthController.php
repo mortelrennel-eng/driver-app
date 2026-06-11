@@ -62,14 +62,6 @@ class AuthController extends Controller
             ], 401);
         }
 
-        // Only allow drivers to log into the mobile app
-        if (strtolower($user->role) !== 'driver') {
-            return response()->json([
-                'success' => false,
-                'message' => 'Unauthorized access. Only driver accounts can log in to the mobile app.',
-            ], 403);
-        }
-
         // Block archived/soft-deleted accounts
         if ($user->trashed()) {
             return response()->json([

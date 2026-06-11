@@ -32,6 +32,8 @@ class Unit extends Model
         'shift_deadline_at',
         'gps_link',
         'imei',
+        'gps_provider',
+        'gps_password',
         'dashcam_enabled',
         'latitude',
         'longitude',

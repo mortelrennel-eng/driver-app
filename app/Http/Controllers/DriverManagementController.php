@@ -47,7 +47,7 @@ class DriverManagementController extends Controller
                 // Basic counts for PHP-side Unified Rating Calculation (30-day window)
                 DB::raw("(SELECT COUNT(*) FROM boundaries WHERE driver_id = d.id AND deleted_at IS NULL AND date >= DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY)) as shifts_count"),
                 DB::raw("(SELECT COUNT(*) FROM boundaries WHERE driver_id = d.id AND status IN ('paid', 'excess') AND deleted_at IS NULL AND date >= DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY)) as paid_shifts_count"),
-                DB::raw("(SELECT COUNT(*) FROM driver_behavior WHERE driver_id = d.id AND created_at >= DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY) AND " . $this->getViolationQuerySnippet() . ") as incidents_count"),
+                DB::raw("(SELECT COUNT(*) FROM driver_behavior WHERE driver_id = d.id AND deleted_at IS NULL AND created_at >= DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY) AND " . $this->getViolationQuerySnippet() . ") as incidents_count"),
                 DB::raw("(SELECT COUNT(*) FROM boundaries WHERE driver_id = d.id AND has_incentive = 0 AND deleted_at IS NULL AND date >= DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY)) as missed_incentive_count"),
                 DB::raw("(SELECT COUNT(*) FROM boundaries WHERE expected_driver_id = d.id AND driver_id != d.id AND deleted_at IS NULL AND date >= DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY)) as absent_count"),
                 // Lifetime count to identify "Fresh" drivers
@@ -58,7 +58,7 @@ class DriverManagementController extends Controller
                 // Net unpaid shortage: sum of all shortages minus sum of all excess
                 DB::raw("(SELECT GREATEST(0, COALESCE(SUM(shortage),0) - COALESCE(SUM(excess),0)) FROM boundaries WHERE driver_id = d.id AND deleted_at IS NULL) as net_shortage"),
                 // Total Pending Accident/Incident Debt
-                DB::raw("(SELECT COALESCE(SUM(remaining_balance), 0) FROM driver_behavior WHERE driver_id = d.id AND charge_status = 'pending') as total_pending_debt")
+                DB::raw("(SELECT COALESCE(SUM(remaining_balance), 0) FROM driver_behavior WHERE driver_id = d.id AND deleted_at IS NULL AND charge_status = 'pending') as total_pending_debt")
             );
 
         if ($search) {
@@ -74,7 +74,7 @@ class DriverManagementController extends Controller
             if ($status_filter === 'active') {
                 $query->whereIn('d.driver_status', ['available', 'assigned']);
             } elseif ($status_filter === 'inactive') {
-                $query->whereNotIn('d.driver_status', ['available', 'assigned']);
+                $query->whereNotIn('d.driver_status', ['available', 'assigned', 'banned', 'suspended']);
             } elseif ($status_filter === 'no_unit') {
                 $query->whereNotExists(function($q) {
                     $q->select(DB::raw(1))
@@ -85,9 +85,12 @@ class DriverManagementController extends Controller
                              ->orWhereColumn('units.secondary_driver_id', 'd.id');
                       });
                 });
+                $query->whereNotIn('d.driver_status', ['banned', 'suspended']);
             } elseif ($status_filter === 'banned') {
-                $query->where('d.driver_status', 'banned');
+                $query->whereIn('d.driver_status', ['banned', 'suspended']);
             }
+        } else {
+            $query->whereNotIn('d.driver_status', ['banned', 'suspended']);
         }
 
         switch ($sort) {
@@ -138,7 +141,7 @@ class DriverManagementController extends Controller
 
         // Stats
         $stats = [
-            'total'     => DB::table('drivers')->whereNull('deleted_at')->count(),
+            'total'     => DB::table('drivers')->whereNull('deleted_at')->whereNotIn('driver_status', ['banned', 'suspended'])->count(),
             'available' => DB::table('drivers')->whereNull('deleted_at')->where('driver_status', 'available')->count(),
             'assigned'  => DB::table('drivers')->whereNull('deleted_at')->where('driver_status', 'assigned')->count(),
             'on_leave'  => DB::table('drivers')->whereNull('deleted_at')->where('driver_status', 'on_leave')->count(),
@@ -193,7 +196,7 @@ class DriverManagementController extends Controller
                 // Basic counts for PHP-side Rating Calculation (30 Day Window)
                 DB::raw("(SELECT COUNT(*) FROM boundaries WHERE driver_id = d.id AND deleted_at IS NULL AND date >= DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY)) as shifts_count"),
                 DB::raw("(SELECT COUNT(*) FROM boundaries WHERE driver_id = d.id AND status IN ('paid', 'excess') AND deleted_at IS NULL AND date >= DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY)) as paid_shifts_count"),
-                DB::raw("(SELECT COUNT(*) FROM driver_behavior WHERE driver_id = d.id AND created_at >= DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY) AND " . $this->getViolationQuerySnippet() . ") as incidents_count"),
+                DB::raw("(SELECT COUNT(*) FROM driver_behavior WHERE driver_id = d.id AND deleted_at IS NULL AND created_at >= DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY) AND " . $this->getViolationQuerySnippet() . ") as incidents_count"),
                 DB::raw("(SELECT COUNT(*) FROM boundaries WHERE driver_id = d.id AND has_incentive = 0 AND deleted_at IS NULL AND date >= DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY)) as missed_incentive_count"),
                 DB::raw("(SELECT COUNT(*) FROM boundaries WHERE expected_driver_id = d.id AND driver_id != d.id AND deleted_at IS NULL AND date >= DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY)) as absent_count")
             )
@@ -259,6 +262,7 @@ class DriverManagementController extends Controller
         // Missed reason breakdown (current month - Unified from Behavior + Boundaries)
         $late_turn_missed  = DB::table('driver_behavior')
             ->where('driver_id', $id)
+            ->whereNull('deleted_at')
             ->whereMonth('incident_date', $currentMonth)
             ->whereYear('incident_date', $currentYear)
             ->where('incident_type', 'Late Remittance')
@@ -266,6 +270,7 @@ class DriverManagementController extends Controller
 
         $damage_missed     = DB::table('driver_behavior')
             ->where('driver_id', $id)
+            ->whereNull('deleted_at')
             ->whereMonth('incident_date', $currentMonth)
             ->whereYear('incident_date', $currentYear)
             ->where('incident_type', 'Vehicle Damage')
@@ -273,6 +278,7 @@ class DriverManagementController extends Controller
 
         $behavior_missed   = DB::table('driver_behavior')
             ->where('driver_id', $id)
+            ->whereNull('deleted_at')
             ->whereMonth('incident_date', $currentMonth)
             ->whereYear('incident_date', $currentYear)
             ->whereRaw($this->getViolationQuerySnippet())
@@ -281,6 +287,7 @@ class DriverManagementController extends Controller
 
         $shortage_missed   = DB::table('driver_behavior')
             ->where('driver_id', $id)
+            ->whereNull('deleted_at')
             ->whereMonth('incident_date', $currentMonth)
             ->whereYear('incident_date', $currentYear)
             ->where('incident_type', 'Short Boundary')
@@ -296,6 +303,7 @@ class DriverManagementController extends Controller
 
         $incDates = DB::table('driver_behavior')
             ->where('driver_id', $id)
+            ->whereNull('deleted_at')
             ->where('created_at', '>=', $periodStart)
             ->whereRaw($this->getViolationQuerySnippet())
             ->pluck('created_at')->map(fn($d) => \Carbon\Carbon::parse($d))->toArray();
@@ -346,6 +354,7 @@ class DriverManagementController extends Controller
 
             $violations_incidents = DB::table('driver_behavior')
                 ->where('driver_id', $id)
+                ->whereNull('deleted_at')
                 ->where('created_at', '>=', $activeBlockStart)
                 ->where('created_at', '<=', $currentPenaltyEnd)
                 ->whereRaw($this->getViolationQuerySnippet())
@@ -433,6 +442,7 @@ class DriverManagementController extends Controller
         // Driver Behavior incidents (last 10)
         $driver->incidents = DB::table('driver_behavior as db')
             ->where('db.driver_id', $id)
+            ->whereNull('db.deleted_at')
             ->leftJoin('units as u', 'db.unit_id', '=', 'u.id')
             ->select('db.created_at', 'db.incident_type', 'db.severity', 'db.description', 'u.plate_number')
             ->orderByDesc('db.created_at')
@@ -441,12 +451,14 @@ class DriverManagementController extends Controller
 
         $driver->total_incidents_30d = DB::table('driver_behavior')
             ->where('driver_id', $id)
+            ->whereNull('deleted_at')
             ->where('created_at', '>=', now()->subDays(30))
             ->whereRaw($this->getViolationQuerySnippet())
             ->count();
 
         $driver->high_severity_incidents = DB::table('driver_behavior')
             ->where('driver_id', $id)
+            ->whereNull('deleted_at')
             ->whereIn('severity', ['high', 'critical'])
             ->where('created_at', '>=', now()->subDays(30))
             ->whereRaw($this->getViolationQuerySnippet())
@@ -530,13 +542,33 @@ class DriverManagementController extends Controller
             'hire_date'             => 'required|date',
             'daily_boundary_target' => 'nullable|numeric|min:0',
             'driver_type'           => 'nullable|in:regular,senior,trainee',
-            'driver_status'         => 'nullable|in:available,assigned,on_leave,suspended,banned',
+            'is_active'             => 'required|in:0,1',
         ]);
+
+        $newStatus = $driver_instance->driver_status;
+        $suspendedUntil = $driver_instance->suspended_until;
+        $suspensionReason = $driver_instance->suspension_reason;
+
+        if ($request->has('is_active')) {
+            $isActive = (int)$request->input('is_active');
+            $currentIsActive = in_array($driver_instance->driver_status, ['available', 'assigned']) ? 1 : 0;
+            
+            if ($isActive !== $currentIsActive) {
+                if ($isActive === 1) {
+                    $newStatus = 'available';
+                    $suspendedUntil = null;
+                    $suspensionReason = null;
+                } else {
+                    if (!in_array($driver_instance->driver_status, ['suspended', 'banned', 'on_leave'])) {
+                        $newStatus = 'on_leave';
+                    }
+                }
+            }
+        }
 
         $driver_instance->update([
             'first_name'            => $request->first_name,
             'last_name'             => $request->last_name,
-
             'license_number'        => $request->license_number,
             'license_expiry'        => $request->license_expiry,
             'contact_number'        => $request->contact_number,
@@ -546,11 +578,13 @@ class DriverManagementController extends Controller
             'hire_date'             => $request->hire_date,
             'daily_boundary_target' => $dailyBoundaryTarget,
             'driver_type'           => $request->driver_type ?? 'regular',
-            'driver_status'         => $request->driver_status ?? 'available',
+            'driver_status'         => $newStatus,
+            'suspended_until'       => $suspendedUntil,
+            'suspension_reason'     => $suspensionReason,
         ]);
 
-        // If manually set to banned, ensure they are unassigned from units
-        if ($request->driver_status === 'banned') {
+        // If status changed to inactive, ensure they are unassigned from units
+        if (!in_array($newStatus, ['available', 'assigned'])) {
             DB::table('units')->where('driver_id', $driver_instance->id)->update(['driver_id' => null, 'updated_at' => now()]);
             DB::table('units')->where('secondary_driver_id', $driver_instance->id)->update(['secondary_driver_id' => null, 'updated_at' => now()]);
         }
@@ -609,6 +643,7 @@ class DriverManagementController extends Controller
             ->leftJoin('units as u', 'db.unit_id', '=', 'u.id')
             ->where('db.charge_status', 'paid')
             ->whereNull('d.deleted_at')
+            ->whereNull('db.deleted_at')
             ->select(
                 'db.id', 'db.incident_date as date', 'db.description', 
                 'db.severity', 'db.total_charge_to_driver as total_charge', 
@@ -624,6 +659,7 @@ class DriverManagementController extends Controller
             ->leftJoin('units as u', 'e.unit_id', '=', 'u.id')
             ->where('e.category', 'Damage Recovery')
             ->where('e.status', 'approved')
+            ->whereNull('e.deleted_at')
             ->select(
                 'e.id', 'e.date', 'e.description', 'e.amount',
                 'u.plate_number as unit_plate'
@@ -654,6 +690,7 @@ class DriverManagementController extends Controller
             ->where('db.charge_status', 'pending')
             ->where('db.remaining_balance', '>', 0)
             ->whereNull('d.deleted_at')
+            ->whereNull('db.deleted_at')
             ->select(
                 'db.id', 'db.driver_id', 'db.incident_date as date', 'db.timestamp', 'db.description', 
                 'db.severity', 'db.total_charge_to_driver as total_charge', 
@@ -676,7 +713,7 @@ class DriverManagementController extends Controller
                     'debts' => []
                 ];
             }
-            $drivers[$dId]['total_remaining'] += $debt->remaining_balance;
+            $drivers[$dId]['total_remaining'] = round($drivers[$dId]['total_remaining'] + $debt->remaining_balance, 2);
             $drivers[$dId]['debts'][] = $debt;
         }
 
@@ -687,7 +724,7 @@ class DriverManagementController extends Controller
     {
         $request->validate([
             'debt_id' => 'required|integer',
-            'payment_amount' => 'required|numeric|min:1'
+            'payment_amount' => 'required|numeric|min:0.01'
         ]);
 
         $debt = \App\Models\DriverBehavior::find($request->debt_id);
@@ -701,8 +738,8 @@ class DriverManagementController extends Controller
 
         $amount = (float) $request->payment_amount;
         
-        $debt->total_paid += $amount;
-        $debt->remaining_balance -= $amount;
+        $debt->total_paid = round($debt->total_paid + $amount, 2);
+        $debt->remaining_balance = round($debt->remaining_balance - $amount, 2);
         if ($debt->remaining_balance <= 0) {
             $debt->charge_status = 'paid';
         }
@@ -729,19 +766,182 @@ class DriverManagementController extends Controller
 
     // calculatePerformanceRating moved to App\Traits\CalculatesDriverPerformance
 
+    public function banned(Request $request)
+    {
+        $search = $request->input('search', '');
+        
+        $query = DB::table('drivers as d')
+            ->whereNull('d.deleted_at')
+            ->whereIn('d.driver_status', ['banned', 'suspended'])
+            ->leftJoin('users as creator', 'd.created_by', '=', 'creator.id')
+            ->select(
+                'd.id', 'd.first_name', 'd.last_name', 'd.license_number', 'd.license_expiry',
+                'd.contact_number', 'd.hire_date', 'd.address', 'd.driver_status', 'd.suspended_until', 'd.suspension_reason',
+                DB::raw("CONCAT(COALESCE(d.first_name,''), ' ', COALESCE(d.last_name,'')) as full_name"),
+                'creator.full_name as creator_name'
+            );
+
+        if ($search) {
+            $query->where(function ($q) use ($search) {
+                $q->where('d.first_name',    'like', "%{$search}%")
+                  ->orWhere('d.last_name',   'like', "%{$search}%")
+                  ->orWhere('d.license_number', 'like', "%{$search}%")
+                  ->orWhere('d.contact_number', 'like', "%{$search}%");
+            });
+        }
+
+        $bannedDrivers = $query->orderBy('d.updated_at', 'desc')->get();
+
+        // For each banned driver, fetch their recent critical or relevant incidents from driver_behavior that caused the ban
+        foreach ($bannedDrivers as $driver) {
+            if ($driver->driver_status === 'suspended' && $driver->suspended_until) {
+                $now = \Carbon\Carbon::now()->timezone('Asia/Manila');
+                $until = \Carbon\Carbon::parse($driver->suspended_until)->timezone('Asia/Manila');
+                if ($until->gt($now)) {
+                    $driver->days_left = ceil($now->diffInSeconds($until, false) / 86400);
+                } else {
+                    $driver->days_left = 0;
+                }
+            } else {
+                $driver->days_left = null;
+            }
+
+            $driver->ban_incidents = DB::table('driver_behavior')
+                ->where('driver_id', $driver->id)
+                ->whereNull('deleted_at')
+                ->select('incident_type', 'severity', 'description', 'incident_date')
+                ->orderBy('incident_date', 'desc')
+                ->get();
+        }
+
+        if ($request->ajax()) {
+            return response()->json([
+                'success' => true,
+                'drivers' => $bannedDrivers
+            ]);
+        }
+
+        // Active drivers for the "Add New Ban/Suspension" modal dropdown
+        $activeDrivers = DB::table('drivers')
+            ->whereNull('deleted_at')
+            ->whereNotIn('driver_status', ['banned', 'suspended'])
+            ->select('id', 'first_name', 'last_name', 'driver_status',
+                DB::raw("CONCAT(COALESCE(first_name,''), ' ', COALESCE(last_name,'')) as full_name"))
+            ->orderBy('last_name')->orderBy('first_name')
+            ->get();
+
+        return view('driver-management.banned', compact('bannedDrivers', 'search', 'activeDrivers'));
+    }
+
     public function unban($id)
     {
         $driver = Driver::findOrFail($id);
 
-        if ($driver->driver_status !== 'banned') {
-            return response()->json(['success' => false, 'message' => 'Driver is not banned.'], 422);
+        if (!in_array($driver->driver_status, ['banned', 'suspended'])) {
+            return response()->json(['success' => false, 'message' => 'Driver is not banned or suspended.'], 422);
         }
 
-        $driver->update(['driver_status' => 'available']);
+        $driver->update([
+            'driver_status' => 'available',
+            'suspended_until' => null,
+            'suspension_reason' => null
+        ]);
 
         $name = trim($driver->first_name . ' ' . $driver->last_name);
         ActivityLogController::log('Unbanned Driver', "Driver: {$name} has been unbanned and status set to Available.");
 
         return response()->json(['success' => true, 'message' => "{$name} has been successfully unbanned."]);
+    }
+
+    public function suspendOrBan(Request $request, $id)
+    {
+        $request->validate([
+            'action_type'   => 'required|in:suspend,ban',
+            'duration_days' => 'required_if:action_type,suspend|nullable|integer|min:1',
+            'reason'        => 'required|string|min:3|max:500',
+        ]);
+
+        $driver = Driver::findOrFail($id);
+        $action = $request->action_type;
+        $reason = $request->reason;
+        
+        $status = $action === 'suspend' ? 'suspended' : 'banned';
+        $suspendedUntil = null;
+        
+        if ($action === 'suspend') {
+            $days = intval($request->duration_days);
+            $suspendedUntil = now()->timezone('Asia/Manila')->addDays($days)->endOfDay();
+        }
+
+        // Update driver record
+        $driver->update([
+            'driver_status' => $status,
+            'suspended_until' => $suspendedUntil,
+            'suspension_reason' => $reason,
+        ]);
+
+        // Get driver's currently assigned unit from units table BEFORE unassigning them
+        $unitId = DB::table('units')
+            ->where(function($q) use ($driver) {
+                $q->where('driver_id', $driver->id)
+                  ->orWhere('secondary_driver_id', $driver->id);
+            })
+            ->whereNull('deleted_at')
+            ->value('id');
+
+        if (!$unitId) {
+            // Fallback: check boundaries table
+            $unitId = DB::table('boundaries')
+                ->where('driver_id', $driver->id)
+                ->orderBy('date', 'desc')
+                ->value('unit_id');
+        }
+
+        // Unassign driver from units
+        DB::table('units')
+            ->where('driver_id', $driver->id)
+            ->update([
+                'driver_id' => null, 
+                'updated_at' => now()
+            ]);
+        DB::table('units')
+            ->where('secondary_driver_id', $driver->id)
+            ->update([
+                'secondary_driver_id' => null,
+                'updated_at' => now()
+            ]);
+
+        // Log manual incident in driver_behavior
+        DB::table('driver_behavior')->insert([
+            'unit_id'                 => $unitId,
+            'driver_id'               => $driver->id,
+            'incident_type'           => $action === 'suspend' ? 'Administrative Suspension' : 'Administrative Ban',
+            'severity'                => 'critical',
+            'cause_of_incident'       => 'Administrative Action',
+            'description'             => $reason,
+            'total_charge_to_driver'  => 0,
+            'total_paid'              => 0,
+            'remaining_balance'       => 0,
+            'charge_status'           => 'none',
+            'latitude'                => 0,
+            'longitude'               => 0,
+            'video_url'               => '',
+            'timestamp'               => now()->timezone('Asia/Manila'),
+            'incident_date'           => now()->timezone('Asia/Manila')->toDateString(),
+            'created_at'              => now(),
+            'updated_at'              => now(),
+        ]);
+
+        $name = trim($driver->first_name . ' ' . $driver->last_name);
+        $logMsg = $action === 'suspend' 
+            ? "Driver {$name} has been suspended for {$request->duration_days} days. Reason: {$reason}"
+            : "Driver {$name} has been permanently banned. Reason: {$reason}";
+            
+        ActivityLogController::log($action === 'suspend' ? 'Suspended Driver' : 'Banned Driver', $logMsg);
+
+        return response()->json([
+            'success' => true,
+            'message' => "Driver has been successfully " . ($action === 'suspend' ? 'suspended' : 'banned') . "."
+        ]);
     }
 }

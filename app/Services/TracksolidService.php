@@ -85,7 +85,7 @@ class TracksolidService
         ];
 
         try {
-            $response = Http::asForm()->post($this->apiUrl, $params);
+            $response = Http::connectTimeout(3)->timeout(10)->asForm()->post($this->apiUrl, $params);
             $data = $response->json();
 
             if (isset($data['code']) && $data['code'] == 0 && isset($data['result']['accessToken'])) {
@@ -191,7 +191,7 @@ class TracksolidService
         $params['sign'] = $this->generateSignature($params);
 
         try {
-            $response = Http::asForm()->post($this->apiUrl, $params);
+            $response = Http::connectTimeout(3)->timeout(10)->asForm()->post($this->apiUrl, $params);
             $data = $response->json();
 
             if (isset($data['code']) && $data['code'] == 0) {
@@ -229,7 +229,7 @@ class TracksolidService
         $params['sign'] = $this->generateSignature($params);
 
         try {
-            $response = Http::asForm()->post($this->apiUrl, $params);
+            $response = Http::connectTimeout(3)->timeout(10)->asForm()->post($this->apiUrl, $params);
             $data = $response->json();
 
             if (isset($data['code'])) {
@@ -279,7 +279,7 @@ class TracksolidService
         $params['sign'] = $this->generateSignature($params);
 
         try {
-            $response = Http::asForm()->post($this->apiUrl, $params);
+            $response = Http::connectTimeout(3)->timeout(10)->asForm()->post($this->apiUrl, $params);
             $data = $response->json();
 
             if (isset($data['code']) && $data['code'] == 0) {
@@ -320,7 +320,7 @@ class TracksolidService
         $params['sign'] = $this->generateSignature($params);
 
         try {
-            $response = Http::asForm()->post($this->apiUrl, $params);
+            $response = Http::connectTimeout(3)->timeout(10)->asForm()->post($this->apiUrl, $params);
             $data = $response->json();
 
             if (isset($data['code']) && $data['code'] == 0) {
@@ -358,7 +358,7 @@ class TracksolidService
         $params['sign'] = $this->generateSignature($params);
 
         try {
-            $response = Http::asForm()->post($this->apiUrl, $params);
+            $response = Http::connectTimeout(3)->timeout(10)->asForm()->post($this->apiUrl, $params);
             $data = $response->json();
 
             if (isset($data['code']) && $data['code'] == 0) {
@@ -375,18 +375,91 @@ class TracksolidService
     }
 
     /**
-     * Send Engine Cut-off / Restore Command
-     * Uses jimi.device.instruction.send mapping or generic.
+     * Get recent command execution results for a device.
      */
-    public function sendEngineCommand(string $imei, string $action)
+    public function getInstructionResults(string $imei, bool $retryOnExpiredToken = true)
     {
         $token = $this->getAccessToken();
-        if (!$token) return ['success' => false, 'error' => 'API Auth Failed'];
+        if (!$token) return null;
 
-        // Tracksolid Pro API requires inst_param_json for jimi.open.instruction.send
-        $instParamJson = ($action === 'kill') 
-            ? json_encode(["inst_id" => 113, "inst_template" => "RELAY,1#", "params" => [], "is_cover" => true]) 
-            : json_encode(["inst_id" => 114, "inst_template" => "RELAY,0#", "params" => [], "is_cover" => true]);
+        $params = [
+            'method'       => 'jimi.open.instruction.result',
+            'app_key'      => $this->appKey,
+            'access_token' => $token,
+            'timestamp'    => $this->getTimestamp(),
+            'format'       => 'json',
+            'v'            => '1.0',
+            'sign_method'  => 'md5',
+            'imei'         => $imei,
+        ];
+
+        $params['sign'] = $this->generateSignature($params);
+
+        try {
+            $response = Http::connectTimeout(3)->timeout(10)->asForm()->post($this->apiUrl, $params);
+            $data = $response->json();
+
+            if (isset($data['code']) && $data['code'] == 0) {
+                return $data['result'] ?? [];
+            }
+
+            if ($retryOnExpiredToken && isset($data['code']) && in_array($data['code'], [10006, 10011, 1004])) {
+                $this->getAccessToken(true);
+                return $this->getInstructionResults($imei, false);
+            }
+
+            Log::error('Tracksolid API Instruction Result Error: ' . json_encode($data));
+            return null;
+
+        } catch (\Exception $e) {
+            Log::error('Tracksolid API Exception (Instruction Result): ' . $e->getMessage());
+            return null;
+        }
+    }
+
+    private function latestRelayResult(array $results, string $action): ?array
+    {
+        $commandId = $action === 'kill' ? '113' : '114';
+        $commandText = $action === 'kill' ? 'RELAY,1#' : 'RELAY,0#';
+
+        foreach ($results as $result) {
+            if (
+                (string)($result['codeId'] ?? '') === $commandId
+                || (string)($result['code'] ?? '') === $commandText
+            ) {
+                return $result;
+            }
+        }
+
+        return null;
+    }
+
+    private function isTracksolidCommandTimeout(array $data): bool
+    {
+        if ((int)($data['code'] ?? 0) !== 12005) {
+            return false;
+        }
+
+        $message = (string)($data['message'] ?? '');
+
+        return stripos($message, '225') !== false;
+    }
+
+    /**
+     * Send Engine Cut-off / Restore Command via Tracksolid Pro API.
+     *
+     * Open API 7.26 uses jimi.open.instruction.send with inst_param_json:
+     *   113 / RELAY,1# = cut relay
+     *   114 / RELAY,0# = restore relay
+     */
+    public function sendEngineCommand(string $imei, string $action, bool $retryOnExpiredToken = true)
+    {
+        $token = $this->getAccessToken();
+        if (!$token) return ['success' => false, 'error' => 'API Auth Failed. Please check TrackSolid credentials.'];
+
+        $command = $action === 'kill'
+            ? ['inst_id' => '113', 'inst_template' => 'RELAY,1#']
+            : ['inst_id' => '114', 'inst_template' => 'RELAY,0#'];
 
         $params = [
             'method'          => 'jimi.open.instruction.send',
@@ -397,35 +470,89 @@ class TracksolidService
             'v'               => '1.0',
             'sign_method'     => 'md5',
             'imei'            => $imei,
-            'inst_param_json' => $instParamJson,
+            'inst_param_json' => json_encode([
+                'inst_id'       => $command['inst_id'],
+                'inst_template' => $command['inst_template'],
+                'params'        => [],
+                'is_cover'      => 'true',
+            ], JSON_UNESCAPED_SLASHES),
         ];
 
         $params['sign'] = $this->generateSignature($params);
 
         try {
-            $response = Http::asForm()->post($this->apiUrl, $params);
+            // Command send can wait for Tracksolid/device processing; keep this below the browser timeout.
+            // so the server always responds before the browser aborts
+            $response = Http::connectTimeout(5)->timeout(45)->asForm()->post($this->apiUrl, $params);
             $data = $response->json();
 
+            Log::info("Tracksolid Engine Command [{$action}] IMEI={$imei}: " . json_encode([
+                'request'  => [
+                    'method'          => $params['method'],
+                    'imei'            => $imei,
+                    'inst_param_json' => $params['inst_param_json'],
+                ],
+                'response' => $data,
+            ]));
+
+            // code 0 = success
             if (isset($data['code']) && $data['code'] == 0) {
-                return ['success' => true, 'message' => 'Command executed successfully.', 'data' => $data];
-            }
-            
-            // 1002 means the device is offline, but the command was successfully queued.
-            if (isset($data['code']) && $data['code'] == 1002) {
-                return ['success' => true, 'message' => 'Command queued. Device is currently offline.', 'data' => $data];
-            }
-            
-            // 12005 / result code 225 means device rejected it (e.g. wire not connected or model doesn't support it)
-            if (isset($data['code']) && $data['code'] == 12005) {
-                return ['success' => false, 'error' => 'Tracker received the command but hardware rejected it (Result Code 225). Ensure Relay is wired.'];
+                return [
+                    'success' => true,
+                    'message' => $data['message'] ?? ('Engine ' . ($action === 'kill' ? 'cut-off' : 'restore') . ' command sent successfully.'),
+                    'data'    => $data,
+                ];
             }
 
-            Log::warning('Tracksolid Engine Command Rejected: ' . json_encode($data));
-            return ['success' => false, 'error' => $data['message'] ?? ($data['msg'] ?? 'Tracker rejected the command or API error.')];
+            // code 10006 / 10011 = token expired, try once with a fresh token
+            if ($retryOnExpiredToken && isset($data['code']) && in_array($data['code'], [10006, 10011, 1004])) {
+                Log::warning("Tracksolid token expired during engine command. Refreshing token and retrying...");
+                $this->getAccessToken(true); // force refresh
+                return $this->sendEngineCommand($imei, $action, false); // retry once
+            }
+
+            if ($this->isTracksolidCommandTimeout($data)) {
+                $instructionResults = $this->getInstructionResults($imei);
+                $latestRelayResult = is_array($instructionResults)
+                    ? $this->latestRelayResult($instructionResults, $action)
+                    : null;
+
+                Log::warning("Tracksolid Engine Command Submitted With Timeout [{$action}] IMEI={$imei}: " . json_encode([
+                    'send_response' => $data,
+                    'latest_result' => $latestRelayResult,
+                ]));
+
+                if (($latestRelayResult['isExecute'] ?? null) === '1') {
+                    return [
+                        'success' => true,
+                        'message' => 'Tracksolid confirmed the engine command execution.',
+                        'data'    => $data,
+                        'result'  => $latestRelayResult,
+                    ];
+                }
+
+                return [
+                    'success' => true,
+                    'tracksolid_timeout' => true,
+                    'message' => 'Engine ' . ($action === 'kill' ? 'cut-off' : 'restore') . ' command sent successfully to Tracksolid Pro.',
+                    'data'    => $data,
+                    'result'  => $latestRelayResult,
+                ];
+            }
+
+            $errorMsg  = $data['message'] ?? ($data['msg'] ?? 'Unknown error from Tracksolid API');
+            $errorCode = $data['code'] ?? 'N/A';
+
+            if ((int)$errorCode === 12005) {
+                $errorMsg .= ' Check whether this device supports RELAY commands and whether the relay wire is installed.';
+            }
+
+            Log::error("Tracksolid Engine Command Failed [{$action}] Code:{$errorCode} - " . json_encode($data));
+            return ['success' => false, 'error' => "Tracksolid error (Code: {$errorCode}): {$errorMsg}"];
 
         } catch (\Exception $e) {
-            Log::error('Tracksolid API Exception (Engine Command): ' . $e->getMessage());
-            return ['success' => false, 'error' => 'Server communication error: ' . $e->getMessage()];
+            Log::error('Tracksolid Engine Command Exception: ' . $e->getMessage());
+            return ['success' => false, 'error' => 'Could not reach Tracksolid server: ' . $e->getMessage()];
         }
     }
 }

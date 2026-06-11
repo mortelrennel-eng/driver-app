@@ -227,9 +227,9 @@ class AnalyticsController extends Controller
             ->get()->pluck('total', 'month');
 
         $monthlySalaries = DB::table('salaries')
-            ->whereBetween('created_at', [$sixMonthsAgo, $today . ' 23:59:59'])
-            ->selectRaw('DATE_FORMAT(created_at, "%Y-%m") as month, SUM(total_salary) as total')
-            ->groupByRaw('DATE_FORMAT(created_at, "%Y-%m")')
+            ->whereBetween('pay_date', [$sixMonthsAgo, $today])
+            ->selectRaw('DATE_FORMAT(pay_date, "%Y-%m") as month, SUM(total_salary) as total')
+            ->groupByRaw('DATE_FORMAT(pay_date, "%Y-%m")')
             ->get()->pluck('total', 'month');
 
         $income_history = [];

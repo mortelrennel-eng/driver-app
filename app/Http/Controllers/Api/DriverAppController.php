@@ -37,13 +37,9 @@ class DriverAppController extends Controller
         require_once app_path('Helpers/SemaphoreHelper.php');
 
         $validator = Validator::make($request->all(), [
-            'first_name'   => ['required', 'string', 'max:100', 'regex:/^[a-zA-ZñÑ\s]+$/', function($attribute, $value, $fail) {
-                                if (trim($value) === '') $fail('First name cannot be just spaces.');
+            'name'         => ['required', 'string', 'max:255', 'regex:/^[a-zA-ZñÑ\s]+$/', function($attribute, $value, $fail) {
+                                if (trim($value) === '') $fail('The name cannot be just spaces.');
                               }],
-            'last_name'    => ['required', 'string', 'max:100', 'regex:/^[a-zA-ZñÑ\s]+$/', function($attribute, $value, $fail) {
-                                if (trim($value) === '') $fail('Last name cannot be just spaces.');
-                              }],
-            'suffix'       => ['nullable', 'string', 'max:20', 'regex:/^[a-zA-ZñÑ.\s]+$/'],
             'email'        => ['required', 'string', 'email', 'max:255', 'unique:users,email', function($attribute, $value, $fail) {
                                 if (Str::endsWith($value, '@gmail.com')) {
                                     $prefix = Str::before($value, '@gmail.com');
@@ -87,45 +83,31 @@ class DriverAppController extends Controller
         }
 
         // Find Driver
-        // Find Driver (Strict checking against unit's assigned drivers)
-        $firstName = trim($request->first_name);
-        $lastName = trim($request->last_name);
-        if ($request->filled('suffix')) {
-            $lastName .= ' ' . trim($request->suffix);
-        }
+        $nameParts = explode(' ', $request->name, 2);
+        $firstName = trim($nameParts[0]);
+        $lastName = isset($nameParts[1]) ? trim($nameParts[1]) : '';
 
         $driver = null;
         $driverIds = array_filter([$unit->driver_id, $unit->secondary_driver_id]);
-        
         if (!empty($driverIds)) {
             $driver = Driver::whereIn('id', $driverIds)
-                ->whereRaw('LOWER(first_name) = ?', [strtolower($firstName)])
-                ->whereRaw('LOWER(last_name) = ?', [strtolower($lastName)])
-                ->whereNull('user_id') // Prevent duplicate user account creation
+                ->where(function($q) use ($firstName, $lastName) {
+                    $q->where('first_name', 'LIKE', '%' . $firstName . '%')
+                      ->orWhere('last_name', 'LIKE', '%' . $lastName . '%');
+                })
+                ->whereNull('user_id')
                 ->first();
         }
-        
         if (!$driver) {
-            // Check if driver is valid but already has an account
-            $alreadyHasAccount = false;
-            if (!empty($driverIds)) {
-                $alreadyHasAccount = Driver::whereIn('id', $driverIds)
-                    ->whereRaw('LOWER(first_name) = ?', [strtolower($firstName)])
-                    ->whereRaw('LOWER(last_name) = ?', [strtolower($lastName)])
-                    ->whereNotNull('user_id')
-                    ->exists();
-            }
-
-            if ($alreadyHasAccount) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Your driver record is already linked to an existing account. Please log in instead.'
-                ], 422);
-            }
-
+            $driver = Driver::where('first_name', 'LIKE', '%' . $firstName . '%')
+                ->where('last_name', 'LIKE', '%' . $lastName . '%')
+                ->whereNull('user_id')
+                ->first();
+        }
+        if (!$driver) {
             return response()->json([
                 'success' => false,
-                'message' => 'Driver record not found. Please ensure your name exactly matches the assigned driver for this unit.'
+                'message' => 'Driver record not found or already registered. Please ensure your name matches the record in our system.'
             ], 404);
         }
 
@@ -133,7 +115,7 @@ class DriverAppController extends Controller
         $otp = str_pad(rand(0, 999999), 6, '0', STR_PAD_LEFT);
         $pendingKey = 'pending_reg_' . $cleanPhone;
         \Cache::put($pendingKey, [
-            'name'              => $firstName . ' ' . $lastName,
+            'name'              => $request->name,
             'email'             => $request->email,
             'phone'             => $request->phone,
             'password'          => $request->password,
@@ -826,12 +808,11 @@ class DriverAppController extends Controller
         }
 
         try {
-            // 1. Unlink the Driver record if it exists (preserve driver data)
+            // 1. Unlink the Driver record if it exists
             \App\Models\Driver::where('user_id', $user->id)->update(['user_id' => null]);
 
-            // 2. Soft-delete the User account so it appears in the Archive page
-            //    (Use delete() NOT forceDelete() — forceDelete permanently wipes the record)
-            $user->delete();
+            // 2. Archive the User account (Hard Delete to free up email/phone)
+            $user->forceDelete();
 
             return response()->json([
                 'success' => true,

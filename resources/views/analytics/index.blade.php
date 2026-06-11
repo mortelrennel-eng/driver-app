@@ -420,11 +420,13 @@
         {{-- ┌─────────────────────────────────────────────────────────────────────┐
              │  1. HERO BANNER – Hulaan ng Kita sa Susunod na Buwan               │
              └─────────────────────────────────────────────────────────────────────┘ --}}
-        <div class="relative bg-gradient-to-br from-indigo-900 via-indigo-800 to-slate-900 rounded-3xl p-8 md:p-12 text-white shadow-2xl overflow-hidden">
+        <div class="relative bg-gradient-to-br from-indigo-900 via-indigo-800 to-slate-900 rounded-3xl p-8 md:p-12 text-white shadow-2xl">
             {{-- Decorative elements --}}
-            <div class="absolute -right-16 -top-16 w-64 h-64 bg-indigo-500/20 rounded-full blur-3xl"></div>
-            <div class="absolute -left-10 -bottom-10 w-48 h-48 bg-emerald-500/10 rounded-full blur-2xl"></div>
-            <div class="absolute right-8 top-8 w-20 h-20 bg-white/5 rounded-full blur-xl animate-pulse"></div>
+            <div class="absolute inset-0 overflow-hidden rounded-3xl pointer-events-none">
+                <div class="absolute -right-16 -top-16 w-64 h-64 bg-indigo-500/20 rounded-full blur-3xl"></div>
+                <div class="absolute -left-10 -bottom-10 w-48 h-48 bg-emerald-500/10 rounded-full blur-2xl"></div>
+                <div class="absolute right-8 top-8 w-20 h-20 bg-white/5 rounded-full blur-xl animate-pulse"></div>
+            </div>
 
             <div class="relative z-10">
                 <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-8">
@@ -447,8 +449,95 @@
                             $diffNet = ($forecast_predicted['net_income'] ?? 0) - $lastMonthNet;
                             $trendUpNet = $diffNet >= 0;
                         @endphp
-                        <div class="flex items-end gap-3 mb-2">
-                            <span class="text-4xl md:text-5xl font-black text-white leading-none tracking-tight">{{ formatCurrency($forecast_predicted['net_income'] ?? 0) }}</span>
+                        <div class="flex items-end gap-3 mb-2 relative group w-fit">
+                            <span class="text-4xl md:text-5xl font-black text-white leading-none tracking-tight cursor-help border-b-2 border-dashed border-indigo-400/50 pb-1" id="forecast-net-income-trigger">
+                                {{ formatCurrency($forecast_predicted['net_income'] ?? 0) }}
+                            </span>
+                            
+                            {{-- DETAILED COMPUTATION POPOVER - Fixed with JS click/hover --}}
+                            <div id="forecast-computation-popover" class="fixed z-[999] w-[400px] bg-white rounded-2xl shadow-2xl border border-slate-200 hidden p-6 text-slate-800" style="pointer-events:auto;">
+                                {{-- Arrow indicator --}}
+                                <div class="flex items-center gap-2 mb-4 pb-3 border-b border-slate-100">
+                                    <div class="w-8 h-8 bg-indigo-50 rounded-xl flex items-center justify-center shrink-0">
+                                        <i data-lucide="calculator" class="w-4 h-4 text-indigo-600"></i>
+                                    </div>
+                                    <div>
+                                        <h4 class="text-sm font-black text-slate-800 leading-tight">Detalyadong Kompyutasyon</h4>
+                                        <p class="text-[10px] text-indigo-500 font-bold">Next Month Income Forecast Breakdown</p>
+                                    </div>
+                                    <button onclick="document.getElementById('forecast-computation-popover').classList.add('hidden')" class="ml-auto w-6 h-6 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-400 text-xs transition-colors">✕</button>
+                                </div>
+                                
+                                <p class="text-[10px] text-slate-500 mb-4 leading-relaxed font-medium bg-indigo-50 p-3 rounded-xl border border-indigo-100">
+                                    📊 Kinalkula gamit ang <strong class="text-indigo-700">Weighted Moving Average</strong> ng nakaraang <strong class="text-indigo-700">6 na buwan</strong>. Mas mabigat ang timbang ng mga kamakailang buwan.
+                                </p>
+                                
+                                {{-- Revenue Line --}}
+                                <div class="space-y-2.5 mb-4">
+                                    <div class="flex justify-between items-center p-2.5 bg-emerald-50 rounded-xl border border-emerald-100">
+                                        <div class="flex items-center gap-2">
+                                            <span class="w-6 h-6 rounded-lg bg-emerald-500 text-white text-xs font-black flex items-center justify-center">+</span>
+                                            <div>
+                                                <p class="text-xs font-black text-slate-700">Koleksyon (Boundary)</p>
+                                                <p class="text-[9px] text-slate-400 font-bold">Inaasahang boundary collections</p>
+                                            </div>
+                                        </div>
+                                        <span class="font-black text-emerald-600 text-sm">{{ formatCurrency($forecast_predicted['predicted_boundary'] ?? 0) }}</span>
+                                    </div>
+                                    <div class="flex justify-between items-center p-2.5 bg-rose-50 rounded-xl border border-rose-100">
+                                        <div class="flex items-center gap-2">
+                                            <span class="w-6 h-6 rounded-lg bg-rose-500 text-white text-xs font-black flex items-center justify-center">-</span>
+                                            <div>
+                                                <p class="text-xs font-black text-slate-700">Gastos (Office Expenses)</p>
+                                                <p class="text-[9px] text-slate-400 font-bold">Kuryente, tubig, supplies, atbp.</p>
+                                            </div>
+                                        </div>
+                                        <span class="font-black text-rose-600 text-sm">{{ formatCurrency($forecast_predicted['predicted_expenses'] ?? 0) }}</span>
+                                    </div>
+                                    <div class="flex justify-between items-center p-2.5 bg-amber-50 rounded-xl border border-amber-100">
+                                        <div class="flex items-center gap-2">
+                                            <span class="w-6 h-6 rounded-lg bg-amber-500 text-white text-xs font-black flex items-center justify-center">-</span>
+                                            <div>
+                                                <p class="text-xs font-black text-slate-700">Pagpapaayos (Maintenance)</p>
+                                                <p class="text-[9px] text-slate-400 font-bold">Repair costs ng lahat ng unit</p>
+                                            </div>
+                                        </div>
+                                        <span class="font-black text-amber-600 text-sm">{{ formatCurrency($forecast_predicted['predicted_maintenance'] ?? 0) }}</span>
+                                    </div>
+                                    <div class="flex justify-between items-center p-2.5 bg-indigo-50 rounded-xl border border-indigo-100">
+                                        <div class="flex items-center gap-2">
+                                            <span class="w-6 h-6 rounded-lg bg-indigo-500 text-white text-xs font-black flex items-center justify-center">-</span>
+                                            <div>
+                                                <p class="text-xs font-black text-slate-700">Sahod (Salaries)</p>
+                                                <p class="text-[9px] text-slate-400 font-bold">Payroll ng lahat ng empleyado</p>
+                                            </div>
+                                        </div>
+                                        <span class="font-black text-indigo-600 text-sm">{{ formatCurrency($forecast_predicted['predicted_salaries'] ?? 0) }}</span>
+                                    </div>
+                                </div>
+                                
+                                {{-- Divider + Formula --}}
+                                <div class="border-t-2 border-dashed border-slate-200 pt-3 mt-3">
+                                    <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">Formula: Koleksyon − Gastos − Pagpapaayos − Sahod</p>
+                                    <div class="flex justify-between items-center bg-gradient-to-r from-slate-800 to-slate-900 p-4 rounded-xl">
+                                        <span class="text-[11px] font-black text-white uppercase tracking-widest">Inaasahang Net Income</span>
+                                        <span class="text-lg font-black {{ ($forecast_predicted['net_income'] ?? 0) >= 0 ? 'text-emerald-400' : 'text-rose-400' }}">
+                                            {{ formatCurrency($forecast_predicted['net_income'] ?? 0) }}
+                                        </span>
+                                    </div>
+                                    <div class="mt-3 grid grid-cols-2 gap-2">
+                                        <div class="p-2.5 bg-emerald-50 rounded-xl border border-emerald-100 text-center">
+                                            <p class="text-[9px] font-black text-emerald-600 uppercase tracking-widest mb-0.5">Best Case (+15%)</p>
+                                            <p class="text-sm font-black text-emerald-700">{{ formatCurrency($forecast_predicted['best_case_net'] ?? 0) }}</p>
+                                        </div>
+                                        <div class="p-2.5 bg-amber-50 rounded-xl border border-amber-100 text-center">
+                                            <p class="text-[9px] font-black text-amber-600 uppercase tracking-widest mb-0.5">Worst Case (-15%)</p>
+                                            <p class="text-sm font-black text-amber-700">{{ formatCurrency($forecast_predicted['worst_case_net'] ?? 0) }}</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
                             <div class="flex flex-col">
                                 <div class="flex items-center gap-1 px-3 py-1 rounded-full text-xs font-black w-fit
                                     {{ $trendUpNet ? 'bg-emerald-500/20 text-emerald-300' : 'bg-rose-500/20 text-rose-300' }}">
@@ -457,8 +546,9 @@
                                 </div>
                             </div>
                         </div>
-                        <p class="text-indigo-300/70 text-[11px] font-bold mt-1">
-                            Compute: ({{ formatCurrency($forecast_predicted['net_income'] ?? 0) }} Inaasahan - {{ formatCurrency($lastMonthNet) }} Huling Buwan)
+                        <p class="text-indigo-300/70 text-[11px] font-bold mt-1 relative z-0 flex items-center gap-1.5">
+                            <i data-lucide="mouse-pointer-click" class="w-3 h-3"></i>
+                            I-click ang numero para makita ang detalyadong kompyutasyon
                         </p>
                     </div>
 
@@ -632,74 +722,6 @@
                         </div>
                     </div>
                 </div>
-            </div>
-        </div>
-
-        {{-- ┌─────────────────────────────────────────────────────────────────────┐
-             │  4. TOP EARNING UNITS TABLE                                        │
-             └─────────────────────────────────────────────────────────────────────┘ --}}
-        <div class="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
-            <div class="px-8 py-6 border-b border-slate-100 bg-slate-50/50 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                <div>
-                    <h3 class="text-lg font-black text-slate-800">Top 10 Pinakamalaking Kita na Unit</h3>
-                    <p class="text-xs text-slate-500">Mga taxi unit na may pinakamataas na inaasahang monthly profit</p>
-                </div>
-                <div class="flex items-center gap-2 px-4 py-2 bg-indigo-50 rounded-xl">
-                    <i data-lucide="database" class="w-4 h-4 text-indigo-500"></i>
-                    <span class="text-[10px] font-black text-indigo-600 uppercase tracking-widest">Data mula sa Boundary & Maintenance Records</span>
-                </div>
-            </div>
-            <div class="overflow-x-auto">
-                <table class="w-full">
-                    <thead>
-                        <tr class="border-b border-slate-100">
-                            <th class="px-8 py-4 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">#</th>
-                            <th class="px-6 py-4 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Plate Number</th>
-                            <th class="px-6 py-4 text-right text-[10px] font-black text-slate-400 uppercase tracking-widest">Avg Daily Boundary</th>
-                            <th class="px-6 py-4 text-right text-[10px] font-black text-slate-400 uppercase tracking-widest">Avg Daily Gastos</th>
-                            <th class="px-6 py-4 text-right text-[10px] font-black text-slate-400 uppercase tracking-widest">Daily Profit</th>
-                            <th class="px-6 py-4 text-right text-[10px] font-black text-slate-400 uppercase tracking-widest">Monthly Prediction</th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-slate-50">
-                        @forelse($forecast_unit_profits ?? [] as $index => $unit)
-                            @php
-                                $mp = $unit['monthly_profit'] ?? 0;
-                                $rowColor = $mp >= 35000 ? 'hover:bg-emerald-50/50' : ($mp >= 20000 ? 'hover:bg-amber-50/50' : 'hover:bg-rose-50/50');
-                                $profitColor = $mp >= 35000 ? 'text-emerald-600' : ($mp >= 20000 ? 'text-amber-600' : 'text-rose-600');
-                                $badge = $mp >= 35000 ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : ($mp >= 20000 ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-rose-50 text-rose-700 border-rose-200');
-                                $badgeText = $mp >= 35000 ? 'Mataas' : ($mp >= 20000 ? 'Katamtaman' : 'Mababa');
-                            @endphp
-                            <tr class="transition-colors {{ $rowColor }}">
-                                <td class="px-8 py-4 text-sm font-black text-slate-300">{{ $index + 1 }}</td>
-                                <td class="px-6 py-4">
-                                    <div class="flex items-center gap-3">
-                                        <div class="w-8 h-8 bg-slate-100 rounded-xl flex items-center justify-center">
-                                            <i data-lucide="car" class="w-4 h-4 text-slate-500"></i>
-                                        </div>
-                                        <div>
-                                            <p class="text-sm font-black text-slate-800">{{ $unit['plate'] }}</p>
-                                            <span class="px-2 py-0.5 text-[8px] font-black rounded-full border {{ $badge }}">{{ $badgeText }}</span>
-                                        </div>
-                                    </div>
-                                </td>
-                                <td class="px-6 py-4 text-right text-sm font-bold text-slate-700">{{ formatCurrency($unit['avg_daily_boundary'] ?? 0) }}</td>
-                                <td class="px-6 py-4 text-right text-sm font-bold text-slate-500">{{ formatCurrency($unit['avg_daily_maint'] ?? 0) }}</td>
-                                <td class="px-6 py-4 text-right text-sm font-black {{ $profitColor }}">{{ formatCurrency($unit['daily_profit'] ?? 0) }}</td>
-                                <td class="px-6 py-4 text-right">
-                                    <span class="text-lg font-black {{ $profitColor }}">{{ formatCurrency($mp) }}</span>
-                                </td>
-                            </tr>
-                        @empty
-                            <tr>
-                                <td colspan="6" class="px-8 py-12 text-center text-sm text-slate-400">
-                                    <i data-lucide="inbox" class="w-8 h-8 mx-auto mb-3 text-slate-300"></i>
-                                    <p class="font-bold">Walang available na data para sa unit profitability.</p>
-                                </td>
-                            </tr>
-                        @endforelse
-                    </tbody>
-                </table>
             </div>
         </div>
 
@@ -906,6 +928,183 @@
             </div>
         </div>
 
+        {{-- ┌─────────────────────────────────────────────────────────────────────┐
+             │  TOP PERFORMERS – Top 10 Pinakamalaking Kita na Unit               │
+             └─────────────────────────────────────────────────────────────────────┘ --}}
+        <div class="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
+            {{-- Header --}}
+            <div class="px-8 py-6 border-b border-slate-100 bg-gradient-to-r from-amber-50/60 to-white flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div class="flex items-center gap-4">
+                    <div class="w-12 h-12 bg-gradient-to-br from-amber-400 to-orange-500 rounded-2xl flex items-center justify-center shadow-lg shadow-amber-200">
+                        <i data-lucide="trophy" class="w-6 h-6 text-white"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-lg font-black text-slate-800 flex items-center gap-2">
+                            Top 10 Pinakamalaking Kita na Unit
+                        </h3>
+                        <p class="text-[11px] text-slate-500 mt-0.5">
+                            Batay sa average daily boundary collections ng nakaraang <strong>90 araw</strong> — aktibong unit lang
+                        </p>
+                    </div>
+                </div>
+                <div class="flex items-center gap-2 shrink-0">
+                    <span class="px-3 py-1.5 bg-amber-100 text-amber-700 text-[10px] font-black rounded-full uppercase tracking-widest border border-amber-200">
+                        📊 90-Day Average
+                    </span>
+                </div>
+            </div>
+
+            {{-- Unit Profitability Cards --}}
+            <div class="p-6">
+                @if(count($forecast_unit_profits) > 0)
+                    {{-- Top 3 Podium --}}
+                    @php $topThree = array_slice($forecast_unit_profits, 0, 3); @endphp
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                        @foreach($topThree as $idx => $unit)
+                        @php
+                            $rank = $idx + 1;
+                            $podiumColors = [
+                                1 => ['bg' => 'from-amber-400 to-yellow-500', 'border' => 'border-amber-300', 'bg_light' => 'bg-amber-50', 'text' => 'text-amber-700', 'icon' => '🥇'],
+                                2 => ['bg' => 'from-slate-300 to-slate-400', 'border' => 'border-slate-300', 'bg_light' => 'bg-slate-50', 'text' => 'text-slate-600', 'icon' => '🥈'],
+                                3 => ['bg' => 'from-orange-300 to-amber-400', 'border' => 'border-orange-200', 'bg_light' => 'bg-orange-50', 'text' => 'text-orange-700', 'icon' => '🥉'],
+                            ];
+                            $pc = $podiumColors[$rank];
+                            $monthlyProfit = $unit['monthly_profit'] ?? 0;
+                            $dailyProfit = $unit['daily_profit'] ?? 0;
+                            $avgDaily = $unit['avg_daily_boundary'] ?? 0;
+                            $opDays = $unit['operating_days_90d'] ?? 0;
+                            $avgMaint = $unit['avg_daily_maint'] ?? 0;
+                        @endphp
+                        <div class="relative rounded-2xl border-2 {{ $pc['border'] }} {{ $pc['bg_light'] }} p-5 overflow-hidden group hover:shadow-lg transition-all duration-300 hover:-translate-y-1">
+                            {{-- Rank Badge --}}
+                            <div class="absolute -top-3 -right-3 w-14 h-14 bg-gradient-to-br {{ $pc['bg'] }} rounded-2xl flex items-center justify-center shadow-lg transform rotate-12 group-hover:rotate-0 transition-transform duration-300">
+                                <span class="text-2xl">{{ $pc['icon'] }}</span>
+                            </div>
+
+                            {{-- Plate Number --}}
+                            <div class="mb-4 pr-8">
+                                <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Rank #{{ $rank }}</p>
+                                <h4 class="text-2xl font-black text-slate-900 tracking-tight">{{ $unit['plate'] }}</h4>
+                            </div>
+
+                            {{-- Monthly Profit (Main Metric) --}}
+                            <div class="mb-4">
+                                <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Inaasahang Monthly Net Profit</p>
+                                <p class="text-xl font-black {{ $monthlyProfit >= 0 ? $pc['text'] : 'text-rose-600' }}">
+                                    {{ $monthlyProfit >= 0 ? '+' : '' }}₱{{ number_format($monthlyProfit) }}
+                                </p>
+                            </div>
+
+                            {{-- Stats Grid --}}
+                            <div class="grid grid-cols-2 gap-2 pt-3 border-t border-slate-200/50">
+                                <div>
+                                    <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest">Avg Daily</p>
+                                    <p class="text-xs font-black text-emerald-700">₱{{ number_format($avgDaily) }}</p>
+                                </div>
+                                <div>
+                                    <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest">Daily Profit</p>
+                                    <p class="text-xs font-black {{ $dailyProfit >= 0 ? 'text-slate-700' : 'text-rose-600' }}">{{ $dailyProfit >= 0 ? '+' : '' }}₱{{ number_format($dailyProfit) }}</p>
+                                </div>
+                                <div>
+                                    <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest">Op. Days (90d)</p>
+                                    <p class="text-xs font-black text-slate-700">{{ $opDays }} days</p>
+                                </div>
+                                <div>
+                                    <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest">Avg Daily Maint.</p>
+                                    <p class="text-xs font-black text-rose-600">₱{{ number_format($avgMaint) }}</p>
+                                </div>
+                            </div>
+
+                            {{-- Computation note --}}
+                            <div class="mt-3 p-2 bg-white/60 rounded-xl border border-white text-[9px] text-slate-500 leading-tight">
+                                <strong>Formula:</strong> (Avg Daily ₱{{ number_format($avgDaily) }} − Maint ₱{{ number_format($avgMaint) }}) × 30 days
+                            </div>
+                        </div>
+                        @endforeach
+                    </div>
+
+                    {{-- Ranks 4-10 Table --}}
+                    @if(count($forecast_unit_profits) > 3)
+                    <div class="bg-slate-50 rounded-2xl border border-slate-100 overflow-hidden">
+                        <div class="px-5 py-3 border-b border-slate-100 flex items-center gap-2">
+                            <i data-lucide="list-ordered" class="w-4 h-4 text-slate-500"></i>
+                            <h4 class="text-[11px] font-black text-slate-600 uppercase tracking-widest">Ranks 4–{{ min(10, count($forecast_unit_profits)) }} — Unit Profitability Breakdown</h4>
+                        </div>
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-sm">
+                                <thead>
+                                    <tr class="border-b border-slate-200">
+                                        <th class="text-left text-[10px] font-black text-slate-400 uppercase tracking-widest py-3 px-4">Rank</th>
+                                        <th class="text-left text-[10px] font-black text-slate-400 uppercase tracking-widest py-3">Unit</th>
+                                        <th class="text-right text-[10px] font-black text-slate-400 uppercase tracking-widest py-3">Avg Daily Boundary</th>
+                                        <th class="text-right text-[10px] font-black text-slate-400 uppercase tracking-widest py-3">Avg Daily Maint.</th>
+                                        <th class="text-right text-[10px] font-black text-slate-400 uppercase tracking-widest py-3">Daily Net Profit</th>
+                                        <th class="text-right text-[10px] font-black text-slate-400 uppercase tracking-widest py-3">Monthly Projection</th>
+                                        <th class="text-right text-[10px] font-black text-slate-400 uppercase tracking-widest py-3 pr-4">Op. Days (90d)</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-slate-100">
+                                    @foreach(array_slice($forecast_unit_profits, 3) as $idx => $unit)
+                                    @php $rank = $idx + 4; @endphp
+                                    <tr class="hover:bg-white transition-colors">
+                                        <td class="py-3 px-4 font-black text-slate-400 text-sm">#{{ $rank }}</td>
+                                        <td class="py-3 font-black text-slate-800">{{ $unit['plate'] }}</td>
+                                        <td class="py-3 text-right font-semibold text-emerald-700">₱{{ number_format($unit['avg_daily_boundary'] ?? 0) }}</td>
+                                        <td class="py-3 text-right font-semibold text-rose-500">₱{{ number_format($unit['avg_daily_maint'] ?? 0) }}</td>
+                                        <td class="py-3 text-right font-black {{ ($unit['daily_profit'] ?? 0) >= 0 ? 'text-emerald-700' : 'text-rose-600' }}">
+                                            {{ ($unit['daily_profit'] ?? 0) >= 0 ? '+' : '' }}₱{{ number_format($unit['daily_profit'] ?? 0) }}
+                                        </td>
+                                        <td class="py-3 text-right font-black {{ ($unit['monthly_profit'] ?? 0) >= 0 ? 'text-indigo-700' : 'text-rose-600' }}">
+                                            {{ ($unit['monthly_profit'] ?? 0) >= 0 ? '+' : '' }}₱{{ number_format($unit['monthly_profit'] ?? 0) }}
+                                        </td>
+                                        <td class="py-3 text-right font-semibold text-slate-600 pr-4">{{ $unit['operating_days_90d'] ?? 0 }}d</td>
+                                    </tr>
+                                    @endforeach
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    @endif
+
+                    {{-- Explanation Panel --}}
+                    <div class="mt-6 p-5 bg-indigo-50/60 rounded-2xl border border-indigo-100">
+                        <div class="flex items-start gap-3">
+                            <i data-lucide="info" class="w-5 h-5 text-indigo-500 flex-shrink-0 mt-0.5"></i>
+                            <div>
+                                <p class="text-[11px] font-black text-indigo-700 uppercase tracking-widest mb-2">Paano Kinukuha ang Ranking?</p>
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs text-slate-600">
+                                    <div class="flex items-start gap-2">
+                                        <span class="w-4 h-4 rounded-full bg-emerald-500 text-white text-[9px] font-black flex items-center justify-center shrink-0 mt-0.5">1</span>
+                                        <p><strong>Avg Daily Boundary</strong> — Kinuha ang average ng aktwal na nakolektang boundary ng unit sa nakaraang 90 araw.</p>
+                                    </div>
+                                    <div class="flex items-start gap-2">
+                                        <span class="w-4 h-4 rounded-full bg-rose-500 text-white text-[9px] font-black flex items-center justify-center shrink-0 mt-0.5">2</span>
+                                        <p><strong>Avg Daily Maintenance Cost</strong> — Kabuuang gastos sa pagpapaayos ng unit sa 90 araw ÷ 90.</p>
+                                    </div>
+                                    <div class="flex items-start gap-2">
+                                        <span class="w-4 h-4 rounded-full bg-amber-500 text-white text-[9px] font-black flex items-center justify-center shrink-0 mt-0.5">3</span>
+                                        <p><strong>Daily Net Profit</strong> = Avg Daily Boundary − Avg Daily Maint. Cost.</p>
+                                    </div>
+                                    <div class="flex items-start gap-2">
+                                        <span class="w-4 h-4 rounded-full bg-indigo-500 text-white text-[9px] font-black flex items-center justify-center shrink-0 mt-0.5">4</span>
+                                        <p><strong>Monthly Projection</strong> = Daily Net Profit × 30 araw. Ito ang inaasahang kita ng bawat unit sa isang buwan.</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                @else
+                    <div class="py-16 flex flex-col items-center justify-center text-center">
+                        <div class="w-16 h-16 bg-amber-50 text-amber-400 rounded-3xl flex items-center justify-center mb-4">
+                            <i data-lucide="trophy" class="w-8 h-8"></i>
+                        </div>
+                        <h4 class="text-lg font-black text-slate-700 mb-2">No Active Unit Data</h4>
+                        <p class="text-sm text-slate-400 max-w-xs leading-relaxed">Walang aktibong unit na may boundary records sa nakaraang 90 araw.</p>
+                    </div>
+                @endif
+            </div>
+        </div>
+
         {{-- Unit ROI Scorecard --}}
         <div class="bg-white rounded-3xl border border-slate-200 shadow-sm p-6">
             <div class="flex items-center justify-between mb-6">
@@ -1109,6 +1308,47 @@
             window.dispatchEvent(new Event('resize'));
         }
     }
+
+    // ── Computation Popover (Click-Based) ────────────────────────────────────
+    (function initComputationPopover() {
+        const trigger = document.getElementById('forecast-net-income-trigger');
+        const popover = document.getElementById('forecast-computation-popover');
+        if (!trigger || !popover) return;
+
+        trigger.addEventListener('click', function(e) {
+            e.stopPropagation();
+            const rect = trigger.getBoundingClientRect();
+            const popoverW = 400;
+            const viewportW = window.innerWidth;
+            
+            // Position to the right, or left if not enough space
+            let left = rect.right + 12;
+            if (left + popoverW > viewportW - 16) {
+                left = rect.left - popoverW - 12;
+            }
+            if (left < 8) left = 8;
+
+            let top = rect.top + window.scrollY;
+            const popoverH = 480;
+            if (top + popoverH > window.scrollY + window.innerHeight - 16) {
+                top = window.scrollY + window.innerHeight - popoverH - 16;
+            }
+            if (top < window.scrollY + 8) top = window.scrollY + 8;
+
+            popover.style.left = left + 'px';
+            popover.style.top  = top + 'px';
+            popover.classList.toggle('hidden');
+
+            if (window.lucide) lucide.createIcons({ nodes: [popover] });
+        });
+
+        // Close when clicking outside
+        document.addEventListener('click', function(e) {
+            if (!popover.classList.contains('hidden') && !popover.contains(e.target) && e.target !== trigger) {
+                popover.classList.add('hidden');
+            }
+        });
+    })();
 
     // ── Chart Data ────────────────────────────────────────────────────────────
     const dailyData         = @json($daily_trend);

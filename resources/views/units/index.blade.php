@@ -221,9 +221,6 @@
                     <input type="hidden" name="view" id="viewModeInput" value="table">
                 </div>
 
-                <button type="button" onclick="showFlaggedUnitsModal()" class="px-3 py-1 bg-red-600 text-white rounded-lg hover:bg-red-700 flex items-center justify-center gap-1.5 lg:gap-2 text-xs font-semibold shadow-sm h-[38px] flex-1 min-w-0 lg:flex-initial lg:w-[135px]">
-                    <i data-lucide="siren" class="w-3.5 h-3.5"></i> Flagged Units
-                </button>
                 <button type="button" onclick="window.open('{{ route('units.print') }}', '_blank')"
                     class="px-3 py-1 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center justify-center gap-1.5 lg:gap-2 text-xs font-semibold shadow-sm h-[38px] flex-1 min-w-0 lg:flex-initial lg:w-[135px]">
                     <i data-lucide="printer" class="w-3.5 h-3.5"></i> Print to PDF
@@ -603,31 +600,46 @@
                     <div id="addCodingStatusDisplay" class="mt-4"></div>
                 </div>
 
-                {{-- Section 6: Tracksolid Pro GPS Integration --}}
+                {{-- Section 6: GPS Integration --}}
                 <div class="mb-8">
                     <div class="flex items-center gap-2 mb-4">
                         <div class="p-2 bg-indigo-100 rounded-lg">
                             <i data-lucide="satellite" class="w-5 h-5 text-indigo-600"></i>
                         </div>
-                        <h4 class="text-lg font-semibold text-gray-900">GPS Integration (Tracksolid Pro)</h4>
+                        <h4 class="text-lg font-semibold text-gray-900">GPS Integration</h4>
                     </div>
-                    <div class="p-4 bg-indigo-50 rounded-lg border border-indigo-200 mb-4">
-                        <p class="text-sm text-indigo-800">
-                            <strong>Tracksolid Pro IMEI:</strong> Enter the 15-digit IMEI of the GPS device. This will connect the unit to the real-time tracking system.
-                        </p>
-                    </div>
-                    <div class="grid grid-cols-1 gap-6">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div class="space-y-2">
-                            <label class="block text-sm font-semibold text-gray-700 mb-2">Device IMEI (Optional)</label>
+                            <label class="block text-sm font-semibold text-gray-700 mb-2">GPS Provider <span class="text-red-500">*</span></label>
+                            <select name="gps_provider" id="addGpsProvider" onchange="toggleAddGpsPassword()"
+                                class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent">
+                                <option value="tracksolid">Tracksolid Pro</option>
+                                <option value="aksh">AKSH GPS (Aika168)</option>
+                            </select>
+                        </div>
+                        <div class="space-y-2">
+                            <label class="block text-sm font-semibold text-gray-700 mb-2">Device IMEI / Serial</label>
                             <div class="relative">
                                 <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                                     <i data-lucide="hash" class="w-5 h-5 text-gray-400"></i>
                                 </div>
                                 <input type="text" name="imei" id="addImei"
                                     class="w-full pl-10 pr-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent font-mono"
-                                    placeholder="Enter 15-digit IMEI">
+                                    placeholder="e.g. 123456789012345 (10-15 digits)" minlength="10" maxlength="30">
                             </div>
-                            <p class="text-xs text-gray-500">Retrieve the IMEI from the physical device label or the Tracksolid Pro application.</p>
+                            <p class="text-xs text-gray-400 mt-1">Accepts 10–15 digit IMEI (AKSH GPS: 11 digits, Standard: 15 digits)</p>
+                        </div>
+                        <div class="space-y-2 hidden col-span-1 md:col-span-2 animate-in fade-in" id="addGpsPasswordContainer">
+                            <label class="block text-sm font-semibold text-gray-700 mb-2">GPS Device Password</label>
+                            <div class="relative">
+                                <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                    <i data-lucide="key" class="w-5 h-5 text-gray-400"></i>
+                                </div>
+                                <input type="password" name="gps_password" id="addGpsPassword"
+                                    class="w-full pl-10 pr-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                                    placeholder="Default: 123456">
+                            </div>
+                            <p class="text-xs text-gray-500">Leave blank to use default password (123456).</p>
                         </div>
                     </div>
                 </div>
@@ -935,26 +947,46 @@
                     <div id="editCodingStatusDisplay" class="mt-4"></div>
                 </div>
 
-                {{-- Section 6: Tracksolid Pro GPS Integration --}}
+                {{-- Section 6: GPS Integration --}}
                 <div class="mb-8">
                     <div class="flex items-center gap-2 mb-4">
                         <div class="p-2 bg-teal-100 rounded-lg">
                             <i data-lucide="satellite" class="w-5 h-5 text-teal-600"></i>
                         </div>
-                        <h4 class="text-lg font-semibold text-gray-900">GPS Integration (Tracksolid Pro)</h4>
+                        <h4 class="text-lg font-semibold text-gray-900">GPS Integration</h4>
                     </div>
-                    <div class="grid grid-cols-1 gap-6">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div class="space-y-2">
-                            <label class="block text-sm font-semibold text-gray-700 mb-2">Device IMEI (Optional)</label>
+                            <label class="block text-sm font-semibold text-gray-700 mb-2">GPS Provider <span class="text-red-500">*</span></label>
+                            <select name="gps_provider" id="editGpsProvider" onchange="toggleEditGpsPassword()"
+                                class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent">
+                                <option value="tracksolid">Tracksolid Pro</option>
+                                <option value="aksh">AKSH GPS (Aika168)</option>
+                            </select>
+                        </div>
+                        <div class="space-y-2">
+                            <label class="block text-sm font-semibold text-gray-700 mb-2">Device IMEI / Serial</label>
                             <div class="relative">
                                 <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                                     <i data-lucide="hash" class="w-5 h-5 text-gray-400"></i>
                                 </div>
                                 <input type="text" name="imei" id="editImei"
                                     class="w-full pl-10 pr-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent font-mono"
-                                    placeholder="Enter 15-digit IMEI">
+                                    placeholder="e.g. 123456789012345 (10-15 digits)" minlength="10" maxlength="30">
                             </div>
-                            <p class="text-xs text-gray-500">Changing this will update the real-time tracking for this unit.</p>
+                            <p class="text-xs text-gray-400 mt-1">Accepts 10–15 digit IMEI (AKSH GPS: 11 digits, Standard: 15 digits)</p>
+                        </div>
+                        <div class="space-y-2 hidden col-span-1 md:col-span-2 animate-in fade-in" id="editGpsPasswordContainer">
+                            <label class="block text-sm font-semibold text-gray-700 mb-2">GPS Device Password</label>
+                            <div class="relative">
+                                <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                    <i data-lucide="key" class="w-5 h-5 text-gray-400"></i>
+                                </div>
+                                <input type="password" name="gps_password" id="editGpsPassword"
+                                    class="w-full pl-10 pr-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                                    placeholder="Leave blank to use default/unchanged password">
+                            </div>
+                            <p class="text-xs text-gray-500">Leave blank if using the default password or not overriding.</p>
                         </div>
                     </div>
                 </div>
@@ -1008,36 +1040,6 @@
         </div>
     </div>
 
-    {{-- Flagged Units Modal --}}
-    <div id="flaggedUnitsModal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50">
-        <div class="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden">
-            <div class="bg-gradient-to-r from-red-600 to-red-700 p-4 shrink-0">
-                <div class="flex justify-between items-center">
-                    <div class="flex items-center gap-3">
-                        <div class="p-2 bg-white bg-opacity-20 rounded-lg">
-                            <i data-lucide="siren" class="w-5 h-5 text-white"></i>
-                        </div>
-                        <div>
-                            <h3 class="text-lg font-bold text-white leading-tight">Flagged Units (Missing/At Risk)</h3>
-                            <p class="text-sm text-red-100 leading-tight">Units that are under monitoring and their inactive days</p>
-                        </div>
-                    </div>
-                    <button onclick="document.getElementById('flaggedUnitsModal').classList.add('hidden')" class="text-white hover:text-gray-200 transition-colors">
-                        <i data-lucide="x" class="w-5 h-5"></i>
-                    </button>
-                </div>
-            </div>
-            
-            <div class="p-4 overflow-y-auto flex-1 bg-gray-50">
-                <div id="flaggedUnitsContainer" class="space-y-4">
-                    <div class="text-center py-8">
-                        <i data-lucide="loader-2" class="w-8 h-8 mx-auto mb-4 text-gray-300 animate-spin"></i>
-                        <p class="text-gray-500">Loading flagged units...</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
 
 <script>
     var currentViewMode = localStorage.getItem('unitViewMode') || 'table';
@@ -1186,127 +1188,6 @@
     // Load quick stats on initial page load
     refreshQuickStats();
 
-    window.showFlaggedUnitsModal = function() {
-        const modal = document.getElementById('flaggedUnitsModal');
-        const container = document.getElementById('flaggedUnitsContainer');
-        modal.classList.remove('hidden');
-        
-        container.innerHTML = `
-            <div class="text-center py-8">
-                <i data-lucide="loader-2" class="w-8 h-8 mx-auto mb-4 text-gray-300 animate-spin"></i>
-                <p class="text-gray-500">Loading flagged units...</p>
-            </div>
-        `;
-        if (typeof lucide !== 'undefined') lucide.createIcons();
-        
-        fetch('{{ route("units.flagged") }}')
-            .then(res => res.json())
-            .then(data => {
-                if(data.length === 0) {
-                    container.innerHTML = `
-                        <div class="text-center py-12">
-                            <i data-lucide="check-circle" class="w-16 h-16 mx-auto mb-4 text-green-500"></i>
-                            <h4 class="text-lg font-bold text-gray-900">All Clear!</h4>
-                            <p class="text-gray-500">There are no units currently flagged as missing or categorized as at risk.</p>
-                        </div>
-                    `;
-                    if (typeof lucide !== 'undefined') lucide.createIcons();
-                    return;
-                }
-                
-                let html = '<div class="flex flex-col gap-2 max-h-[400px] overflow-y-auto pr-2">';
-                data.forEach(unit => {
-                    const daysMissing = unit.days_inactive !== null && unit.days_inactive !== undefined ? unit.days_inactive : '?';
-                    const daysColor = (daysMissing === '?' || daysMissing > 2) ? 'text-red-600 font-bold' : 'text-orange-600 font-bold';
-                    const csrfToken = document.querySelector('meta[name="csrf-token"]') ? document.querySelector('meta[name="csrf-token"]').getAttribute('content') : '';
-                    const badge = unit.is_at_risk 
-                        ? `<span class="text-[9px] px-1.5 py-0.5 bg-red-100 text-red-700 rounded font-bold uppercase tracking-wide">🚨 Manually Flagged</span>`
-                        : `<span class="text-[9px] px-1.5 py-0.5 bg-orange-100 text-orange-700 rounded font-bold uppercase tracking-wide">⚠️ Auto-Detected</span>`;
-                    const borderColor = unit.is_at_risk ? 'border-red-500' : 'border-orange-400';
-                    
-                    const suspectDisplay = unit.is_vacant 
-                        ? `<span class="bg-gray-200 text-gray-600 px-1.5 py-0.5 rounded font-bold italic tracking-tight">NO ASSIGNED DRIVER</span>`
-                        : `<span class="font-black text-gray-900">${unit.suspect_driver || 'Unknown'}</span>`;
-                    
-                    const contactDisplay = unit.is_vacant 
-                        ? `<span class="text-gray-400 italic">--</span>`
-                        : (unit.suspect_contact 
-                            ? `<a href="tel:${unit.suspect_contact}" class="text-blue-600 font-semibold hover:underline">${unit.suspect_contact}</a>`
-                            : `<span class="text-gray-400 italic">No contact</span>`);
-
-                    html += `
-                        <div class="bg-white border-l-4 ${borderColor} shadow-sm rounded-lg p-3">
-                            <div class="flex items-start justify-between gap-3">
-                                <div class="flex-1 min-w-0">
-                                    <div class="flex items-center gap-2 mb-0.5 flex-wrap">
-                                        <h5 class="font-bold text-base text-gray-900 leading-none">${unit.plate_number}</h5>
-                                        ${badge}
-                                    </div>
-                                    <p class="text-[10px] text-gray-400">${unit.make || ''} ${unit.model || ''}</p>
-                                    
-                                    <div class="mt-2 bg-gray-50 rounded p-2 border border-gray-100 space-y-1">
-                                        <div class="flex items-center gap-1.5 text-[11px]">
-                                            <span class="${unit.is_vacant ? 'text-gray-400' : 'text-red-500'} font-bold w-24 flex-shrink-0 uppercase">SUSPECT:</span>
-                                            ${suspectDisplay}
-                                        </div>
-                                        <div class="flex items-center gap-1.5 text-[11px]">
-                                            <span class="text-gray-400 w-24 flex-shrink-0">Contact # :</span>
-                                            ${contactDisplay}
-                                        </div>
-                                        <div class="flex items-center gap-1.5 text-[10px] pt-1 mt-1 border-t border-gray-100">
-                                            <span class="text-gray-400 w-24 flex-shrink-0">Last Return By:</span>
-                                            <span class="text-gray-600 italic font-medium">${unit.last_known_driver || 'None'}</span>
-                                        </div>
-                                        <div class="flex items-center gap-1.5 text-[10px]">
-                                            <span class="text-gray-400 w-24 flex-shrink-0">Return Date:</span>
-                                            <span class="text-gray-600">${unit.last_boundary_date || 'No record'}</span>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="flex flex-col items-center gap-2 flex-shrink-0">
-                                    <div class="text-center">
-                                        <div class="text-[10px] uppercase font-bold text-gray-400">Missing For</div>
-                                        <div class="text-lg ${daysColor} leading-none mt-0.5 font-bold">${daysMissing}</div>
-                                        <div class="text-[10px] text-gray-400">day(s)</div>
-                                    </div>
-                                    <form method="POST" action="/units/toggle-status" class="m-0" onsubmit="return confirm('Clear MISSING flag on ${unit.plate_number}?');">
-                                        <input type="hidden" name="_token" value="${csrfToken}">
-                                        <input type="hidden" name="id" value="${unit.id}">
-                                        <input type="hidden" name="new_status" value="active">
-                                        <button type="submit" class="p-2 bg-green-100 text-green-700 hover:bg-green-200 rounded-lg transition shadow-sm" title="Clear Flag">
-                                            <i data-lucide="check-circle" class="w-4 h-4"></i>
-                                        </button>
-                                    </form>
-                                </div>
-                            </div>
-                        </div>
-                    `;
-                });
-                html += '</div>';
-                container.innerHTML = html;
-                if (typeof lucide !== 'undefined') lucide.createIcons();
-            })
-            .catch(err => {
-                container.innerHTML = '<div class="text-red-500 p-4 text-center"><i data-lucide="alert-circle" class="w-8 h-8 mx-auto mb-2"></i>Failed to load units.</div>';
-                if (typeof lucide !== 'undefined') lucide.createIcons();
-            });
-    }
-
-    window.closeFlaggedUnitsModalAndEdit = function(id) {
-        document.getElementById('flaggedUnitsModal').classList.add('hidden');
-        editUnit(id);
-    }
-
-    // Auto-open flagged units modal if 'open_flagged' parameter is present
-    document.addEventListener('DOMContentLoaded', function() {
-        const urlParams = new URLSearchParams(window.location.search);
-        if (urlParams.has('open_flagged')) {
-            showFlaggedUnitsModal();
-            // Remove the parameter from URL without refreshing for a cleaner Look
-            const newUrl = window.location.pathname;
-            window.history.replaceState({}, document.title, newUrl);
-        }
-    });
 
     window.toggleUnitDropdown = function(id, event) {
         event.stopPropagation();
@@ -1433,6 +1314,15 @@
 
                 // IMEI Mapping
                 if (document.getElementById('editImei')) document.getElementById('editImei').value = unit.imei || '';
+                
+                // GPS Provider and Password Mapping
+                if (document.getElementById('editGpsProvider')) {
+                    document.getElementById('editGpsProvider').value = unit.gps_provider || 'tracksolid';
+                    toggleEditGpsPassword();
+                }
+                if (document.getElementById('editGpsPassword')) {
+                    document.getElementById('editGpsPassword').value = unit.gps_password || '';
+                }
 
                 // Set form action
                 document.getElementById('editUnitForm').action = '/units/' + id;
@@ -2447,6 +2337,30 @@ function addUnitRenderDashcam() {
     if (typeof lucide !== 'undefined') lucide.createIcons();
 }
 
+// Toggle GPS Password input fields
+function toggleAddGpsPassword() {
+    const provider = document.getElementById('addGpsProvider')?.value;
+    const container = document.getElementById('addGpsPasswordContainer');
+    if (container) {
+        if (provider === 'aksh') {
+            container.classList.remove('hidden');
+        } else {
+            container.classList.add('hidden');
+        }
+    }
+}
+function toggleEditGpsPassword() {
+    const provider = document.getElementById('editGpsProvider')?.value;
+    const container = document.getElementById('editGpsPasswordContainer');
+    if (container) {
+        if (provider === 'aksh') {
+            container.classList.remove('hidden');
+        } else {
+            container.classList.add('hidden');
+        }
+    }
+}
+
 // Reset the Add Unit modal
 function resetAddUnitModal() {
     document.getElementById('addUnitForm')?.reset();
@@ -2458,6 +2372,7 @@ function resetAddUnitModal() {
     document.getElementById('addCodingStatusDisplay').innerHTML = '';
     addUnitGPS = []; addUnitDashcam = [];
     addUnitRenderGPS(); addUnitRenderDashcam();
+    toggleAddGpsPassword();
 }
 
 // Real-time table filtering

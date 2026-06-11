@@ -89,6 +89,7 @@ trait CalculatesDriverPerformance
     {
         $behaviorQuery = DriverBehavior::where('driver_id', $driver->id)->violations();
         $boundaryQuery = DB::table('boundaries')->where('driver_id', $driver->id)
+            ->whereNull('deleted_at')
             ->where(function($q) {
                 $q->where('shortage', '>', 0)
                   ->orWhere('has_incentive', false)

@@ -128,11 +128,11 @@ class StaffController extends Controller
         // Revoke tokens
         $user->tokens()->delete();
 
-        // Soft-delete the user account so it goes to the Archive
-        $user->delete();
+        // Hard-delete the user account only to free up email/phone
+        $user->forceDelete();
 
-        ActivityLogController::log('Deleted Mobile App Driver', "Driver Account: {$name} moved to archive.");
+        ActivityLogController::log('Deleted Mobile App Driver', "Driver Account: {$name} deleted from the system.");
 
-        return redirect()->route('staff.index')->with('success', 'Mobile App Driver account moved to archive successfully.');
+        return redirect()->route('staff.index')->with('success', 'Mobile App Driver account deleted successfully.');
     }
 }

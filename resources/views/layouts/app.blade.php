@@ -308,19 +308,41 @@
                         @endif
 
                         @if(auth()->user()->hasAccessTo('units.*'))
-                        <a href="{{ route('units.index') }}"
-                            class="sidebar-item flex items-center justify-start md:justify-center lg:justify-start gap-2.5 px-4 md:px-0 lg:px-4 py-1.5 md:py-2 rounded-lg text-gray-700 hover:bg-yellow-50 hover:text-yellow-700 {{ request()->routeIs('units.*') ? 'bg-yellow-50 text-yellow-700 font-semibold' : '' }}">
-                            <i data-lucide="car" class="w-5 md:w-5 lg:w-4 h-5 md:h-5 lg:h-4"></i>
-                            <span class="text-sm block md:hidden lg:block">Unit Management</span>
-                        </a>
+                        <div class="relative group w-full">
+                            <a href="{{ route('units.index') }}"
+                                class="sidebar-item flex items-center justify-start md:justify-center lg:justify-start gap-2.5 px-4 md:px-0 lg:px-4 py-1.5 md:py-2 rounded-lg text-gray-700 hover:bg-yellow-50 hover:text-yellow-700 {{ request()->routeIs('units.*') && !request()->routeIs('units.flagged') ? 'bg-yellow-50 text-yellow-700 font-semibold' : '' }}">
+                                <i data-lucide="car" class="w-5 md:w-5 lg:w-4 h-5 md:h-5 lg:h-4"></i>
+                                <span class="text-sm block md:hidden lg:block flex-1 whitespace-nowrap">Unit Management</span>
+                                <i data-lucide="chevron-down" class="w-3 h-3 text-gray-400 group-hover:text-yellow-700 hidden lg:block transition-transform duration-200 group-hover:rotate-180"></i>
+                            </a>
+                            {{-- Dropdown Sub-menu on Hover --}}
+                            <div class="hidden group-hover:block lg:pl-10 pl-0 space-y-1 mt-1 transition-all duration-300">
+                                <a href="{{ route('units.flagged') }}"
+                                   class="sidebar-sub-item flex items-center justify-start md:justify-center lg:justify-start gap-2 px-4 md:px-0 lg:px-4 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider text-orange-600 hover:bg-orange-50 hover:text-orange-700 {{ request()->routeIs('units.flagged') ? 'bg-orange-50 text-orange-700 font-black' : '' }}">
+                                    <i data-lucide="flag" class="w-3.5 h-3.5 text-orange-500"></i>
+                                    <span class="block md:hidden lg:block">Flagged Units</span>
+                                </a>
+                            </div>
+                        </div>
                         @endif
 
                         @if(auth()->user()->hasAccessTo('driver-management.*'))
-                        <a href="{{ route('driver-management.index') }}"
-                            class="sidebar-item flex items-center justify-start md:justify-center lg:justify-start gap-2.5 px-4 md:px-0 lg:px-4 py-1.5 md:py-2 rounded-lg text-gray-700 hover:bg-yellow-50 hover:text-yellow-700 {{ request()->routeIs('driver-management.*') ? 'bg-yellow-50 text-yellow-700 font-semibold' : '' }}">
-                            <i data-lucide="users" class="w-5 md:w-5 lg:w-4 h-5 md:h-5 lg:h-4"></i>
-                            <span class="text-sm block md:hidden lg:block">Driver Management</span>
-                        </a>
+                        <div class="relative group w-full">
+                            <a href="{{ route('driver-management.index') }}"
+                                class="sidebar-item flex items-center justify-start md:justify-center lg:justify-start gap-2.5 px-4 md:px-0 lg:px-4 py-1.5 md:py-2 rounded-lg text-gray-700 hover:bg-yellow-50 hover:text-yellow-700 {{ request()->routeIs('driver-management.*') && !request()->routeIs('driver-management.banned') ? 'bg-yellow-50 text-yellow-700 font-semibold' : '' }}">
+                                <i data-lucide="users" class="w-5 md:w-5 lg:w-4 h-5 md:h-5 lg:h-4"></i>
+                                <span class="text-sm block md:hidden lg:block flex-1 whitespace-nowrap">Driver Management</span>
+                                <i data-lucide="chevron-down" class="w-3 h-3 text-gray-400 group-hover:text-yellow-700 hidden lg:block transition-transform duration-200 group-hover:rotate-180"></i>
+                            </a>
+                            {{-- Dropdown Sub-menu on Hover --}}
+                            <div class="hidden group-hover:block lg:pl-10 pl-0 space-y-1 mt-1 transition-all duration-300">
+                                <a href="{{ route('driver-management.banned') }}"
+                                   class="sidebar-sub-item flex items-center justify-start md:justify-center lg:justify-start gap-2 px-4 md:px-0 lg:px-4 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider text-red-600 hover:bg-red-50 hover:text-red-700 {{ request()->routeIs('driver-management.banned') ? 'bg-red-50 text-red-700 font-black' : '' }}">
+                                    <i data-lucide="ban" class="w-3.5 h-3.5 text-red-500"></i>
+                                    <span class="block md:hidden lg:block">Banned Drivers</span>
+                                </a>
+                            </div>
+                        </div>
                         @endif
 
                         @if(auth()->user()->hasAccessTo('live-tracking.*'))

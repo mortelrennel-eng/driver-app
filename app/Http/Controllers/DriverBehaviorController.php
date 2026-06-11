@@ -504,12 +504,14 @@ class DriverBehaviorController extends Controller
         // Mark ALL unreleased boundaries for this driver as released (Clears shortages/late/absent)
         DB::table('boundaries')
             ->where('driver_id', $driver_id)
+            ->whereNull('deleted_at')
             ->whereNull('incentive_released_at')
             ->update(['incentive_released_at' => $release_date]);
 
         // Mark ALL violations for this driver as released (Clears traffic/damage/accidents)
         DB::table('driver_behavior')
             ->where('driver_id', $driver_id)
+            ->whereNull('deleted_at')
             ->whereNull('incentive_released_at')
             ->update(['incentive_released_at' => $release_date]);
 
@@ -552,6 +554,7 @@ class DriverBehaviorController extends Controller
         $incidents = DB::table('driver_behavior as db')
             ->leftJoin('units as u', 'db.unit_id', '=', 'u.id')
             ->where('db.driver_id', $driver_id)
+            ->whereNull('db.deleted_at')
             ->whereDate('db.timestamp', '>=', $from)
             ->whereDate('db.timestamp', '<=', $to)
             ->select('db.*', 'u.plate_number')
@@ -560,12 +563,14 @@ class DriverBehaviorController extends Controller
 
         $boundaries_count = DB::table('boundaries')
             ->where('driver_id', $driver_id)
+            ->whereNull('deleted_at')
             ->whereDate('date', '>=', $from)
             ->whereDate('date', '<=', $to)
             ->count();
 
         $valid_days = DB::table('boundaries')
             ->where('driver_id', $driver_id)
+            ->whereNull('deleted_at')
             ->where('counted_for_incentive', true)
             ->where('has_incentive', true)
             ->whereNull('incentive_released_at')
@@ -573,6 +578,7 @@ class DriverBehaviorController extends Controller
 
         $totalCharges = DB::table('driver_behavior')
             ->where('driver_id', $driver_id)
+            ->whereNull('deleted_at')
             ->sum('total_charge_to_driver');
 
         $incentive = $this->computeIncentiveForDriver($driver_id, $unit);
@@ -597,6 +603,7 @@ class DriverBehaviorController extends Controller
         // Count unreleased valid boundary days
         $valid_days = DB::table('boundaries')
             ->where('driver_id', $driver_id)
+            ->whereNull('deleted_at')
             ->where('counted_for_incentive', true)
             ->where('has_incentive', true)
             ->whereNull('incentive_released_at')
@@ -685,20 +692,30 @@ class DriverBehaviorController extends Controller
     // ─── PRIVATE: Summary Stats ─────────────────────────────────────────
     private function getStats($from, $to)
     {
-        $base  = DB::table('driver_behavior')->whereDate('timestamp', '>=', $from)->whereDate('timestamp', '<=', $to);
+        $base  = DB::table('driver_behavior')
+            ->whereNull('deleted_at')
+            ->whereDate('timestamp', '>=', $from)
+            ->whereDate('timestamp', '<=', $to);
         $bySev = (clone $base)->selectRaw('severity, COUNT(*) as count')->groupBy('severity')->get()->pluck('count', 'severity')->toArray();
         $byType = (clone $base)->selectRaw('incident_type, COUNT(*) as count')->groupBy('incident_type')->orderByDesc('count')->limit(8)->get();
 
         $totalViolators = DB::table('driver_behavior')
+            ->whereNull('deleted_at')
             ->whereDate('timestamp', '>=', $from)
             ->whereDate('timestamp', '<=', $to)
             ->distinct('driver_id')
             ->count('driver_id');
 
-        $totalCharges   = DB::table('driver_behavior')->sum('total_charge_to_driver');
-        $pendingCharges = DB::table('driver_behavior')->where('charge_status', 'pending')->sum('total_charge_to_driver');
+        $totalCharges   = DB::table('driver_behavior')
+            ->whereNull('deleted_at')
+            ->sum('total_charge_to_driver');
+        $pendingCharges = DB::table('driver_behavior')
+            ->whereNull('deleted_at')
+            ->where('charge_status', 'pending')
+            ->sum('total_charge_to_driver');
         
         $violationsToday = DB::table('driver_behavior')
+            ->whereNull('deleted_at')
             ->whereDate('timestamp', now()->format('Y-m-d'))
             ->count();
 
@@ -733,30 +750,35 @@ class DriverBehaviorController extends Controller
         // ── OPTIMIZATION: Bulk fetch statistics to avoid N+1 queries ──
         $incidentCounts = DB::table('driver_behavior')
             ->select('driver_id', DB::raw('count(*) as aggregate'))
+            ->whereNull('deleted_at')
             ->whereNull('incentive_released_at')
             ->groupBy('driver_id')
             ->pluck('aggregate', 'driver_id');
 
         $debtSum = DB::table('driver_behavior')
             ->select('driver_id', DB::raw('sum(remaining_balance) as aggregate'))
+            ->whereNull('deleted_at')
             ->where('charge_status', 'pending')
             ->groupBy('driver_id')
             ->pluck('aggregate', 'driver_id');
 
         $boundaryCounts = DB::table('boundaries')
             ->select('driver_id', DB::raw('count(*) as aggregate'))
+            ->whereNull('deleted_at')
             ->whereNull('incentive_released_at')
             ->groupBy('driver_id')
             ->pluck('aggregate', 'driver_id');
 
         $shortageSum = DB::table('boundaries')
             ->select('driver_id', DB::raw('sum(shortage) as aggregate'))
+            ->whereNull('deleted_at')
             ->whereNull('incentive_released_at')
             ->groupBy('driver_id')
             ->pluck('aggregate', 'driver_id');
 
         $chargeSum = DB::table('driver_behavior')
             ->select('driver_id', DB::raw('sum(total_charge_to_driver) as aggregate'))
+            ->whereNull('deleted_at')
             ->whereNull('incentive_released_at')
             ->groupBy('driver_id')
             ->pluck('aggregate', 'driver_id');

@@ -10,9 +10,12 @@ const config = {
 
 const command = [
     'cd /home/u747826271/domains/eurotaxisystem.site/public_html',
-    'git fetch https://github.com/mortelrennel-eng/driver-app.git main 2>&1',
-    'git reset --hard FETCH_HEAD 2>&1',
-    'php artisan migrate --force 2>&1',
+    'git fetch origin main 2>&1',
+    'git reset --hard origin/main 2>&1',
+    'php artisan config:clear 2>&1',
+    'php artisan route:clear 2>&1',
+    'php artisan view:clear 2>&1',
+    'php artisan cache:clear 2>&1',
     'php artisan optimize 2>&1',
     'echo "---DEPLOY_SUCCESS---"'
 ].join(' && ');

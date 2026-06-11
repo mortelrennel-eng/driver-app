@@ -10,13 +10,11 @@ class AnnouncementController extends Controller
 {
     /**
      * Get announcements for the driver.
-     * Returns all announcements (active + past/expired) so the app
-     * can display current and previous announcements in separate sections.
-     * NOTE: This is the driver-app API only — web views use AnnouncementController (not Api\).
      */
     public function index()
     {
-        $announcements = Announcement::orderBy('is_pinned', 'desc')
+        $announcements = Announcement::where('is_active', true)
+            ->orderBy('is_pinned', 'desc')
             ->orderBy('created_at', 'desc')
             ->get();
 

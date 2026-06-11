@@ -29,6 +29,21 @@ class AppServiceProvider extends ServiceProvider
         Carbon::setLocale('en');
         date_default_timezone_set('Asia/Manila');
 
+        // Auto-lift expired suspensions
+        try {
+            \Illuminate\Support\Facades\DB::table('drivers')
+                ->where('driver_status', 'suspended')
+                ->whereNotNull('suspended_until')
+                ->where('suspended_until', '<=', now()->toDateTimeString())
+                ->update([
+                    'driver_status' => 'available',
+                    'suspended_until' => null,
+                    'suspension_reason' => null
+                ]);
+        } catch (\Exception $e) {
+            // Silence if DB not migrated/ready
+        }
+
         // Fix for shared hosting MAX_JOIN_SIZE limitation
         // Allows complex queries with multiple JOINs to run without hitting row limits
         try {

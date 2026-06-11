@@ -226,11 +226,17 @@
         onclick="event.stopPropagation(); closeAllDriverDropdowns(); openEditDriverModal({{ $driver->id }})">
         <i data-lucide="edit-2" class="w-3.5 h-3.5"></i> Edit Driver
     </button>
-    @if($driver->driver_status === 'banned')
+    @if($driver->driver_status === 'banned' || $driver->driver_status === 'suspended')
     <button type="button"
         class="w-full text-left px-4 py-3 text-xs font-bold text-green-600 hover:bg-green-50 transition-colors flex items-center gap-2.5 border-t border-gray-50"
         onclick="event.stopPropagation(); closeAllDriverDropdowns(); unbanDriver({{ $driver->id }}, '{{ $driver->full_name }}')">
-        <i data-lucide="shield-check" class="w-3.5 h-3.5"></i> Unban Driver
+        <i data-lucide="shield-check" class="w-3.5 h-3.5"></i> Restore Driver
+    </button>
+    @else
+    <button type="button"
+        class="w-full text-left px-4 py-3 text-xs font-bold text-red-600 hover:bg-red-50 transition-colors flex items-center gap-2.5 border-t border-gray-50"
+        onclick="event.stopPropagation(); closeAllDriverDropdowns(); openSuspendBanModal({{ $driver->id }}, '{{ $driver->full_name }}')">
+        <i data-lucide="shield-alert" class="w-3.5 h-3.5"></i> Suspend / Ban
     </button>
     @endif
     <button type="button"
@@ -323,7 +329,7 @@
     }
 
     window.unbanDriver = function (driverId, driverName) {
-        if (!confirm('Are you sure you want to UNBAN ' + driverName + '?\nTheir status will be set back to Available.')) return;
+        if (!confirm('Are you sure you want to RESTORE/UNBAN ' + driverName + '?\nTheir status will be set back to Available.')) return;
 
         const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') ||
                           document.querySelector('input[name="_token"]')?.value || '';

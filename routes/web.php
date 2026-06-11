@@ -137,6 +137,7 @@ Route::middleware(['auth', 'page_access'])->group(function () {
 
     // Units - Specific routes MUST come before resource (to prevent /units/{id} catching them)
     Route::get('/units/flagged', [UnitController::class, 'getFlaggedUnits'])->name('units.flagged');
+    Route::post('/units/flag-manually', [UnitController::class, 'storeManualFlag'])->name('units.flag-manually');
     Route::get('/units/details', [UnitController::class, 'getDetails'])->name('units.details');
     Route::get('/units/details-html', [UnitController::class, 'getDetailsHtml'])->name('units.detailsHtml');
     Route::post('/units/toggle-status', [UnitController::class, 'toggleStatus'])->name('units.toggle-status');
@@ -171,10 +172,12 @@ Route::middleware(['auth', 'page_access'])->group(function () {
 
     // Driver Management — static paths MUST be registered before the resource
     // so "pending-debts" is not matched as driver-management/{id} (show).
+    Route::get('/driver-management/banned', [DriverManagementController::class, 'banned'])->name('driver-management.banned');
     Route::get('/driver-management/pending-debts', [DriverManagementController::class, 'getPendingDebts'])->name('driver-management.pending-debts');
     Route::get('/driver-management/debt-history', [DriverManagementController::class, 'getDebtHistory'])->name('driver-management.debt-history');
     Route::post('/driver-management/pay-debt', [DriverManagementController::class, 'payDebt'])->name('driver-management.pay-debt');
     Route::post('/driver-management/{id}/unban', [DriverManagementController::class, 'unban'])->name('driver-management.unban');
+    Route::post('/driver-management/{id}/suspend-or-ban', [DriverManagementController::class, 'suspendOrBan'])->name('driver-management.suspend-or-ban');
 
 
     // Driver Management Resource Routes

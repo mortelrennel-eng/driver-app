@@ -44,7 +44,7 @@ class LoginAudit extends Model
             'action'     => $action,
             'ip_address' => request()->ip(),
             'user_agent' => request()->userAgent(),
-            'notes'      => $notes,
+            'notes'      => $notes ? mb_strimwidth($notes, 0, 65000, '...') : null,
             'created_at' => now(),
         ]);
     }

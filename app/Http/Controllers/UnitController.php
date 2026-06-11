@@ -216,15 +216,16 @@ class UnitController extends Controller
             'coding_day' => 'nullable|string',
             'driver_id' => 'nullable|integer',
             'secondary_driver_id' => 'nullable|integer',
-            'imei' => 'nullable|string|size:15|regex:/^[a-zA-Z0-9]+$/|unique:units,imei',
+            'imei' => 'nullable|string|max:30|regex:/^[a-zA-Z0-9-]+$/|unique:units,imei',
+            'gps_provider' => 'nullable|string|in:tracksolid,aksh',
+            'gps_password' => 'nullable|string|max:50',
         ], [
             'plate_number.regex' => 'Plate number must be alphanumeric and can contain at most one space.',
             'make.regex' => 'Vehicle make cannot be pure numbers, spaces, or symbols.',
             'model.regex' => 'Vehicle model cannot be pure numbers, spaces, or symbols.',
             'motor_no.regex' => 'Motor number must be alphanumeric with no spaces or symbols.',
             'chassis_no.regex' => 'Chassis number must be alphanumeric with no spaces or symbols.',
-            'imei.regex' => 'IMEI must be alphanumeric with no spaces or symbols.',
-            'imei.size' => 'IMEI must be exactly 15 characters.',
+            'imei.regex' => 'IMEI must be alphanumeric (hyphens allowed) with no spaces or symbols.',
             'purchase_date.before_or_equal' => 'Purchase date cannot be in the future.',
             'year.max' => 'Year cannot exceed 2026.',
         ]);
@@ -276,6 +277,8 @@ class UnitController extends Controller
             'driver_id' => $driver_id,
             'secondary_driver_id' => $secondary_driver_id,
             'imei' => $data['imei'] ?? null,
+            'gps_provider' => $data['gps_provider'] ?? 'tracksolid',
+            'gps_password' => $data['gps_password'] ?? null,
             'coding_updated_at' => now(),
         ]);
 
@@ -315,15 +318,16 @@ class UnitController extends Controller
             'coding_day'           => 'nullable|string',
             'driver_id'            => 'nullable|integer',
             'secondary_driver_id'  => 'nullable|integer',
-            'imei'                 => 'nullable|string|size:15|regex:/^[a-zA-Z0-9]+$/|unique:units,imei,'.$id,
+            'imei'                 => 'nullable|string|max:30|regex:/^[a-zA-Z0-9-]+$/|unique:units,imei,'.$id,
+            'gps_provider'         => 'nullable|string|in:tracksolid,aksh',
+            'gps_password'         => 'nullable|string|max:50',
         ], [
             'plate_number.regex'              => 'Plate number must be alphanumeric and can contain at most one space.',
             'make.regex'                      => 'Vehicle make cannot be pure numbers, spaces, or symbols.',
             'model.regex'                     => 'Vehicle model cannot be pure numbers, spaces, or symbols.',
             'motor_no.regex'                  => 'Motor number must be alphanumeric with no spaces or symbols.',
             'chassis_no.regex'                => 'Chassis number must be alphanumeric with no spaces or symbols.',
-            'imei.regex'                      => 'IMEI must be alphanumeric with no spaces or symbols.',
-            'imei.size'                       => 'IMEI must be exactly 15 characters.',
+            'imei.regex'                      => 'IMEI must be alphanumeric (hyphens allowed) with no spaces or symbols.',
             'purchase_date.before_or_equal'   => 'Purchase date cannot be in the future.',
             'year.max'                        => 'Year cannot exceed '.$maxYear.'.',
         ]);
@@ -371,6 +375,8 @@ class UnitController extends Controller
             'driver_id' => $driver_id,
             'secondary_driver_id' => $secondary_driver_id,
             'imei' => $data['imei'] ?? null,
+            'gps_provider' => $data['gps_provider'] ?? 'tracksolid',
+            'gps_password' => $data['gps_password'] ?? null,
             'updated_at' => now(),
         ];
 
@@ -828,30 +834,94 @@ class UnitController extends Controller
         return back()->with('success', 'Maintenance health counter has been reset to current odometer!');
     }
 
-    public function getFlaggedUnits()
+    public function storeManualFlag(Request $request)
     {
-        // 1. Manually flagged or Missing/Stolen units — always shown
-        $surveillanceUnits = DB::table('units')
+        $request->validate([
+            'unit_id' => 'required|exists:units,id',
+            'description' => 'required|string|min:5|max:1000',
+            'missing_since' => 'nullable|date',
+            'suspect_driver_id' => 'nullable|exists:drivers,id'
+        ]);
+
+        DB::beginTransaction();
+        try {
+            $unit = DB::table('units')->where('id', $request->unit_id)->first();
+            
+            // Update Unit Status
+            $updateData = [
+                'status' => 'missing',
+                'updated_at' => now(),
+                'is_pinned_missing' => true
+            ];
+
+            DB::table('units')->where('id', $request->unit_id)->update($updateData);
+
+            // Log Incident for missing unit
+            $suspectName = null;
+            $suspectContact = null;
+            $suspectLicense = null;
+
+            if ($request->suspect_driver_id) {
+                $driver = DB::table('drivers')->where('id', $request->suspect_driver_id)->first();
+                if ($driver) {
+                    $suspectName = trim($driver->first_name . ' ' . $driver->last_name);
+                    $suspectContact = $driver->contact_number;
+                    $suspectLicense = $driver->license_number;
+                }
+            }
+
+            // Calculate days missing
+            $missingSince = $request->missing_since ? Carbon::parse($request->missing_since) : now();
+            $daysMissing = max(0, $missingSince->diffInDays(now()));
+
+            DB::table('driver_behavior')->insert([
+                'unit_id' => $request->unit_id,
+                'driver_id' => $request->suspect_driver_id,
+                'incident_type' => 'The vehicle unit was taken/stolen',
+                'severity' => 'CRITICAL',
+                'description' => $request->description,
+                'incident_date' => $missingSince->format('Y-m-d'),
+                'missing_days_reported' => $daysMissing,
+                'stolen_driver_detail_name' => $suspectName,
+                'stolen_driver_detail_contact' => $suspectContact,
+                'stolen_driver_license_no' => $suspectLicense,
+                'created_at' => now(),
+                'updated_at' => now()
+            ]);
+
+            DB::commit();
+            return redirect()->back()->with('success', 'Unit successfully flagged as Missing/Stolen.');
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return redirect()->back()->with('error', 'Failed to flag unit: ' . $e->getMessage());
+        }
+    }
+
+    public function getFlaggedUnits(Request $request)
+    {
+        // 1. Manually flagged as Missing/Stolen units
+        $missingUnits = DB::table('units')
             ->whereNull('deleted_at')
-            ->whereIn('status', ['surveillance', 'missing'])
-            ->select('id', 'plate_number', 'make', 'model', 'status', 'driver_id', 'secondary_driver_id')
+            ->where('status', 'missing')
+            ->select('id', 'plate_number', 'make', 'model', 'year', 'status', 'driver_id', 'secondary_driver_id', 'shift_deadline_at')
             ->get()
             ->map(function ($unit) {
-                $unit->flag_source = ($unit->status === 'missing') ? 'manual_stolen' : 'manual_surveillance';
+                $unit->flag_source = 'manual_stolen';
                 return $unit;
             });
 
-        // 2. Auto-detected missing units: has a driver, overdue boundary (>48h), NOT already surveillance
+        // 2. Auto-detected missing units: has a driver, overdue boundary (>48h)
         $autoMissingUnits = DB::table('units')
             ->whereNull('deleted_at')
-            ->whereNotIn('status', ['maintenance', 'surveillance', 'retired', 'coding', 'missing'])
+            ->whereNotIn('status', ['maintenance', 'retired', 'coding', 'missing'])
             ->whereNotNull('shift_deadline_at')
             ->where('shift_deadline_at', '<', now()->subHours(48))
             ->where(function($q) {
                 $q->whereNotNull('driver_id')
                   ->orWhereNotNull('secondary_driver_id');
             })
-            ->select('id', 'plate_number', 'make', 'model', 'status', 'driver_id', 'secondary_driver_id')
+            ->select('id', 'plate_number', 'make', 'model', 'year', 'status', 'driver_id', 'secondary_driver_id', 'shift_deadline_at')
             ->get()
             ->map(function ($unit) {
                 $unit->flag_source = 'auto_boundary';
@@ -859,7 +929,7 @@ class UnitController extends Controller
             });
 
         // Merge and de-duplicate by id
-        $allFlagged = $surveillanceUnits->merge($autoMissingUnits)->unique('id')->values();
+        $allFlagged = $missingUnits->merge($autoMissingUnits)->unique('id')->values();
 
         // Eager load related data to avoid N+1
         $unit_ids = $allFlagged->pluck('id')->toArray();
@@ -922,17 +992,14 @@ class UnitController extends Controller
                     } else {
                         $suspectDriverId = $unit->driver_id;
                     }
-                } 
-                else if ($unit->driver_id || $unit->secondary_driver_id) {
+                } else if ($unit->driver_id || $unit->secondary_driver_id) {
                     $suspectDriverId = $unit->driver_id ?? $unit->secondary_driver_id;
-                }
-                else {
+                } else {
                     $suspectDriverId = null;
                 }
 
                 if ($suspectDriverId) {
                     $suspect = $all_drivers->get($suspectDriverId);
-                    
                     $unit->suspect_driver = $suspect 
                         ? trim($suspect->first_name . ' ' . $suspect->last_name)
                         : 'Unknown';
@@ -955,6 +1022,9 @@ class UnitController extends Controller
                 $unit->days_inactive = null;
                 $unit->last_known_driver = 'No boundary record';
                 $unit->last_driver_contact = null;
+                $unit->suspect_driver = 'Unknown';
+                $unit->suspect_contact = null;
+                $unit->is_vacant = true;
             }
 
             if (($unit->flag_source ?? '') === 'manual_stolen') {
@@ -972,14 +1042,54 @@ class UnitController extends Controller
                     if (!empty($stolenMeta->stolen_driver_license_no)) {
                         $unit->stolen_driver_license_no = $stolenMeta->stolen_driver_license_no;
                     }
+                    if (!empty($stolenMeta->description)) {
+                        $unit->description = $stolenMeta->description;
+                    }
+                    if (!empty($stolenMeta->incident_date)) {
+                        $unit->missing_since = \Carbon\Carbon::parse($stolenMeta->incident_date)->format('M d, Y');
+                    }
+                }
+            } elseif (($unit->flag_source ?? '') === 'auto_boundary') {
+                $unit->description = "Auto-detected: Ang unit na ito ay may boundary delay at lumampas na ng 48 oras ang shift deadline.";
+                if (!empty($unit->shift_deadline_at)) {
+                    $unit->missing_since = \Carbon\Carbon::parse($unit->shift_deadline_at)->format('M d, Y');
                 }
             }
-
-            $unit->is_surveillance = ($unit->status === 'surveillance');
-            $unit->is_at_risk = in_array(($unit->flag_source ?? ''), ['manual_stolen', 'manual_surveillance'], true);
         }
-        
-        return response()->json($allFlagged);
+
+        // Return JSON for AJAX requests (used by the unit management panel internals)
+        if ($request->ajax() || $request->expectsJson()) {
+            return response()->json($allFlagged);
+        }
+
+        // Return full page view for normal browser requests
+        $flaggedCount = $allFlagged->count();
+        $stolenCount  = $allFlagged->where('flag_source', 'manual_stolen')->count();
+        $autoCount    = $allFlagged->where('flag_source', 'auto_boundary')->count();
+
+        // Data for manual flagging modal
+        $availableUnits = DB::table('units')
+            ->whereNull('deleted_at')
+            ->where('status', '!=', 'missing')
+            ->select('id', 'plate_number', 'make', 'model')
+            ->orderBy('plate_number')
+            ->get();
+            
+        $availableDrivers = DB::table('drivers')
+            ->whereNull('deleted_at')
+            ->whereNotIn('driver_status', ['banned'])
+            ->select('id', 'first_name', 'last_name', 'contact_number', 'license_number')
+            ->orderBy('first_name')
+            ->get();
+
+        return view('units.flagged', compact(
+            'allFlagged',
+            'flaggedCount',
+            'stolenCount',
+            'autoCount',
+            'availableUnits',
+            'availableDrivers'
+        ));
     }
 
     public function showImport()
