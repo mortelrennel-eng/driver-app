@@ -808,11 +808,12 @@ class DriverAppController extends Controller
         }
 
         try {
-            // 1. Unlink the Driver record if it exists
+            // 1. Unlink the Driver record if it exists (preserve driver data)
             \App\Models\Driver::where('user_id', $user->id)->update(['user_id' => null]);
 
-            // 2. Archive the User account (Hard Delete to free up email/phone)
-            $user->forceDelete();
+            // 2. Soft-delete the User account so it appears in the Archive page
+            //    (Use delete() NOT forceDelete() — forceDelete permanently wipes the record)
+            $user->delete();
 
             return response()->json([
                 'success' => true,
