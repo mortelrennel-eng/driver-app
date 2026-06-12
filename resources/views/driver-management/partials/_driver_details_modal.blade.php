@@ -253,11 +253,24 @@
                 </div>
             `;
 
+            const docBase = '{{ url('/') }}/';
+            const docImg = (path, label) => path
+                ? `<div class="flex flex-col items-center gap-2">
+                    <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest">${label}</p>
+                    <a href="${docBase}${path}" target="_blank" class="block">
+                        <img src="${docBase}${path}" alt="${label}" class="w-[140px] h-[90px] object-cover rounded-xl border border-slate-200 shadow-sm hover:opacity-80 transition cursor-pointer" />
+                    </a>
+                   </div>`
+                : `<div class="flex flex-col items-center gap-2">
+                    <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest">${label}</p>
+                    <div class="w-[140px] h-[90px] flex items-center justify-center rounded-xl border border-dashed border-slate-300 bg-slate-50 text-[9px] text-slate-400 font-black uppercase tracking-wider">Not Uploaded</div>
+                   </div>`;
+
             document.getElementById('licenseInfoContent').innerHTML = `
                 <div class="space-y-4">
                     <div class="flex flex-col">
                         <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Professional License Number</span>
-                        <p class="text-base font-mono font-black text-slate-900 mt-1 tracking-wider">${data.license_number || ''}</p>
+                        <p class="text-base font-mono font-black text-slate-900 mt-1 tracking-wider">${data.license_number || '—'}</p>
                     </div>
                     <div class="flex flex-col">
                         <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Validation Expiry Date</span>
@@ -274,6 +287,15 @@
                         <p class="text-xs font-black text-indigo-800 uppercase tracking-widest">Integrity Guard</p>
                     </div>
                     <p class="text-xs text-indigo-600/80 leading-relaxed font-medium">Automatic system verification of driver credentials. All documents uploaded are cross-referenced with fleet security protocols.</p>
+                </div>
+                <div class="col-span-2 mt-2 pt-4 border-t border-slate-100">
+                    <p class="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4">Documents Uploaded via Driver App</p>
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        ${docImg(data.profile_photo, 'Profile Photo')}
+                        ${docImg(data.license_photo, "Driver's License")}
+                        ${docImg(data.nbi_clearance_photo, 'NBI Clearance')}
+                        ${docImg(data.pnp_clearance_photo, 'PNP Clearance')}
+                    </div>
                 </div>
             `;
 

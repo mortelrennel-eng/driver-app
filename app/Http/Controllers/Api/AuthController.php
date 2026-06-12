@@ -90,11 +90,26 @@ class AuthController extends Controller
             ], 403);
         }
 
-        // Block inactive accounts
+        // Block inactive accounts — show specific reason
         if (! $user->is_active) {
+            $message = 'Your account has been banned. Please contact the EuroTaxi office.';
+
+            // Check if there's a linked driver record with more context
+            $driver = \App\Models\Driver::where('user_id', $user->id)->first();
+            if ($driver) {
+                if ($driver->driver_status === 'suspended' && $driver->suspended_until) {
+                    $until = \Carbon\Carbon::parse($driver->suspended_until)->format('F j, Y');
+                    $days = now()->diffInDays($driver->suspended_until, false);
+                    $days = max(0, (int) $days);
+                    $message = "Your account is suspended until {$until} ({$days} days remaining). Reason: " . ($driver->suspension_reason ?? 'Administrative action.');
+                } elseif ($driver->driver_status === 'banned') {
+                    $message = 'Your account has been permanently banned. Reason: ' . ($driver->suspension_reason ?? 'Violation of company policy.') . ' Please contact the EuroTaxi office.';
+                }
+            }
+
             return response()->json([
                 'success' => false,
-                'message' => 'Your account is inactive.',
+                'message' => $message,
             ], 403);
         }
 

@@ -1,10 +1,12 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
+import { App } from '@capacitor/app';
 import {
   IonContent,
   IonPage,
   IonIcon,
   IonSpinner,
   useIonToast,
+  useIonViewDidEnter,
 } from '@ionic/react';
 import {
   arrowBackOutline,
@@ -18,6 +20,7 @@ import L from 'leaflet';
 import axios from 'axios';
 import { endpoints } from '../config/api';
 import { useHistory } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 import markerIcon from 'leaflet/dist/images/marker-icon.png';
 import markerIconRetina from 'leaflet/dist/images/marker-icon-2x.png';
 import markerShadow from 'leaflet/dist/images/marker-shadow.png';
@@ -87,84 +90,77 @@ const MapController: React.FC<{
   return null;
 };
 
-// ── OSRM road-snapping (batch all points in chunks) ────────────────
-const snapToRoad = async (rawPath: [number, number][]): Promise<[number, number][]> => {
-  if (rawPath.length < 2) return rawPath;
+// ── AnimatedMarker: Animates marker position changes smoothly ──────
+const AnimatedMarker: React.FC<{
+  position: [number, number];
+  icon: L.DivIcon | L.Icon;
+  eventHandlers?: any;
+  duration?: number;
+}> = ({ position, icon, eventHandlers, duration = 4500 }) => {
+  const [currentPos, setCurrentPos] = useState<[number, number]>(position);
+  const prevPosRef = useRef<[number, number]>(position);
+  const targetPosRef = useRef<[number, number]>(position);
+  const animationFrameRef = useRef<number | null>(null);
+  const startTimeRef = useRef<number | null>(null);
 
-  // First, deduplicate consecutive identical points
-  const deduped: [number, number][] = [rawPath[0]];
-  for (let i = 1; i < rawPath.length; i++) {
-    const prev = deduped[deduped.length - 1];
-    if (prev[0] !== rawPath[i][0] || prev[1] !== rawPath[i][1]) {
-      deduped.push(rawPath[i]);
-    }
-  }
-  if (deduped.length < 2) return deduped;
+  useEffect(() => {
+    // If target position changes
+    if (position[0] !== targetPosRef.current[0] || position[1] !== targetPosRef.current[1]) {
+      const start = prevPosRef.current;
+      const target = position;
+      
+      // Calculate distance (rough degrees)
+      const distance = Math.sqrt(
+        Math.pow(target[0] - start[0], 2) + Math.pow(target[1] - start[1], 2)
+      );
 
-  // Filter out obvious GPS outliers (points too far from neighbors)
-  const filtered: [number, number][] = [deduped[0]];
-  for (let i = 1; i < deduped.length; i++) {
-    const prev = filtered[filtered.length - 1];
-    const dlat = Math.abs(deduped[i][0] - prev[0]);
-    const dlng = Math.abs(deduped[i][1] - prev[1]);
-    // Skip points that jump more than ~5km (0.05 degrees) from previous
-    if (dlat < 0.05 && dlng < 0.05) {
-      filtered.push(deduped[i]);
-    }
-  }
-  if (filtered.length < 2) return filtered;
-
-  const CHUNK_SIZE = 25; // Smaller chunks reduce the chance of one bad point ruining the whole route
-  const OVERLAP = 2;     // Overlap between chunks for smooth joins
-
-  try {
-    const allSnapped: [number, number][] = [];
-
-    for (let start = 0; start < filtered.length; start += CHUNK_SIZE - OVERLAP) {
-      const chunk = filtered.slice(start, start + CHUNK_SIZE);
-      if (chunk.length < 2) break;
-
-      const coords = chunk.map(p => `${p[1]},${p[0]}`).join(';');
-      const url = `https://router.project-osrm.org/route/v1/driving/${coords}?geometries=geojson&overview=full`;
-
-      const res = await fetch(url);
-      const data = await res.json();
-
-      if (data.routes && data.routes.length > 0) {
-        // Concatenate all routing segments
-        const chunkSnapped: [number, number][] = [];
-        for (const route of data.routes) {
-          if (route.geometry?.coordinates) {
-            for (const c of route.geometry.coordinates) {
-              chunkSnapped.push([c[1], c[0]] as [number, number]);
-            }
-          }
-        }
-
-        if (chunkSnapped.length > 0) {
-          if (allSnapped.length === 0) {
-            allSnapped.push(...chunkSnapped);
-          } else {
-            // Skip the first few points of this chunk to avoid overlap duplication
-            allSnapped.push(...chunkSnapped.slice(OVERLAP > 0 ? 1 : 0));
-          }
-        }
+      // If the jump is too far (e.g. initial load or sudden huge GPS jump), skip animation
+      if (distance > 0.05) {
+        setCurrentPos(position);
+        prevPosRef.current = position;
+        targetPosRef.current = position;
       } else {
-        // If OSRM fails to find a route for this chunk (e.g. unroutable point), fallback to raw points for this chunk
-        const rawChunkConverted = chunk.map(p => p as [number, number]);
-        if (allSnapped.length === 0) {
-          allSnapped.push(...rawChunkConverted);
-        } else {
-          allSnapped.push(...rawChunkConverted.slice(OVERLAP > 0 ? 1 : 0));
-        }
-      }
-    }
+        prevPosRef.current = currentPos;
+        targetPosRef.current = position;
+        startTimeRef.current = performance.now();
 
-    return allSnapped.length >= 2 ? allSnapped : filtered;
-  } catch (e) {
-    // fallback to filtered raw path
-  }
-  return filtered;
+        const animate = (time: number) => {
+          if (!startTimeRef.current) return;
+          const elapsed = time - startTimeRef.current;
+          const progress = Math.min(elapsed / duration, 1);
+
+          const startVal = prevPosRef.current;
+          const targetVal = targetPosRef.current;
+          
+          const lat = startVal[0] + (targetVal[0] - startVal[0]) * progress;
+          const lng = startVal[1] + (targetVal[1] - startVal[1]) * progress;
+          
+          setCurrentPos([lat, lng]);
+
+          if (progress < 1) {
+            animationFrameRef.current = requestAnimationFrame(animate);
+          }
+        };
+
+        if (animationFrameRef.current) {
+          cancelAnimationFrame(animationFrameRef.current);
+        }
+        animationFrameRef.current = requestAnimationFrame(animate);
+      }
+    } else {
+      setCurrentPos(position);
+    }
+  }, [position, duration]);
+
+  useEffect(() => {
+    return () => {
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+      }
+    };
+  }, []);
+
+  return <Marker position={currentPos} icon={icon} eventHandlers={eventHandlers} />;
 };
 
 // ── Status helpers ────────────────────────────────────────────────
@@ -180,7 +176,7 @@ const statusColor = (status: string, offline = false) => {
 const statusLabel = (status: string, offline = false) => {
   if (offline) return 'OFFLINE';
   const s = (status || '').toLowerCase();
-  if (s === 'idle') return 'PARKED';
+  if (s === 'idle' || s === 'stopped') return 'PARK';
   return (status || 'N/A').toUpperCase();
 };
 
@@ -188,28 +184,67 @@ const statusLabel = (status: string, offline = false) => {
 const Tracking: React.FC = () => {
   const history = useHistory();
   const [presentToast] = useIonToast();
+  const { user } = useAuth();
 
   const [data, setData] = useState<any>(null);
-  const [position, setPosition] = useState<[number, number]>(() => {
-    const saved = localStorage.getItem('last_known_pos');
-    return saved ? JSON.parse(saved) : [14.5995, 120.9842];
-  });
+  const [position, setPosition] = useState<[number, number]>([14.5995, 120.9842]);
   const [isOffline, setIsOffline] = useState(false);
-  const [rawPath, setRawPath] = useState<[number, number][]>(() => {
-    const savedData = localStorage.getItem('tracking_path_history');
-    if (savedData) {
+  const [rawPath, setRawPath] = useState<[number, number][]>([]);
+  const [snappedPath, setSnappedPath] = useState<[number, number][]>([]);
+
+  // ── Load user-specific tracking history on mount or user change ───
+  useEffect(() => {
+    const userId = user?.id || 'guest';
+
+    // 1. Load last known position
+    const savedPos = localStorage.getItem(`last_known_pos_${userId}`);
+    if (savedPos) {
       try {
-        const parsed = JSON.parse(savedData);
+        setPosition(JSON.parse(savedPos));
+      } catch (e) {}
+    } else {
+      const globalSaved = localStorage.getItem('last_known_pos');
+      if (globalSaved) {
+        try {
+          setPosition(JSON.parse(globalSaved));
+        } catch (e) {}
+      }
+    }
+
+    // 2. Load raw path history
+    const savedRaw = localStorage.getItem(`tracking_path_history_${userId}`);
+    let loadedRaw: [number, number][] = [];
+    if (savedRaw) {
+      try {
+        const parsed = JSON.parse(savedRaw);
         const today = new Date().toLocaleDateString('en-PH', { timeZone: 'Asia/Manila' });
-        if (parsed.date === today && Array.isArray(parsed.path)) return parsed.path;
+        if (parsed.date === today && Array.isArray(parsed.path)) {
+          loadedRaw = parsed.path;
+        }
       } catch (e) {}
     }
-    return [];
-  });
-  const [snappedPath, setSnappedPath] = useState<[number, number][]>([]);
+    setRawPath(loadedRaw);
+
+    // 3. Load snapped path history
+    const savedSnapped = localStorage.getItem(`tracking_snapped_path_history_${userId}`);
+    let loadedSnapped: [number, number][] = [];
+    if (savedSnapped) {
+      try {
+        const parsed = JSON.parse(savedSnapped);
+        const today = new Date().toLocaleDateString('en-PH', { timeZone: 'Asia/Manila' });
+        if (parsed.date === today && Array.isArray(parsed.path)) {
+          loadedSnapped = parsed.path;
+        }
+      } catch (e) {}
+    } else if (loadedRaw.length > 0) {
+      loadedSnapped = loadedRaw;
+    }
+    setSnappedPath(loadedSnapped);
+  }, [user]);
+
+
   const [nearbyDrivers, setNearbyDrivers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [address, setAddress] = useState('');
   const [isSearching, setIsSearching] = useState(false);
   const [showUnitCard, setShowUnitCard] = useState(false);
   const [showNearbyModal, setShowNearbyModal] = useState(false);
@@ -218,89 +253,22 @@ const Tracking: React.FC = () => {
   const [isZoomedIn, setIsZoomedIn] = useState(false);
 
   const mapRef = useRef<L.Map | null>(null);
-  const lastGeocodedPos = useRef<[number, number] | null>(null);
-  const snappingRef = useRef(false);
-  const lastSnappedLenRef = useRef(0);
-  const prevSnappedRef = useRef<[number, number][]>([]);
-
-  const geoAxios = axios.create({
-    transformRequest: [(data, headers) => {
-      if (headers) delete headers['Authorization'];
-      return data;
-    }],
-  });
-
-  // ── Reverse geocode ──────────────────────────────────────────────
-  const fetchAddress = useCallback(async (lat: number, lon: number) => {
-    if (lastGeocodedPos.current &&
-        lastGeocodedPos.current[0] === lat &&
-        lastGeocodedPos.current[1] === lon) return;
-    lastGeocodedPos.current = [lat, lon];
-    try {
-      const res = await geoAxios.get(
-        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=18&addressdetails=1`,
-        { headers: { 'Accept-Language': 'en' } }
-      );
-      if (res.data?.display_name) setAddress(res.data.display_name);
-    } catch (e) {}
-  }, []);
-
-  // ── Snap to road (incremental – only snap new points) ─────────────
-  const doSnap = useCallback(async (path: [number, number][]) => {
-    if (snappingRef.current || path.length < 2) {
-      if (path.length < 2) setSnappedPath(path);
-      return;
-    }
-
-    // If the path hasn't changed in length, skip re-snapping
-    if (path.length === lastSnappedLenRef.current && prevSnappedRef.current.length > 0) {
-      return;
-    }
-
-    // If only 1-2 new points were added, skip to avoid spamming OSRM
-    const newPointCount = path.length - lastSnappedLenRef.current;
-    if (newPointCount > 0 && newPointCount < 3 && prevSnappedRef.current.length > 0) {
-      return;
-    }
-
-    snappingRef.current = true;
-
-    try {
-      if (lastSnappedLenRef.current === 0 || prevSnappedRef.current.length === 0) {
-        // First time — snap the entire path
-        const snapped = await snapToRoad(path);
-        setSnappedPath(snapped);
-        prevSnappedRef.current = snapped;
-        lastSnappedLenRef.current = path.length;
-      } else {
-        // Incremental: re-snap the tail region (last 20 previously snapped points + new ones)
-        const overlapCount = 20;
-        const tailStart = Math.max(0, lastSnappedLenRef.current - overlapCount);
-        const tailRaw = path.slice(tailStart);
-
-        if (tailRaw.length >= 2) {
-          const snappedTail = await snapToRoad(tailRaw);
-          // Keep the head of the previous snap and replace the tail
-          const keepCount = Math.max(0, prevSnappedRef.current.length - overlapCount * 3);
-          const head = prevSnappedRef.current.slice(0, keepCount);
-          const merged = [...head, ...snappedTail];
-          setSnappedPath(merged);
-          prevSnappedRef.current = merged;
-        }
-        lastSnappedLenRef.current = path.length;
-      }
-    } catch (e) {
-      setSnappedPath(path);
-    }
-
-    snappingRef.current = false;
-  }, []);
+  const initialCenterDone = useRef(false);
 
   // ── Fetch tracking data ──────────────────────────────────────────
   const fetchTracking = useCallback(async (manual = false) => {
     if (manual) presentToast({ message: 'Syncing live location...', duration: 1000, position: 'top' });
     try {
-      const response = await axios.get(endpoints.driverPerformance);
+      const response = await axios.get(endpoints.driverPerformance, {
+        params: {
+          _t: new Date().getTime(),
+        },
+        headers: {
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0',
+        },
+      });
       if (response.data.success) {
         const perfData = response.data.data;
         setData(perfData);
@@ -312,12 +280,25 @@ const Tracking: React.FC = () => {
         if (hasCoords) {
           const newPos: [number, number] = [parseFloat(perfData.latitude), parseFloat(perfData.longitude)];
           setPosition(newPos);
-          localStorage.setItem('last_known_pos', JSON.stringify(newPos));
+          const userId = user?.id || 'guest';
+          localStorage.setItem(`last_known_pos_${userId}`, JSON.stringify(newPos));
+
+          // Auto-center map if it hasn't been centered yet for this session/tab entry
+          if (mapRef.current && !initialCenterDone.current) {
+            initialCenterDone.current = true;
+            const target = perfData.path && perfData.path.length > 0 
+              ? perfData.path[perfData.path.length - 1] 
+              : newPos;
+            setTimeout(() => {
+              mapRef.current?.invalidateSize();
+              mapRef.current?.setView(target, 16, { animate: true });
+            }, 100);
+          }
 
           if (Array.isArray(perfData.path) && perfData.path.length > 0) {
             setRawPath(perfData.path);
             const today = new Date().toLocaleDateString('en-PH', { timeZone: 'Asia/Manila' });
-            localStorage.setItem('tracking_path_history', JSON.stringify({ date: today, path: perfData.path }));
+            localStorage.setItem(`tracking_path_history_${userId}`, JSON.stringify({ date: today, path: perfData.path }));
           } else {
             setRawPath(prev => {
               let newPath = prev;
@@ -331,12 +312,10 @@ const Tracking: React.FC = () => {
               }
               if (newPath.length > 500) newPath = newPath.slice(-500);
               const today = new Date().toLocaleDateString('en-PH', { timeZone: 'Asia/Manila' });
-              localStorage.setItem('tracking_path_history', JSON.stringify({ date: today, path: newPath }));
+              localStorage.setItem(`tracking_path_history_${userId}`, JSON.stringify({ date: today, path: newPath }));
               return newPath;
             });
           }
-
-          fetchAddress(newPos[0], newPos[1]);
         }
       }
     } catch (e) {
@@ -344,27 +323,66 @@ const Tracking: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [fetchAddress, presentToast]);
+  }, [presentToast, user]);
+
+  const latestPosRef = useRef<[number, number]>(position);
+  useEffect(() => {
+    latestPosRef.current = snappedPath.length > 0 ? snappedPath[snappedPath.length - 1] : position;
+  }, [snappedPath, position]);
+
+  // ── Auto-center map when returning to tab ────────────────────────
+  useIonViewDidEnter(() => {
+    initialCenterDone.current = false; // Reset center flag so it recenters on fresh fetch
+    if (mapRef.current) {
+      setTimeout(() => {
+        mapRef.current?.invalidateSize();
+        mapRef.current?.setView(latestPosRef.current, 16, { animate: false });
+      }, 100);
+    }
+    fetchTracking(false).then(() => {
+      setTimeout(() => {
+        if (mapRef.current) {
+          mapRef.current?.invalidateSize();
+          mapRef.current?.setView(latestPosRef.current, 16, { animate: true });
+        }
+      }, 300);
+    });
+  });
 
   // ── Snap path whenever rawPath changes ──────────────────────────
   useEffect(() => {
-    doSnap(rawPath);
-  }, [rawPath, doSnap]);
+    setSnappedPath(rawPath);
+  }, [rawPath]);
 
-  // ── Poll every 5 seconds ─────────────────────────────────────────
+  // ── Poll every 5 seconds & instantly on resume ───────────────────
   useEffect(() => {
     fetchTracking();
     const interval = setInterval(() => fetchTracking(false), 5000);
-    return () => clearInterval(interval);
+    
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') fetchTracking(false);
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    const appStateListener = App.addListener('appStateChange', ({ isActive }) => {
+      if (isActive) fetchTracking(false);
+    });
+
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      appStateListener.then(l => l.remove()).catch(() => {});
+    };
   }, [fetchTracking]);
 
   // ── Locate me button handler (toggle zoom in/out) ───────────────
   const handleLocateMe = () => {
     if (mapRef.current) {
+      const targetPos = snappedPath.length > 0 ? snappedPath[snappedPath.length - 1] : position;
       if (isZoomedIn) {
-        mapRef.current.setView(position, 14, { animate: true });
+        mapRef.current.setView(targetPos, 14, { animate: true });
       } else {
-        mapRef.current.setView(position, 18, { animate: true });
+        mapRef.current.setView(targetPos, 18, { animate: true });
       }
       setIsZoomedIn(!isZoomedIn);
     }
@@ -501,37 +519,37 @@ const Tracking: React.FC = () => {
               maxZoom={22}
             />
 
-            {/* Road-snapped path */}
-            {snappedPath.length > 1 && (
+            {/* Road-snapped or raw path */}
+            {(snappedPath.length > 1 || rawPath.length > 1) && (
               <>
                 {/* Glow effect */}
                 <Polyline
-                  positions={snappedPath}
+                  positions={snappedPath.length > 1 ? snappedPath : rawPath}
                   pathOptions={{ color: '#93c5fd', weight: 10, opacity: 0.3, lineCap: 'round', lineJoin: 'round' }}
                 />
                 {/* Main line */}
                 <Polyline
-                  positions={snappedPath}
+                  positions={snappedPath.length > 1 ? snappedPath : rawPath}
                   pathOptions={{ color: '#3b82f6', weight: 4, opacity: 0.95, lineCap: 'round', lineJoin: 'round' }}
                 />
                 {/* White dashes on top */}
                 <Polyline
-                  positions={snappedPath}
+                  positions={snappedPath.length > 1 ? snappedPath : rawPath}
                   pathOptions={{ color: '#fff', weight: 1.5, opacity: 0.6, lineCap: 'round', dashArray: '8 16' }}
                 />
               </>
             )}
 
             {/* Short Red Trail directly behind the unit marker to show direction */}
-            {snappedPath.length > 1 && (
+            {(snappedPath.length > 1 || rawPath.length > 1) && (
               <Polyline
-                positions={snappedPath.slice(-3)}
+                positions={snappedPath.length > 1 ? snappedPath.slice(-3) : rawPath.slice(-3)}
                 pathOptions={{ color: '#ef4444', weight: 6, opacity: 0.9, lineCap: 'round', lineJoin: 'round' }}
               />
             )}
 
             {/* My unit marker — tap opens info card */}
-            <Marker
+            <AnimatedMarker
               position={snappedPath.length > 0 ? snappedPath[snappedPath.length - 1] : position}
               icon={myUnitIcon}
               eventHandlers={{ click: () => setShowUnitCard(v => !v) }}
@@ -754,7 +772,7 @@ const Tracking: React.FC = () => {
                   }}>
                     <IonIcon icon={locationOutline} style={{ color: '#3b82f6', fontSize: '18px', flexShrink: 0 }} />
                     <div style={{ fontSize: '11px', fontWeight: '600', color: '#334155', lineHeight: '1.4' }}>
-                      {address || data?.location || 'Detecting location...'}
+                      {data?.location || 'Detecting location...'}
                     </div>
                   </div>
                 </div>

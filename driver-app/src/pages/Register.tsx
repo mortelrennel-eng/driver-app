@@ -135,7 +135,7 @@ const Register: FC = () => {
   }, []);
 
   const startResendTimer = () => {
-    setResendCountdown(60);
+    setResendCountdown(180);
     if (timerRef.current) clearInterval(timerRef.current);
     timerRef.current = setInterval(() => {
       setResendCountdown(prev => {
@@ -178,7 +178,11 @@ const Register: FC = () => {
     setIsLoading(true);
     setError(null);
     try {
-      const response = await axios.post(endpoints.register, formData);
+      const payload = {
+        ...formData,
+        name: `${formData.first_name} ${formData.last_name} ${formData.suffix}`.replace(/\s+/g, ' ').trim()
+      };
+      const response = await axios.post(endpoints.register, payload);
       if (response.data.success && response.data.otp_sent) {
         setPendingPhone(formData.phone);
         setStep('otp');

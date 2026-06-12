@@ -58,6 +58,28 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   }, [token]);
 
+  // Auto-logout when account is deactivated/disabled (403 from server)
+  useEffect(() => {
+    const interceptor = axios.interceptors.response.use(
+      (response) => response,
+      (error) => {
+        if (error.response?.status === 403 || error.response?.status === 401) {
+          const msg = (error.response?.data?.message || '').toLowerCase();
+          if (msg.includes('inactive') || msg.includes('disabled') || msg.includes('deactivated') || msg.includes('unauthenticated')) {
+            // Account was deactivated/disabled — force logout
+            setToken(null);
+            setUser(null);
+            localStorage.removeItem('auth_token');
+            localStorage.removeItem('auth_user');
+            delete axios.defaults.headers.common['Authorization'];
+          }
+        }
+        return Promise.reject(error);
+      }
+    );
+    return () => axios.interceptors.response.eject(interceptor);
+  }, []);
+
   const getDeviceInfo = async () => {
     try {
       const info = await Device.getInfo();

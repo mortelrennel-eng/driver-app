@@ -880,6 +880,16 @@ class DriverManagementController extends Controller
             'suspension_reason' => $reason,
         ]);
 
+        // Auto-deactivate mobile app account if it exists
+        if ($driver->user_id) {
+            $user = \App\Models\User::find($driver->user_id);
+            if ($user) {
+                $user->is_active = false;
+                $user->save();
+                $user->tokens()->delete(); // Revoke API tokens
+            }
+        }
+
         // Get driver's currently assigned unit from units table BEFORE unassigning them
         $unitId = DB::table('units')
             ->where(function($q) use ($driver) {

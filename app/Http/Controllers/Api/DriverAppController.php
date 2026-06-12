@@ -9,6 +9,7 @@ use App\Models\Driver;
 use App\Models\Unit;
 use App\Models\User;
 use App\Models\Staff;
+use App\Models\DriverAttendance;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
@@ -60,20 +61,7 @@ class DriverAppController extends Controller
             return response()->json(['success' => false, 'message' => $validator->errors()->first()], 422);
         }
 
-        // Reject duplicate phone numbers
-        $cleanPhone = preg_replace('/[^0-9]/', '', $request->phone);
-        $existingByPhone = User::where('phone', $request->phone)
-            ->orWhere('phone', $cleanPhone)
-            ->orWhere('phone_number', $request->phone)
-            ->first();
-        if ($existingByPhone) {
-            return response()->json([
-                'success' => false,
-                'message' => 'This phone number is already registered. Please log in instead.'
-            ], 422);
-        }
-
-        // Find Unit
+        // 1. Find Unit
         $unit = Unit::where('plate_number', 'LIKE', '%' . trim($request->plate_number) . '%')->first();
         if (!$unit) {
             return response()->json([
@@ -82,33 +70,58 @@ class DriverAppController extends Controller
             ], 404);
         }
 
-        // Find Driver
+        // 2. Find Driver (Strictly check if they are Driver 1 or Driver 2 of this Unit)
         $nameParts = explode(' ', $request->name, 2);
         $firstName = trim($nameParts[0]);
         $lastName = isset($nameParts[1]) ? trim($nameParts[1]) : '';
 
-        $driver = null;
         $driverIds = array_filter([$unit->driver_id, $unit->secondary_driver_id]);
+        $matchedDriver = null;
+
         if (!empty($driverIds)) {
-            $driver = Driver::whereIn('id', $driverIds)
-                ->where(function($q) use ($firstName, $lastName) {
-                    $q->where('first_name', 'LIKE', '%' . $firstName . '%')
-                      ->orWhere('last_name', 'LIKE', '%' . $lastName . '%');
-                })
-                ->whereNull('user_id')
+            $matchedDriver = Driver::whereIn('id', $driverIds)
+                ->whereRaw('LOWER(first_name) = ?', [strtolower($firstName)])
+                ->whereRaw('LOWER(last_name) = ?', [strtolower($lastName)])
                 ->first();
         }
-        if (!$driver) {
-            $driver = Driver::where('first_name', 'LIKE', '%' . $firstName . '%')
-                ->where('last_name', 'LIKE', '%' . $lastName . '%')
-                ->whereNull('user_id')
-                ->first();
-        }
-        if (!$driver) {
+
+        if (!$matchedDriver) {
             return response()->json([
                 'success' => false,
-                'message' => 'Driver record not found or already registered. Please ensure your name matches the record in our system.'
+                'message' => 'Your name is not assigned to this unit.'
             ], 404);
+        }
+
+        // 3. Check if driver record is already linked
+        if ($matchedDriver->user_id !== null) {
+            return response()->json([
+                'success' => false,
+                'message' => 'This account is already registered. Please log in.'
+            ], 422);
+        }
+
+        $driver = $matchedDriver;
+
+        // 4. Reject duplicate phone numbers
+        $cleanPhone = preg_replace('/[^0-9]/', '', $request->phone);
+        $existingByPhone = User::where('phone', $request->phone)
+            ->orWhere('phone', $cleanPhone)
+            ->orWhere('phone_number', $request->phone)
+            ->first();
+        if ($existingByPhone) {
+            return response()->json([
+                'success' => false,
+                'message' => 'This phone number is already registered.'
+            ], 422);
+        }
+
+        // 5. Reject duplicate names
+        $existingByName = User::where('name', trim($request->name))->first();
+        if ($existingByName) {
+            return response()->json([
+                'success' => false,
+                'message' => 'This name is already registered.'
+            ], 422);
         }
 
         // Generate OTP and store pending registration in cache
@@ -299,6 +312,24 @@ class DriverAppController extends Controller
 
         return response()->json(['success' => true, 'message' => 'A new verification code has been sent to your phone.']);
     }
+    /**
+     * Get the active unit for the driver.
+     * Priority 1: Official assignment in units table (admin controls this)
+     */
+    private function getActiveUnit($driver)
+    {
+        if (!$driver) return null;
+
+        // HIGHEST PRIORITY: Official unit assignment from admin system
+        $officialUnit = \App\Models\Unit::where(function($q) use ($driver) {
+                $q->where('driver_id', $driver->id)
+                  ->orWhere('secondary_driver_id', $driver->id);
+            })
+            ->whereNull('deleted_at')
+            ->first();
+
+        return $officialUnit;
+    }
 
 
     public function performance(Request $request)
@@ -317,27 +348,26 @@ class DriverAppController extends Controller
 
         $today = now()->timezone('Asia/Manila')->toDateString();
 
-        // Get assigned unit
-        $unit = Unit::where(function($q) use ($driver) {
-                $q->where('driver_id', $driver->id)
-                  ->orWhere('secondary_driver_id', $driver->id);
-            })
-            ->whereNull('deleted_at')
-            ->first();
+        // Get assigned unit dynamically
+        $unit = $this->getActiveUnit($driver);
 
-        // Get boundary sum for today (matching system logic)
-        $boundaryData = DB::table('boundaries')
-            ->where('driver_id', $driver->id)
-            ->whereDate('date', $today)
-            ->whereNull('deleted_at')
-            ->select([
-                DB::raw('SUM(actual_boundary) as total_actual'),
-                DB::raw('SUM(boundary_amount) as total_target'),
-                DB::raw('SUM(shortage) as total_shortage'),
-                DB::raw('SUM(excess) as total_excess'),
-                DB::raw('MAX(status) as last_status')
-            ])
-            ->first();
+        // Get boundary sum for today (filtered by currently assigned unit to prevent old unit's boundary from showing)
+        $boundaryData = null;
+        if ($unit) {
+            $boundaryData = DB::table('boundaries')
+                ->where('driver_id', $driver->id)
+                ->where('unit_id', $unit->id)
+                ->whereDate('date', $today)
+                ->whereNull('deleted_at')
+                ->select([
+                    DB::raw('SUM(actual_boundary) as total_actual'),
+                    DB::raw('SUM(boundary_amount) as total_target'),
+                    DB::raw('SUM(shortage) as total_shortage'),
+                    DB::raw('SUM(excess) as total_excess'),
+                    DB::raw('MAX(status) as last_status')
+                ])
+                ->first();
+        }
 
         // Determine Target based on Rules (Sunday, Coding, etc.)
         $target_label = 'Regular Target';
@@ -493,6 +523,8 @@ class DriverAppController extends Controller
         $daily_dist = 0;
         $age = 'N/A';
 
+        $liveGpsArray = null;
+
         if ($unit) {
             // ALWAYS fetch live GPS from Tracksolid (same as web dashboard)
             $needsSync = true;
@@ -501,6 +533,7 @@ class DriverAppController extends Controller
                 \Log::info("Auto-syncing GPS for unit {$unit->plate_number} (Driver App Trigger)");
                 $liveData = $this->tracksolid->getLocations([$unit->imei]);
                 if ($liveData && isset($liveData[0])) {
+                    $liveGpsArray = $liveData[0];
                     $gps = $liveData[0];
                     $ignition = ($gps['accStatus'] ?? 0) == 1;
                     $speed = $ignition ? (float)($gps['speed'] ?? 0) : 0;
@@ -533,22 +566,11 @@ class DriverAppController extends Controller
                 $heading = (float) $gps->heading;
                 $last_update = $gps->timestamp;
 
-                // Determine Status based on ignition/speed and time difference (matching web dashboard)
-                $gps_status = 'Offline';
-                if ($gps->timestamp) {
-                    $lastUpdateTs = strtotime($gps->timestamp . ' UTC');
-                    $diff = time() - $lastUpdateTs;
-                    
-                    if (!$ignition) {
-                        $gps_status = 'Offline';
-                    } else {
-                        if ($diff < 600) { 
-                            $gps_status = $speed > 2 ? 'Moving' : 'Idle';
-                        } else {
-                            $gps_status = 'Offline';
-                        }
-                    }
-                }
+                // Determine Status using the same logic as LiveTrackingController
+                $statusInfo = $this->resolveGpsStatus($liveGpsArray, $last_update, $ignition, $speed);
+                $gps_status = ucfirst($statusInfo['status']);
+                $speed = $statusInfo['speed'];
+                $ignition = $statusInfo['ignition'];
                 
                 // Use the actual GPS fix time for display, matching web dashboard
                 $last_update = $gps->timestamp;
@@ -658,12 +680,7 @@ class DriverAppController extends Controller
             'notes' => 'nullable|string',
         ]);
 
-        $unit = Unit::where(function($q) use ($driver) {
-                $q->where('driver_id', $driver->id)
-                  ->orWhere('secondary_driver_id', $driver->id);
-            })
-            ->whereNull('deleted_at')
-            ->first();
+        $unit = $this->getActiveUnit($driver);
 
         $rescue = RescueRequest::create([
             'driver_id' => $driver->id,
@@ -697,12 +714,7 @@ class DriverAppController extends Controller
             'heading' => 'nullable|string',
         ]);
 
-        $unit = Unit::where(function($q) use ($driver) {
-                $q->where('driver_id', $driver->id)
-                  ->orWhere('secondary_driver_id', $driver->id);
-            })
-            ->whereNull('deleted_at')
-            ->first();
+        $unit = $this->getActiveUnit($driver);
 
         if (!$unit) {
             return response()->json(['success' => false, 'message' => 'No assigned unit found for tracking'], 404);
@@ -768,12 +780,7 @@ class DriverAppController extends Controller
             return response()->json(['success' => false, 'message' => 'Driver record not found.'], 404);
         }
 
-        $unit = Unit::where(function($q) use ($driver) {
-                $q->where('driver_id', $driver->id)
-                  ->orWhere('secondary_driver_id', $driver->id);
-            })
-            ->whereNull('deleted_at')
-            ->first();
+        $unit = $this->getActiveUnit($driver);
 
         if (!$unit) {
             return response()->json(['success' => false, 'message' => 'No unit assigned'], 404);
@@ -1013,6 +1020,75 @@ class DriverAppController extends Controller
         $user->save();
 
         return response()->json(['success' => true, 'message' => 'Password updated successfully']);
+    }
+
+    private const GPS_ONLINE_WINDOW_SECONDS = 600;
+    private const GPS_SPEED_STALE_SECONDS = 300;
+
+    private function secondsSinceUtc(?string $time): int
+    {
+        if (!$time) return PHP_INT_MAX;
+        $timestamp = strtotime($time . ' UTC');
+        if ($timestamp === false) return PHP_INT_MAX;
+        return max(0, time() - $timestamp);
+    }
+
+    private function gpsDwellSeconds(?array $gps): ?int
+    {
+        if (!$gps) return null;
+        if (isset($gps['dwellSeconds']) && $gps['dwellSeconds'] !== '') {
+            return max(0, (int)$gps['dwellSeconds']);
+        }
+        return null;
+    }
+
+    private function resolveGpsStatus(?array $gps, ?string $lastUpdate, bool $ignition, float $rawSpeed): array
+    {
+        $heartbeatAge = PHP_INT_MAX;
+        $gpsAge = PHP_INT_MAX;
+
+        if ($gps && isset($gps['hbTime']) && isset($gps['gpsTime'])) {
+            $heartbeatAge = $this->secondsSinceUtc($gps['hbTime']);
+            $gpsAge = $this->secondsSinceUtc($gps['gpsTime']);
+        } else {
+            $fallbackAge = $this->secondsSinceUtc($lastUpdate);
+            $heartbeatAge = $fallbackAge;
+            $gpsAge = $fallbackAge;
+        }
+
+        $effectiveGpsAge = $gpsAge;
+        $dwellSeconds = $this->gpsDwellSeconds($gps);
+
+        if (!$ignition && $dwellSeconds !== null) {
+            $effectiveGpsAge = $gpsAge === PHP_INT_MAX
+                ? $dwellSeconds
+                : max($gpsAge, $dwellSeconds);
+        }
+
+        $providerOffline = (bool)($gps['providerOffline'] ?? false);
+        $status = 'offline';
+        $speed = 0.0;
+        $safeIgnition = $ignition;
+
+        if (!$providerOffline && $heartbeatAge < self::GPS_ONLINE_WINDOW_SECONDS) {
+            if ($ignition) {
+                $speed = $gpsAge > self::GPS_SPEED_STALE_SECONDS ? 0.0 : max(0.0, $rawSpeed);
+                $status = $speed > 2 ? 'moving' : 'idle';
+            } else {
+                $status = $effectiveGpsAge > self::GPS_ONLINE_WINDOW_SECONDS ? 'offline' : 'stopped';
+            }
+        }
+
+        if ($status === 'offline' || $status === 'stopped') {
+            $speed = 0.0;
+            $safeIgnition = false;
+        }
+
+        return [
+            'status'   => $status,
+            'speed'    => $speed,
+            'ignition' => $safeIgnition,
+        ];
     }
 
     public function getProfile(Request $request)

@@ -49,14 +49,30 @@
                 </div>
             `;
 
+            const docBaseUrl = '{{ url('/') }}/';
+            const makeDocImg = (path, label) => path
+                ? `<div class="flex flex-col items-center gap-1">
+                    <p class="text-[10px] font-black text-slate-500 uppercase tracking-wider">${label}</p>
+                    <a href="${docBaseUrl}${path}" target="_blank">
+                        <img src="${docBaseUrl}${path}" alt="${label}" class="w-full max-w-[160px] h-[100px] object-cover rounded-lg border border-slate-200 shadow-sm hover:opacity-80 transition cursor-pointer" />
+                    </a>
+                   </div>`
+                : `<div class="flex flex-col items-center gap-1">
+                    <p class="text-[10px] font-black text-slate-500 uppercase tracking-wider">${label}</p>
+                    <div class="w-[160px] h-[100px] flex items-center justify-center rounded-lg border border-dashed border-slate-300 bg-slate-50 text-[10px] text-slate-400 font-bold">Not uploaded</div>
+                   </div>`;
+
             document.getElementById('licenseInfoContent').innerHTML = `
-                <div>
-                    <p><span class="font-semibold text-gray-500">License Number:</span> ${data.license_number || ''}</p>
-                    <p><span class="font-semibold text-gray-500">License Expiry:</span> ${data.license_expiry || ''}</p>
+                <div class="grid grid-cols-2 gap-4 mb-4">
+                    <div><span class="font-semibold text-gray-500 text-xs">License Number:</span><p class="font-bold text-sm mt-0.5">${data.license_number || '—'}</p></div>
+                    <div><span class="font-semibold text-gray-500 text-xs">License Expiry:</span><p class="font-bold text-sm mt-0.5">${data.license_expiry || '—'}</p></div>
                 </div>
-                <div class="bg-blue-50 p-3 rounded-lg border border-blue-100">
-                    <p class="text-[11px] text-blue-700 font-medium">Auto-Status Detection</p>
-                    <p class="text-xs text-blue-600 mt-1">Based on expiry date: No active issues detected.</p>
+                <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3">Documents Uploaded via App</p>
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    ${makeDocImg(data.profile_photo, 'Profile Photo')}
+                    ${makeDocImg(data.license_photo, "Driver's License")}
+                    ${makeDocImg(data.nbi_clearance_photo, 'NBI Clearance')}
+                    ${makeDocImg(data.pnp_clearance_photo, 'PNP Clearance')}
                 </div>
             `;
 

@@ -251,6 +251,13 @@
                                     <div id="app-driver-dropdown-{{ $driver->id }}" 
                                         class="staff-action-dropdown absolute right-6 mt-1 w-32 bg-white border border-gray-100 rounded-xl shadow-xl z-50 hidden animate-in fade-in zoom-in-95 duration-200 overflow-hidden">
                                         <div class="p-1.5 space-y-1">
+                                            <form action="{{ route('staff.toggleAppDriverStatus', $driver->id) }}" method="POST" onsubmit="return confirm('Are you sure you want to {{ $driver->is_active ? 'deactivate' : 'activate' }} this driver account?')">
+                                                @csrf
+                                                <button type="submit" class="w-full flex items-center gap-2 px-3 py-2 text-xs font-bold {{ $driver->is_active ? 'text-yellow-600 hover:bg-yellow-50' : 'text-green-600 hover:bg-green-50' }} rounded-lg transition-all text-left">
+                                                    <i data-lucide="{{ $driver->is_active ? 'power-off' : 'power' }}" class="w-3.5 h-3.5"></i>
+                                                    {{ $driver->is_active ? 'Deactivate Account' : 'Activate Account' }}
+                                                </button>
+                                            </form>
                                             <form action="{{ route('staff.destroyAppDriver', $driver->id) }}" method="POST" onsubmit="return confirm('Are you sure you want to delete this Driver\'s Mobile App Account? They will lose access to the app immediately.')">
                                                 @csrf
                                                 @method('DELETE')

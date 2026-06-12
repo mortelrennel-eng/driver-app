@@ -48,6 +48,7 @@ const Announcements: FC = () => {
 
   const handleClear = () => {
     setAnnouncements([]);
+    localStorage.setItem('announcements_cleared_at', new Date().toISOString());
     localStorage.removeItem('cached_driver_announcements');
     setCurrentPage(1);
   };
@@ -56,9 +57,14 @@ const Announcements: FC = () => {
     try {
       const response = await axios.get(endpoints.announcements);
       if (response.data.success) {
-        const fetched: Announcement[] = response.data.announcements;
-        setAnnouncements(fetched);
-        localStorage.setItem('cached_driver_announcements', JSON.stringify(fetched));
+        const clearedAt = localStorage.getItem('announcements_cleared_at');
+        let filtered: Announcement[] = response.data.announcements;
+        if (clearedAt) {
+          const clearTime = new Date(clearedAt).getTime();
+          filtered = filtered.filter((a: Announcement) => new Date(a.created_at).getTime() > clearTime);
+        }
+        setAnnouncements(filtered);
+        localStorage.setItem('cached_driver_announcements', JSON.stringify(filtered));
       }
     } catch (e) {
       console.error('Failed to fetch announcements', e);

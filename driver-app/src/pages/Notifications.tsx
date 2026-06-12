@@ -45,8 +45,14 @@ const Notifications: FC = () => {
     try {
       const response = await axios.get(endpoints.notifications);
       if (response.data.success) {
-        setNotifications(response.data.notifications);
-        localStorage.setItem('cached_driver_notifications', JSON.stringify(response.data.notifications));
+        const clearedAt = localStorage.getItem('notifications_cleared_at');
+        let filtered = response.data.notifications;
+        if (clearedAt) {
+          const clearTime = new Date(clearedAt).getTime();
+          filtered = filtered.filter((n: any) => new Date(n.timestamp).getTime() > clearTime);
+        }
+        setNotifications(filtered);
+        localStorage.setItem('cached_driver_notifications', JSON.stringify(filtered));
       }
     } catch (e) {
       console.error('Failed to fetch notifications', e);
@@ -68,6 +74,7 @@ const Notifications: FC = () => {
 
   const handleClear = () => {
     setNotifications([]);
+    localStorage.setItem('notifications_cleared_at', new Date().toISOString());
     localStorage.removeItem('cached_driver_notifications');
   };
 
@@ -137,11 +144,13 @@ const Notifications: FC = () => {
               <button 
                 onClick={handleClear}
                 style={{ 
-                  background: 'transparent', border: 'none', color: t.textSecondary, 
-                  fontSize: '11px', fontWeight: '800', cursor: 'pointer', padding: '4px 8px', borderRadius: '8px'
+                  background: '#ef444415', border: '1px solid #ef444430', color: '#ef4444', 
+                  fontSize: '10px', fontWeight: '800', cursor: 'pointer', padding: '6px 12px', borderRadius: '8px',
+                  display: 'flex', alignItems: 'center', gap: '4px', textTransform: 'uppercase', letterSpacing: '1px'
                 }}
               >
-                CLEAR ALL
+                <IonIcon icon={alertCircleOutline} style={{ fontSize: '14px' }} />
+                Clear All
               </button>
             )}
           </div>

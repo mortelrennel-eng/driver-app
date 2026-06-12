@@ -218,6 +218,7 @@ Route::middleware(['auth', 'page_access'])->group(function () {
     // Staff Records
     Route::resource('staff', StaffController::class);
     Route::delete('/staff/{id}/destroy-app-driver', [StaffController::class, 'destroyAppDriver'])->name('staff.destroyAppDriver');
+    Route::post('/staff/{id}/toggle-app-driver', [StaffController::class, 'toggleAppDriverStatus'])->name('staff.toggleAppDriverStatus');
 
     // Decision Management Resource Routes
     Route::resource('decision-management', DecisionManagementController::class);

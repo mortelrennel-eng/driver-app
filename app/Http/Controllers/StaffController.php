@@ -135,4 +135,29 @@ class StaffController extends Controller
 
         return redirect()->route('staff.index')->with('success', 'Mobile App Driver account deleted successfully.');
     }
+
+    public function toggleAppDriverStatus($id)
+    {
+        $user = \App\Models\User::findOrFail($id);
+        
+        if ($user->role !== 'driver') {
+            return redirect()->route('staff.index')->with('error', 'Invalid operation.');
+        }
+
+        // Toggle the active status
+        $user->is_active = !$user->is_active;
+        $user->save();
+
+        // If deactivating, also revoke any active API tokens
+        if (!$user->is_active) {
+            $user->tokens()->delete();
+        }
+
+        $statusName = $user->is_active ? 'Activated' : 'Deactivated';
+        $name = $user->full_name ?? $user->name;
+
+        ActivityLogController::log("{$statusName} Mobile App Driver", "Driver Account: {$name} was {$statusName}.");
+
+        return redirect()->route('staff.index')->with('success', "Mobile App Driver account {$statusName} successfully.");
+    }
 }

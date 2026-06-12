@@ -127,12 +127,7 @@ class SupportController extends Controller
             $file = $request->file('image');
             $filename = time() . '_' . $file->getClientOriginalName();
             
-            // For Hostinger compatibility: check if we are in a subfolder or root
             $destPath = public_path('uploads/support_attachments');
-            if (str_contains($destPath, '/public/uploads')) {
-                // If public_path includes /public, go one level up to public_html
-                $destPath = str_replace('/public/uploads', '/uploads', $destPath);
-            }
             
             if (!file_exists($destPath)) {
                 mkdir($destPath, 0775, true);
