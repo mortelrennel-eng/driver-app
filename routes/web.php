@@ -173,9 +173,13 @@ Route::middleware(['auth', 'page_access'])->group(function () {
     // Driver Management — static paths MUST be registered before the resource
     // so "pending-debts" is not matched as driver-management/{id} (show).
     Route::get('/driver-management/banned', [DriverManagementController::class, 'banned'])->name('driver-management.banned');
+    Route::get('/driver-management/debts', [DriverManagementController::class, 'debtsPage'])->name('driver-management.debts');
     Route::get('/driver-management/pending-debts', [DriverManagementController::class, 'getPendingDebts'])->name('driver-management.pending-debts');
     Route::get('/driver-management/debt-history', [DriverManagementController::class, 'getDebtHistory'])->name('driver-management.debt-history');
     Route::post('/driver-management/pay-debt', [DriverManagementController::class, 'payDebt'])->name('driver-management.pay-debt');
+    Route::get('/driver-management/terms', [DriverManagementController::class, 'terms'])->name('driver-management.terms');
+    Route::post('/driver-management/terms', [DriverManagementController::class, 'uploadTerm'])->name('driver-management.terms.upload');
+    Route::post('/driver-management/terms/{filename}', [DriverManagementController::class, 'deleteTerm'])->name('driver-management.terms.delete');
     Route::post('/driver-management/{id}/unban', [DriverManagementController::class, 'unban'])->name('driver-management.unban');
     Route::post('/driver-management/{id}/suspend-or-ban', [DriverManagementController::class, 'suspendOrBan'])->name('driver-management.suspend-or-ban');
 
