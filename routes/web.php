@@ -202,6 +202,7 @@ Route::middleware(['auth', 'page_access'])->group(function () {
     Route::get('/analytics', [AnalyticsController::class, 'index'])->name('analytics.index');
     Route::get('/api/analytics/ai-insights', [AnalyticsController::class, 'aiInsights'])->name('analytics.ai-insights');
     Route::get('/analytics/heatmap', [AnalyticsController::class, 'heatmap'])->name('analytics.heatmap');
+    Route::get('/analytics/history', [AnalyticsController::class, 'history'])->name('analytics.history');
     Route::get('/analytics/export/csv', [AnalyticsController::class, 'exportCsv'])->name('analytics.export.csv');
 
     // Activity Logs
