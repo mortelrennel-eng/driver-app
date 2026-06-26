@@ -21,7 +21,10 @@ const BASE_LOCAL  = __dirname;
 
 const filesToUpload = [
     { local: 'app/Http/Controllers/Api/SupportController.php', remote: '/home/u747826271/domains/eurotaxisystem.site/public_html/app/Http/Controllers/Api/SupportController.php' },
-    { local: 'app/Http/Controllers/Api/DriverAppController.php', remote: '/home/u747826271/domains/eurotaxisystem.site/public_html/app/Http/Controllers/Api/DriverAppController.php' },
+    {
+        local: 'app/Http/Controllers/Api/DriverAppController.php',
+        remote: '/home/u747826271/domains/eurotaxisystem.site/public_html/app/Http/Controllers/Api/DriverAppController.php'
+    },
     { local: 'resources/views/partials/_driver_details_scripts.blade.php', remote: '/home/u747826271/domains/eurotaxisystem.site/public_html/resources/views/partials/_driver_details_scripts.blade.php' },
     { local: 'resources/views/driver-management/partials/_driver_details_modal.blade.php', remote: '/home/u747826271/domains/eurotaxisystem.site/public_html/resources/views/driver-management/partials/_driver_details_modal.blade.php' }
 ];

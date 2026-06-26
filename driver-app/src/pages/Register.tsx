@@ -377,9 +377,7 @@ const Register: FC = () => {
                 {isLoading ? <IonSpinner name="crescent" /> : 'Send Verification Code'}
               </IonButton>
 
-              <p style={{ textAlign: 'center', color: '#475569', fontSize: '11px', margin: 0, padding: '0 16px', lineHeight: '1.5' }}>
-                By registering, you agree to EuroTaxi's Terms of Service and Privacy Policy.
-              </p>
+
             </form>
           )}
 

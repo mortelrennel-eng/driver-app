@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { App } from '@capacitor/app';
+import { Geolocation } from '@capacitor/geolocation';
 import {
   IonContent,
   IonPage,
@@ -24,6 +25,28 @@ import { useAuth } from '../context/AuthContext';
 import markerIcon from 'leaflet/dist/images/marker-icon.png';
 import markerIconRetina from 'leaflet/dist/images/marker-icon-2x.png';
 import markerShadow from 'leaflet/dist/images/marker-shadow.png';
+
+// ── Haversine: distance in km between two lat/lng points ──────────
+function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const R = 6371;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLng = (lng2 - lng1) * Math.PI / 180;
+  const a = Math.sin(dLat / 2) ** 2 +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+    Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+// ── Calculate total path distance in km ───────────────────────────
+function calcPathDistKm(path: [number, number][]): number {
+  let total = 0;
+  for (let i = 1; i < path.length; i++) {
+    const d = haversineKm(path[i-1][0], path[i-1][1], path[i][0], path[i][1]);
+    // Ignore GPS noise jumps > 2km between consecutive points
+    if (d < 2) total += d;
+  }
+  return total;
+}
 
 // ── Default Leaflet icon fix ───────────────────────────────────────
 const DefaultIcon = L.icon({
@@ -68,11 +91,13 @@ const nearbyIcon = L.divIcon({
   popupAnchor: [0, -20],
 });
 
-// ── MapController: handles locate-me without auto-centering ───────
+// ── MapController: handles locate-me and auto-follow ───────
 const MapController: React.FC<{
   targetPos: [number, number] | null;
+  autoFollow: boolean;
   onReady: (map: L.Map) => void;
-}> = ({ targetPos, onReady }) => {
+  onUserInteraction: () => void;
+}> = ({ targetPos, autoFollow, onReady, onUserInteraction }) => {
   const map = useMap();
   const initializedRef = useRef(false);
 
@@ -86,6 +111,20 @@ const MapController: React.FC<{
       }, 300);
     }
   }, [map, targetPos, onReady]);
+
+  // Auto-follow: smoothly pan map to track position changes
+  useEffect(() => {
+    if (autoFollow && targetPos && initializedRef.current) {
+      map.setView(targetPos, map.getZoom(), { animate: true, duration: 1.0 });
+    }
+  }, [autoFollow, targetPos, map]);
+
+  // Detect user manual drag to disable auto-follow
+  useEffect(() => {
+    const handleDragStart = () => onUserInteraction();
+    map.on('dragstart', handleDragStart);
+    return () => { map.off('dragstart', handleDragStart); };
+  }, [map, onUserInteraction]);
 
   return null;
 };
@@ -175,9 +214,8 @@ const statusColor = (status: string, offline = false) => {
 
 const statusLabel = (status: string, offline = false) => {
   if (offline) return 'OFFLINE';
-  const s = (status || '').toLowerCase();
-  if (s === 'idle' || s === 'stopped') return 'PARK';
-  return (status || 'N/A').toUpperCase();
+  if (!status) return 'OFFLINE';
+  return status.toUpperCase();
 };
 
 // ── Main Component ────────────────────────────────────────────────
@@ -191,6 +229,11 @@ const Tracking: React.FC = () => {
   const [isOffline, setIsOffline] = useState(false);
   const [rawPath, setRawPath] = useState<[number, number][]>([]);
   const [snappedPath, setSnappedPath] = useState<[number, number][]>([]);
+  const [displayAddress, setDisplayAddress] = useState('Detecting location...');
+  const lastGeocodeRef = useRef<[number, number] | null>(null);
+  // Client-computed distance (haversine from rawPath), updated live
+  const [clientDistKm, setClientDistKm] = useState<number>(0);
+  const watchIdRef = useRef<string | null>(null);
 
   // ── Load user-specific tracking history on mount or user change ───
   useEffect(() => {
@@ -251,6 +294,7 @@ const Tracking: React.FC = () => {
   const [showNearbyOnMap, setShowNearbyOnMap] = useState(false);
   const [mapType, setMapType] = useState<'default' | 'satellite'>('default');
   const [isZoomedIn, setIsZoomedIn] = useState(false);
+  const [autoFollow, setAutoFollow] = useState(true);
 
   const mapRef = useRef<L.Map | null>(null);
   const initialCenterDone = useRef(false);
@@ -307,7 +351,10 @@ const Tracking: React.FC = () => {
               } else {
                 const last = prev[prev.length - 1];
                 if (last[0] !== newPos[0] || last[1] !== newPos[1]) {
-                  newPath = [...prev, newPos];
+                  // Prevent GPS drift "spaghetti" lines by only appending if actually moving
+                  if (status === 'moving') {
+                    newPath = [...prev, newPos];
+                  }
                 }
               }
               if (newPath.length > 500) newPath = newPath.slice(-500);
@@ -349,10 +396,104 @@ const Tracking: React.FC = () => {
     });
   });
 
-  // ── Snap path whenever rawPath changes ──────────────────────────
+  // ── Snap path to roads (OSRM) ────────────────────────────────────
+  const snappingRef = useRef(false);
+  const prevPathLen = useRef(0);
+  
+  const snapToRoad = async (path: [number, number][]) => {
+    if (path.length < 2) return path;
+    try {
+      const MAX_POINTS = 90;
+      const pointsToSnap = path.slice(-MAX_POINTS);
+      const coords = pointsToSnap.map(p => `${p[1]},${p[0]}`).join(';');
+      
+      // Use 'route' API instead of 'match' API. Route API finds the driving path between points, 
+      // which perfectly connects gaps if the app was closed!
+      const res = await axios.get(`https://router.project-osrm.org/route/v1/driving/${coords}?overview=full&geometries=geojson`, {
+        transformRequest: [(data, headers) => {
+          if (headers) delete headers['Authorization'];
+          return data;
+        }]
+      });
+      
+      if (res.data && res.data.routes && res.data.routes.length > 0) {
+        const snappedTail: [number, number][] = res.data.routes[0].geometry.coordinates.map((c: any) => [c[1], c[0]]);
+        
+        if (path.length <= MAX_POINTS) return snappedTail;
+        return [...path.slice(0, path.length - MAX_POINTS), ...snappedTail];
+      }
+    } catch (e) {}
+    return path;
+  };
+
   useEffect(() => {
-    setSnappedPath(rawPath);
+    let active = true;
+    if (rawPath.length < 2) {
+      setSnappedPath(rawPath);
+      return;
+    }
+    if (rawPath.length === prevPathLen.current) {
+      return;
+    }
+    const processSnap = async () => {
+      if (snappingRef.current) return;
+      snappingRef.current = true;
+      const snapped = await snapToRoad(rawPath);
+      if (active) {
+        setSnappedPath(snapped);
+        prevPathLen.current = rawPath.length;
+      }
+      snappingRef.current = false;
+    };
+    processSnap();
+    return () => { active = false; };
   }, [rawPath]);
+
+  // ── Reverse Geocode based on coordinates ─────────────────────────
+  useEffect(() => {
+    if (isOffline && position[0] === 0) {
+      setDisplayAddress('Signal Lost');
+      return;
+    }
+    const lat = position[0];
+    const lng = position[1];
+    
+    // Don't geocode if no valid position
+    if (lat === 0 && lng === 0) return;
+    
+    let dist = 1;
+    if (lastGeocodeRef.current) {
+      dist = Math.abs(lat - lastGeocodeRef.current[0]) + Math.abs(lng - lastGeocodeRef.current[1]);
+    }
+    
+    if (dist > 0.001 || displayAddress === 'Detecting location...' || displayAddress === 'Locating...') {
+      lastGeocodeRef.current = [lat, lng];
+      axios.get(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`)
+        .then(res => {
+          if (res.data && res.data.display_name) {
+            setDisplayAddress(res.data.display_name);
+          }
+        }).catch(() => {});
+    }
+  }, [position, isOffline, displayAddress]);
+
+  // ── Update client-side distance whenever rawPath changes ────────
+  useEffect(() => {
+    if (rawPath.length > 1) {
+      const km = calcPathDistKm(rawPath);
+      setClientDistKm(km);
+      // Persist to localStorage so it survives page refresh
+      const userId = user?.id || 'guest';
+      localStorage.setItem(`client_dist_km_${userId}`, km.toFixed(2));
+    }
+  }, [rawPath, user]);
+
+  // ── Load persisted client distance on mount ───────────────────────
+  useEffect(() => {
+    const userId = user?.id || 'guest';
+    const saved = localStorage.getItem(`client_dist_km_${userId}`);
+    if (saved) setClientDistKm(parseFloat(saved));
+  }, [user]);
 
   // ── Poll every 5 seconds & instantly on resume ───────────────────
   useEffect(() => {
@@ -375,18 +516,81 @@ const Tracking: React.FC = () => {
     };
   }, [fetchTracking]);
 
-  // ── Locate me button handler (toggle zoom in/out) ───────────────
+  // ── Native GPS watchPosition: builds path continuously ───────────
+  // This runs while the app is in the FOREGROUND and stores breadcrumbs
+  // so the blue line grows in real-time from actual device GPS.
+  useEffect(() => {
+    const startWatch = async () => {
+      try {
+        const perm = await Geolocation.requestPermissions();
+        if (perm.location !== 'granted' && perm.coarseLocation !== 'granted') return;
+
+        const watchId = await Geolocation.watchPosition(
+          { enableHighAccuracy: true, timeout: 10000 },
+          (pos, err) => {
+            if (err || !pos) return;
+            const lat = pos.coords.latitude;
+            const lng = pos.coords.longitude;
+            const acc = pos.coords.accuracy || 999;
+            // Ignore low-accuracy readings (GPS noise / indoor)
+            if (acc > 80) return;
+
+            const userId = user?.id || 'guest';
+            const newPt: [number, number] = [lat, lng];
+
+            setRawPath(prev => {
+              // Skip if same or too close (\u003c 5m)
+              if (prev.length > 0) {
+                const last = prev[prev.length - 1];
+                const d = haversineKm(last[0], last[1], lat, lng) * 1000; // metres
+                if (d < 5) return prev;
+              }
+              const today = new Date().toLocaleDateString('en-PH', { timeZone: 'Asia/Manila' });
+              let newPath = prev.length === 0 ? [newPt] : [...prev, newPt];
+              if (newPath.length > 800) newPath = newPath.slice(-800);
+              localStorage.setItem(`tracking_path_history_${userId}`, JSON.stringify({ date: today, path: newPath }));
+              return newPath;
+            });
+
+            setPosition(newPt);
+            localStorage.setItem(`last_known_pos_${user?.id || 'guest'}`, JSON.stringify(newPt));
+          }
+        );
+        watchIdRef.current = watchId;
+      } catch (e) {
+        // Geolocation not available (web preview), silently skip
+      }
+    };
+    startWatch();
+    return () => {
+      if (watchIdRef.current) {
+        Geolocation.clearWatch({ id: watchIdRef.current }).catch(() => {});
+        watchIdRef.current = null;
+      }
+    };
+  }, [user]);
+
+  // ── Locate me button handler (re-center + enable auto-follow) ───
   const handleLocateMe = () => {
     if (mapRef.current) {
       const targetPos = snappedPath.length > 0 ? snappedPath[snappedPath.length - 1] : position;
-      if (isZoomedIn) {
+      if (isZoomedIn && autoFollow) {
+        // Already following + zoomed in => zoom out
         mapRef.current.setView(targetPos, 14, { animate: true });
+        setIsZoomedIn(false);
       } else {
+        // Re-center, zoom in, and enable auto-follow
         mapRef.current.setView(targetPos, 18, { animate: true });
+        setIsZoomedIn(true);
+        setAutoFollow(true);
       }
-      setIsZoomedIn(!isZoomedIn);
     }
   };
+
+  // ── Handle user manual drag (disable auto-follow) ───────────────
+  const handleUserInteraction = useCallback(() => {
+    setAutoFollow(false);
+  }, []);
 
   // ── Find nearby drivers ──────────────────────────────────────────
   const findNearbyDrivers = async () => {
@@ -484,7 +688,9 @@ const Tracking: React.FC = () => {
                 borderRadius: '8px', padding: '4px 8px', textAlign: 'center',
                 boxShadow: '0 4px 12px rgba(0,0,0,0.15)', backdropFilter: 'blur(8px)'
               }}>
-                <span style={{ fontSize: '13px', fontWeight: '900', color: '#16a34a' }}>{data?.speed || '0'}</span>
+                <span style={{ fontSize: '13px', fontWeight: '900', color: '#16a34a' }}>
+                  {(data?.gps_status || '').toLowerCase() === 'moving' ? (data?.speed || '0') : '0'}
+                </span>
                 <span style={{ fontSize: '8px', color: '#64748b', fontWeight: '700', marginLeft: '2px' }}>km/h</span>
               </div>
               <div style={{
@@ -492,7 +698,10 @@ const Tracking: React.FC = () => {
                 borderRadius: '8px', padding: '4px 8px', textAlign: 'center',
                 boxShadow: '0 4px 12px rgba(0,0,0,0.15)', backdropFilter: 'blur(8px)'
               }}>
-                <span style={{ fontSize: '13px', fontWeight: '900', color: '#2563eb' }}>{data?.today_dist || '0.0'}</span>
+                {/* Use client-computed distance (haversine from GPS path) for real-time accuracy */}
+                <span style={{ fontSize: '13px', fontWeight: '900', color: '#2563eb' }}>
+                  {clientDistKm > 0 ? clientDistKm.toFixed(2) : (data?.today_dist || '0.0')}
+                </span>
                 <span style={{ fontSize: '8px', color: '#64748b', fontWeight: '700', marginLeft: '2px' }}>km</span>
               </div>
             </div>
@@ -508,8 +717,10 @@ const Tracking: React.FC = () => {
             style={{ height: '100%', width: '100%', zIndex: 1 }}
           >
             <MapController
-              targetPos={position}
+              targetPos={snappedPath.length > 0 ? snappedPath[snappedPath.length - 1] : position}
+              autoFollow={autoFollow}
               onReady={(map) => { mapRef.current = map; }}
+              onUserInteraction={handleUserInteraction}
             />
 
             <TileLayer
@@ -750,8 +961,8 @@ const Tracking: React.FC = () => {
                   {/* Stats row */}
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px', marginBottom: '14px' }}>
                     {[
-                      { label: 'Speed', value: data?.speed || '0', unit: 'km/h', bg: '#f0fdf4', color: '#16a34a' },
-                      { label: 'Distance', value: data?.today_dist || '0.0', unit: 'km', bg: '#eff6ff', color: '#2563eb' },
+                      { label: 'Speed', value: (data?.gps_status || '').toLowerCase() === 'moving' ? (data?.speed || '0') : '0', unit: 'km/h', bg: '#f0fdf4', color: '#16a34a' },
+                      { label: 'Distance', value: clientDistKm > 0 ? clientDistKm.toFixed(2) : (data?.today_dist || '0.0'), unit: 'km', bg: '#eff6ff', color: '#2563eb' },
                       { label: 'Engine', value: data?.ignition ? 'ON' : 'OFF', unit: '', bg: data?.ignition ? '#f0fdf4' : '#f1f5f9', color: data?.ignition ? '#16a34a' : '#94a3b8' },
                     ].map((s, i) => (
                       <div key={i} style={{
@@ -772,7 +983,7 @@ const Tracking: React.FC = () => {
                   }}>
                     <IonIcon icon={locationOutline} style={{ color: '#3b82f6', fontSize: '18px', flexShrink: 0 }} />
                     <div style={{ fontSize: '11px', fontWeight: '600', color: '#334155', lineHeight: '1.4' }}>
-                      {data?.location || 'Detecting location...'}
+                      {displayAddress}
                     </div>
                   </div>
                 </div>

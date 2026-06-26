@@ -10,7 +10,7 @@ class AnalyticsController extends Controller
 {
     public function index(Request $request)
     {
-        $date_from = $request->input('date_from', date('Y-m-01'));
+        $date_from = $request->input('date_from', date('Y-m-d', strtotime('-90 days')));
         $date_to   = $request->input('date_to',   date('Y-m-d'));
 
         // ── Predictive Forecasting Data ─────────────────────────────────────
@@ -251,7 +251,7 @@ class AnalyticsController extends Controller
                 'maintenance'    => round($maintenance, 2),
                 'salaries'       => round($salary, 2),
                 'net_income'     => round($netIncome, 2),
-                'source'         => 'Pinagsama-sama mula sa Boundary, Expenses, Maintenance, at Salaries records ng buwang ito',
+                'source'         => 'Aggregated from Boundary, Expenses, Maintenance, and Salaries records of this month',
             ];
         }
 
@@ -312,20 +312,20 @@ class AnalyticsController extends Controller
             'growth_trend_pct'      => $growth_trend_pct,
             'best_case_net'         => round($predicted_net_income * 1.15, 2),
             'worst_case_net'        => round($predicted_net_income * 0.85, 2),
-            'confidence'            => count($income_history) >= 6 ? 'Mataas' : 'Katamtaman',
+            'confidence'            => count($income_history) >= 6 ? 'High' : 'Medium',
             'best_case' => [
                 'net_income' => round($predicted_net_income * 1.15, 2),
                 'boundary'   => round($predicted_boundary * 1.15, 2),
-                'label'      => 'Pinakamataas na Posible',
-                'source'     => 'Kung lahat ng unit ay aktibo at walang shortage, ito ang pinakamagandang senaryo',
+                'label'      => 'Highest Possible',
+                'source'     => 'Best-case scenario if all units are active and running without shortage',
             ],
             'worst_case' => [
                 'net_income' => round($predicted_net_income * 0.85, 2),
                 'boundary'   => round($predicted_boundary * 0.85, 2),
-                'label'      => 'Pinakamababang Posible',
-                'source'     => 'Kung may mga unit na idle o maraming shortage, ito ang pinaka-mababang inaasahan',
+                'label'      => 'Lowest Possible',
+                'source'     => 'Worst-case scenario if units are idle or high shortages occur',
             ],
-            'source' => 'Kinalkula gamit ang Weighted Moving Average ng huling 6 na buwan — mas mabigat ang timbang ng mga kamakailang buwan',
+            'source' => 'Calculated using a Weighted Moving Average of the last 6 months — recent months have heavier weights',
         ];
 
         // ─────────────────────────────────────────────────────────────────────
@@ -384,7 +384,7 @@ class AnalyticsController extends Controller
                     'daily_profit'        => $netDailyProfit,
                     'monthly_profit'      => $predictedMonthly,
                     'operating_days_90d'  => $operatingDays,
-                    'source'              => 'Kinukuha mula sa Boundary collections at Maintenance costs ng huling 90 araw para sa unit na ito',
+                    'source'              => 'Derived from Boundary collections and Maintenance costs of the last 90 days for this unit',
                 ];
             })
             ->values()
@@ -436,13 +436,13 @@ class AnalyticsController extends Controller
         }
 
         if ($expenseChangePct > 10) {
-            $expense_trend_direction = 'pataas';        // increasing
+            $expense_trend_direction = 'increasing';
             $expense_trend_icon      = '📈';
         } elseif ($expenseChangePct < -10) {
-            $expense_trend_direction = 'pababa';        // decreasing
+            $expense_trend_direction = 'decreasing';
             $expense_trend_icon      = '📉';
         } else {
-            $expense_trend_direction = 'matatag';       // stable
+            $expense_trend_direction = 'stable';
             $expense_trend_icon      = '➡️';
         }
 
@@ -463,13 +463,13 @@ class AnalyticsController extends Controller
         }
 
         if ($maintChangePct > 10) {
-            $maint_trend_direction = 'pataas';
+            $maint_trend_direction = 'increasing';
             $maint_trend_icon      = '📈';
         } elseif ($maintChangePct < -10) {
-            $maint_trend_direction = 'pababa';
+            $maint_trend_direction = 'decreasing';
             $maint_trend_icon      = '📉';
         } else {
-            $maint_trend_direction = 'matatag';
+            $maint_trend_direction = 'stable';
             $maint_trend_icon      = '➡️';
         }
 
@@ -492,24 +492,24 @@ class AnalyticsController extends Controller
 
         // Health label
         if ($financial_health_score >= 80) {
-            $health_label = 'Maganda';       // Good
+            $health_label = 'Good';
             $health_color = 'emerald';
         } elseif ($financial_health_score >= 60) {
-            $health_label = 'Katamtaman';    // Moderate
+            $health_label = 'Moderate';
             $health_color = 'amber';
         } elseif ($financial_health_score >= 40) {
-            $health_label = 'Kailangan Bantayan'; // Needs Watching
+            $health_label = 'Needs Attention';
             $health_color = 'orange';
         } else {
-            $health_label = 'Delikado';      // Critical
+            $health_label = 'Critical';
             $health_color = 'rose';
         }
 
         $risk_assessment = [
             'score'               => $financial_health_score,
-            'revenue_consistency' => $revenue_consistency_score >= 70 ? 'Stable' : ($revenue_consistency_score >= 40 ? 'Medyo Pabago-bago' : 'Volatile'),
-            'expense_trend'       => $expense_trend_direction == 'pataas' ? 'Pataas' : ($expense_trend_direction == 'pababa' ? 'Pababa' : 'Stable'),
-            'maintenance_trend'   => $maint_trend_direction == 'pataas' ? 'Pataas' : ($maint_trend_direction == 'pababa' ? 'Pababa' : 'Stable'),
+            'revenue_consistency' => $revenue_consistency_score >= 70 ? 'Stable' : ($revenue_consistency_score >= 40 ? 'Moderate Volatility' : 'Volatile'),
+            'expense_trend'       => $expense_trend_direction == 'increasing' ? 'Increasing' : ($expense_trend_direction == 'decreasing' ? 'Decreasing' : 'Stable'),
+            'maintenance_trend'   => $maint_trend_direction == 'increasing' ? 'Increasing' : ($maint_trend_direction == 'decreasing' ? 'Decreasing' : 'Stable'),
         ];
 
         // ─────────────────────────────────────────────────────────────────────
@@ -519,37 +519,37 @@ class AnalyticsController extends Controller
             'boundary_collections' => [
                 'table'       => 'boundaries',
                 'column'      => 'actual_boundary',
-                'description' => 'Kinukuha mula sa Boundary Management — Actual na nakolekta sa bawat araw',
+                'description' => 'Retrieved from Boundary Management — Actual amount collected daily',
                 'icon'        => '💰',
             ],
             'expenses' => [
                 'table'       => 'expenses',
                 'column'      => 'amount',
-                'description' => 'Kinukuha mula sa Expense Tracker — Lahat ng gastos ng kumpanya tulad ng gas, opisina, at iba pa',
+                'description' => 'Retrieved from Expense Tracker — Company expenses including fuel, utilities, office supplies, etc.',
                 'icon'        => '🧾',
             ],
             'maintenance_costs' => [
                 'table'       => 'maintenance',
                 'column'      => 'cost',
-                'description' => 'Kinukuha mula sa Maintenance Records — Gastos sa pagpapaayos at spare parts ng bawat unit',
+                'description' => 'Retrieved from Maintenance Records — Repair and parts replacement costs for each vehicle',
                 'icon'        => '🔧',
             ],
             'salaries' => [
                 'table'       => 'salaries',
                 'column'      => 'total_salary',
-                'description' => 'Kinukuha mula sa Payroll — Kabuuang sweldo ng mga driver at staff sa bawat buwan',
+                'description' => 'Retrieved from Payroll — Total salary disbursements for drivers and staff monthly',
                 'icon'        => '👤',
             ],
             'unit_data' => [
                 'table'       => 'units',
                 'column'      => 'status, boundary_rate',
-                'description' => 'Kinukuha mula sa Fleet Management — Status, boundary rate, at detalye ng bawat taxi unit',
+                'description' => 'Retrieved from Fleet Management — Status, boundary rates, and details for all taxi units',
                 'icon'        => '🚕',
             ],
             'driver_data' => [
                 'table'       => 'drivers',
                 'column'      => 'driver_status',
-                'description' => 'Kinukuha mula sa Driver Roster — Listahan at status ng lahat ng driver sa sistema',
+                'description' => 'Retrieved from Driver Roster — Current status and registry of all system drivers',
                 'icon'        => '🪪',
             ],
         ];
@@ -772,5 +772,122 @@ class AnalyticsController extends Controller
         };
 
         return response()->stream($callback, 200, $headers);
+    }
+
+    public function history(Request $request)
+    {
+        $date_from = $request->input('date_from', date('Y-m-d', strtotime('-90 days')));
+        $date_to   = $request->input('date_to',   date('Y-m-d'));
+
+        // Fetch daily boundaries
+        $boundaries = DB::table('boundaries')
+            ->whereNull('deleted_at')
+            ->whereBetween('date', [$date_from, $date_to])
+            ->selectRaw('date, SUM(actual_boundary) as revenue, SUM(shortage) as shortage, COUNT(DISTINCT unit_id) as active_units')
+            ->groupBy('date')
+            ->get()
+            ->keyBy('date');
+
+        // Fetch daily expenses
+        $expenses = DB::table('expenses')
+            ->whereNull('deleted_at')
+            ->whereBetween('date', [$date_from, $date_to])
+            ->selectRaw('date, SUM(ABS(amount)) as expenses')
+            ->groupBy('date')
+            ->get()
+            ->keyBy('date');
+
+        // Fetch daily maintenance
+        $maintenance = DB::table('maintenance')
+            ->whereNull('deleted_at')
+            ->whereBetween('date_started', [$date_from, $date_to])
+            ->selectRaw('date_started as date, SUM(cost) as maintenance')
+            ->groupBy('date')
+            ->get()
+            ->keyBy('date');
+
+        // Consolidate dates
+        $all_dates = collect([])
+            ->merge($boundaries->keys())
+            ->merge($expenses->keys())
+            ->merge($maintenance->keys())
+            ->unique()
+            ->sortDesc();
+
+        $ledger = [];
+        $totals = [
+            'revenue' => 0,
+            'shortage' => 0,
+            'expenses' => 0,
+            'maintenance' => 0,
+            'net_profit' => 0,
+        ];
+
+        foreach ($all_dates as $date) {
+            $rev = (float)($boundaries[$date]->revenue ?? 0);
+            $short = (float)($boundaries[$date]->shortage ?? 0);
+            $exp = (float)($expenses[$date]->expenses ?? 0);
+            $maint = (float)($maintenance[$date]->maintenance ?? 0);
+            $net = $rev - $exp - $maint;
+
+            $ledger[] = [
+                'date' => $date,
+                'revenue' => $rev,
+                'shortage' => $short,
+                'expenses' => $exp,
+                'maintenance' => $maint,
+                'net_profit' => $net,
+                'active_units' => $boundaries[$date]->active_units ?? 0,
+            ];
+
+            $totals['revenue'] += $rev;
+            $totals['shortage'] += $short;
+            $totals['expenses'] += $exp;
+            $totals['maintenance'] += $maint;
+            $totals['net_profit'] += $net;
+        }
+
+        return view('analytics.history', compact('ledger', 'totals', 'date_from', 'date_to'));
+    }
+
+    public function expensesBreakdown(Request $request)
+    {
+        $date = $request->input('date');
+        $date_from = $request->input('date_from');
+        $date_to = $request->input('date_to');
+
+        $query = DB::table('expenses')
+            ->whereNull('expenses.deleted_at')
+            ->leftJoin('units', 'expenses.unit_id', '=', 'units.id')
+            ->select(
+                'expenses.id',
+                'expenses.date',
+                'expenses.category',
+                'expenses.description',
+                'expenses.vendor_name',
+                DB::raw('ABS(expenses.amount) as amount'),
+                'expenses.payment_method',
+                'expenses.reference_number',
+                'expenses.status',
+                'units.plate_number'
+            );
+
+        if ($date) {
+            $query->where('expenses.date', $date);
+        } elseif ($date_from && $date_to) {
+            $query->whereBetween('expenses.date', [$date_from, $date_to]);
+        }
+
+        $expenses = $query->orderBy('expenses.date', 'desc')
+            ->orderByDesc('amount')
+            ->get();
+
+        $sum = $expenses->sum('amount');
+
+        return response()->json([
+            'success' => true,
+            'expenses' => $expenses,
+            'total_formatted' => formatCurrency($sum)
+        ]);
     }
 }

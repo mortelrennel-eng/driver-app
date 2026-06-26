@@ -65,7 +65,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       (error) => {
         if (error.response?.status === 403 || error.response?.status === 401) {
           const msg = (error.response?.data?.message || '').toLowerCase();
-          if (msg.includes('inactive') || msg.includes('disabled') || msg.includes('deactivated') || msg.includes('unauthenticated')) {
+          if (msg.includes('inactive') || msg.includes('disabled') || msg.includes('deactivated') || msg.includes('unauthenticated') || msg.includes('suspended') || msg.includes('banned')) {
             // Account was deactivated/disabled — force logout
             setToken(null);
             setUser(null);

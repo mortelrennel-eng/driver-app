@@ -64,9 +64,12 @@ class AuthController extends Controller
 
         // Block archived/soft-deleted accounts
         if ($user->trashed()) {
+            $msg = ($user->is_disabled && !empty($user->disable_reason))
+                ? $user->disable_reason
+                : 'Your account has been disabled. Please contact the admin.';
             return response()->json([
                 'success' => false,
-                'message' => 'Your account is disabled.',
+                'message' => $msg,
             ], 403);
         }
 
@@ -90,27 +93,47 @@ class AuthController extends Controller
             ], 403);
         }
 
-        // Block inactive accounts — show specific reason
+        // Block inactive accounts
         if (! $user->is_active) {
-            $message = 'Your account has been banned. Please contact the EuroTaxi office.';
-
-            // Check if there's a linked driver record with more context
-            $driver = \App\Models\Driver::where('user_id', $user->id)->first();
-            if ($driver) {
-                if ($driver->driver_status === 'suspended' && $driver->suspended_until) {
-                    $until = \Carbon\Carbon::parse($driver->suspended_until)->format('F j, Y');
-                    $days = now()->diffInDays($driver->suspended_until, false);
-                    $days = max(0, (int) $days);
-                    $message = "Your account is suspended until {$until} ({$days} days remaining). Reason: " . ($driver->suspension_reason ?? 'Administrative action.');
-                } elseif ($driver->driver_status === 'banned') {
-                    $message = 'Your account has been permanently banned. Reason: ' . ($driver->suspension_reason ?? 'Violation of company policy.') . ' Please contact the EuroTaxi office.';
-                }
-            }
-
             return response()->json([
                 'success' => false,
-                'message' => $message,
+                'message' => 'Your account is inactive.',
             ], 403);
+        }
+
+        // Block suspended or banned drivers
+        if ($user->role === 'driver' && $user->driver) {
+            $driver = $user->driver;
+            if ($driver->driver_status === 'suspended') {
+                if ($driver->suspended_until) {
+                    $now = \Carbon\Carbon::now()->timezone('Asia/Manila');
+                    $until = \Carbon\Carbon::parse($driver->suspended_until)->timezone('Asia/Manila');
+                    if ($now->gt($until)) {
+                        // Suspension has ended!
+                        $driver->update([
+                            'driver_status' => 'available',
+                            'suspended_until' => null,
+                            'suspension_reason' => null
+                        ]);
+                    } else {
+                        $daysLeft = ceil($now->diffInSeconds($until, false) / 86400);
+                        return response()->json([
+                            'success' => false,
+                            'message' => "Your account is suspended. Remaining days: {$daysLeft} day(s)."
+                        ], 403);
+                    }
+                } else {
+                    return response()->json([
+                        'success' => false,
+                        'message' => "Your account is suspended. Please contact admin."
+                    ], 403);
+                }
+            } else if ($driver->driver_status === 'banned') {
+                return response()->json([
+                    'success' => false,
+                    'message' => "Your account is permanently banned."
+                ], 403);
+            }
         }
 
         // Get the user with raw DB to bypass Eloquent hidden fields
@@ -242,6 +265,41 @@ class AuthController extends Controller
 
         if ($user->otp_code !== $request->otp || now()->gt($user->otp_expires_at)) {
             return response()->json(['success' => false, 'message' => 'Invalid or expired code.'], 422);
+        }
+
+        // Block suspended or banned drivers
+        if ($user->role === 'driver' && $user->driver) {
+            $driver = $user->driver;
+            if ($driver->driver_status === 'suspended') {
+                if ($driver->suspended_until) {
+                    $now = \Carbon\Carbon::now()->timezone('Asia/Manila');
+                    $until = \Carbon\Carbon::parse($driver->suspended_until)->timezone('Asia/Manila');
+                    if ($now->gt($until)) {
+                        // Suspension has ended!
+                        $driver->update([
+                            'driver_status' => 'available',
+                            'suspended_until' => null,
+                            'suspension_reason' => null
+                        ]);
+                    } else {
+                        $daysLeft = ceil($now->diffInSeconds($until, false) / 86400);
+                        return response()->json([
+                            'success' => false,
+                            'message' => "Your account is suspended. Remaining days: {$daysLeft} day(s)."
+                        ], 403);
+                    }
+                } else {
+                    return response()->json([
+                        'success' => false,
+                        'message' => "Your account is suspended. Please contact admin."
+                    ], 403);
+                }
+            } else if ($driver->driver_status === 'banned') {
+                return response()->json([
+                    'success' => false,
+                    'message' => "Your account is permanently banned."
+                ], 403);
+            }
         }
 
         // Verify device

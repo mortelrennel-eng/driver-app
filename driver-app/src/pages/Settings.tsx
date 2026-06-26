@@ -499,6 +499,18 @@ const Settings: FC = () => {
 
                     <IonButton 
                       expand="block" fill="clear"
+                      onClick={() => ionRouter.push('/terms')}
+                      style={{ ...menuItemStyle, '--background': t.menuBg, '--border-color': t.menuBorder } as any}
+                    >
+                      <div style={menuBtnInner}>
+                        <div style={{ ...menuBtnIconWrap, background: t.goldBg, color: t.gold }}><IonIcon icon={documentTextOutline} /></div>
+                        <span style={{ ...menuBtnText, color: t.textPrimary }}>Terms & Conditions</span>
+                        <IonIcon icon={chevronForwardOutline} style={{ fontSize: '18px', opacity: 0.4 }} />
+                      </div>
+                    </IonButton>
+
+                    <IonButton 
+                      expand="block" fill="clear"
                       onClick={() => {
                         const confirm = window.confirm('Log out from EuroTaxi?');
                         if (confirm) logout();

@@ -485,6 +485,11 @@ foreach ($cases as $c) {
                                             <button type="button" class="px-3 py-1.5 text-[10px] uppercase font-bold tracking-wider bg-transparent text-slate-600 border border-slate-300 rounded-lg hover:border-slate-400 hover:bg-slate-50 transition-all inline-flex items-center gap-1.5 whitespace-nowrap">
                                                 <i data-lucide="chevron-down" class="w-3 h-3"></i> Units
                                             </button>
+                                            <?php if ($isExpired): ?>
+                                            <span onclick="event.stopPropagation(); window.location.href='<?php echo url('office-expenses?action=renew_franchise&case_id=' . urlencode($c['id']) . '&case_no=' . urlencode($c['case_no']) . '&applicant=' . urlencode($c['applicant_name'])); ?>'" class="px-3 py-1.5 text-[10px] uppercase font-bold tracking-wider bg-green-50 text-green-700 border border-green-200 rounded-lg hover:bg-green-100 hover:border-green-300 transition-all inline-flex items-center gap-1.5 whitespace-nowrap cursor-pointer shadow-sm">
+                                                Renew
+                                            </span>
+                                            <?php endif; ?>
                                             <span onclick="event.stopPropagation(); window.location.href='<?php echo base_url('decision-management?id=' . $c['id']); ?>'" class="px-3 py-1.5 text-[10px] uppercase font-bold tracking-wider bg-transparent text-slate-600 border border-slate-300 rounded-lg hover:border-slate-400 hover:bg-slate-50 transition-all inline-flex items-center gap-1.5 whitespace-nowrap cursor-pointer">
                                                 Edit
                                             </span>

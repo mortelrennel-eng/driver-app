@@ -10,11 +10,11 @@
 {{-- Single Draggable Wrapper: contains BOTH the panel and the button --}}
 <div id="chatWidgetContainer"
      class="fixed z-[1200] md:flex hidden flex-col items-end gap-3"
-     style="bottom: 1.5rem; right: 1.5rem; width: 340px; pointer-events: none; touch-action: none;">
+     style="bottom: 1.5rem; right: 1.5rem; pointer-events: none;">
 
     {{-- ① Chat Panel (shown/hidden above the button) --}}
     <div id="chatDrawer"
-         class="w-full bg-white rounded-2xl shadow-2xl border border-gray-200 overflow-hidden pointer-events-auto flex flex-col transition-all duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] transform origin-bottom-right opacity-0 pointer-events-none scale-95 translate-y-4"
+         class="w-[340px] max-w-[calc(100vw-3rem)] bg-white rounded-2xl shadow-2xl border border-gray-200 overflow-hidden flex flex-col transition-all duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] transform origin-bottom-right opacity-0 pointer-events-none scale-95 translate-y-4"
          style="height: 460px; max-height: 460px;">
 
         {{-- Drag Handle (yellow header) --}}

@@ -235,7 +235,7 @@
     @else
     <button type="button"
         class="w-full text-left px-4 py-3 text-xs font-bold text-red-600 hover:bg-red-50 transition-colors flex items-center gap-2.5 border-t border-gray-50"
-        onclick="event.stopPropagation(); closeAllDriverDropdowns(); openSuspendBanModal({{ $driver->id }}, '{{ $driver->full_name }}')">
+        onclick="event.stopPropagation(); closeAllDriverDropdowns(); window.location.href = '{{ route('driver-management.banned') }}?suspend_driver_id={{ $driver->id }}'">
         <i data-lucide="shield-alert" class="w-3.5 h-3.5"></i> Suspend / Ban
     </button>
     @endif

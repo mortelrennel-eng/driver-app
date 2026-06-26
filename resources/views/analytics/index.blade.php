@@ -5,71 +5,78 @@
 @section('page-subheading', 'Real-time Pulse • Historical Trends • Predictive Forecasting')
 
 @section('content')
-    {{-- Export Actions Bar --}}
-    <div class="flex flex-wrap gap-2 mb-4 justify-end">
-        <a href="{{ route('analytics.export.csv', ['type' => 'revenue', 'date_from' => $date_from, 'date_to' => $date_to]) }}"
-           class="flex items-center gap-1.5 px-4 py-2 bg-white border border-slate-200 text-slate-700 text-xs font-bold rounded-xl hover:bg-slate-50 shadow-sm transition-all">
-            <i data-lucide="download" class="w-3.5 h-3.5 text-emerald-500"></i> Revenue CSV
-        </a>
-        <a href="{{ route('analytics.export.csv', ['type' => 'drivers', 'date_from' => $date_from, 'date_to' => $date_to]) }}"
-           class="flex items-center gap-1.5 px-4 py-2 bg-white border border-slate-200 text-slate-700 text-xs font-bold rounded-xl hover:bg-slate-50 shadow-sm transition-all">
-            <i data-lucide="download" class="w-3.5 h-3.5 text-blue-500"></i> Drivers CSV
-        </a>
-        <a href="{{ route('analytics.export.csv', ['type' => 'maintenance', 'date_from' => $date_from, 'date_to' => $date_to]) }}"
-           class="flex items-center gap-1.5 px-4 py-2 bg-white border border-slate-200 text-slate-700 text-xs font-bold rounded-xl hover:bg-slate-50 shadow-sm transition-all">
-            <i data-lucide="download" class="w-3.5 h-3.5 text-amber-500"></i> Maintenance CSV
-        </a>
-    </div>
-
-    {{-- Global Filter --}}
-    <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 mb-8">
-        <form method="GET" action="{{ route('analytics.index') }}" class="flex flex-col md:flex-row items-end gap-4">
-            <div class="flex-1 w-full">
-                <label class="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-1.5 block">Analysis Period</label>
-                <div class="grid grid-cols-2 gap-3">
-                    <input type="date" name="date_from" value="{{ $date_from }}"
-                        class="block w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all text-sm font-semibold">
-                    <input type="date" name="date_to" value="{{ $date_to }}"
-                        class="block w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all text-sm font-semibold">
+    {{-- ── Analytics Command Bar ────────────────────────────────────────────── --}}
+    <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-4 mb-6">
+        <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+            {{-- Quick Title / Info --}}
+            <div class="flex items-center gap-3">
+                <div class="p-2.5 bg-indigo-50 text-indigo-600 rounded-xl">
+                    <i data-lucide="line-chart" class="w-5 h-5"></i>
+                </div>
+                <div>
+                    <h3 class="text-sm font-black text-slate-800 uppercase tracking-wider">Fleet Performance Intelligence</h3>
+                    <p class="text-[10px] text-slate-500 font-bold">Dynamic baseline analytics — updated in real time</p>
                 </div>
             </div>
-            <button type="submit"
-                class="w-full md:w-auto px-8 py-2.5 bg-indigo-600 text-white rounded-xl font-black text-sm hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-200 flex items-center justify-center gap-2">
-                <i data-lucide="refresh-cw" class="w-4 h-4"></i> Sync Data
-            </button>
-        </form>
+
+            {{-- Action Buttons --}}
+            <div class="flex flex-wrap items-center gap-2">
+                <a href="{{ route('analytics.history') }}"
+                   class="flex items-center gap-1.5 px-4 py-2.5 bg-indigo-600 text-white text-xs font-black rounded-xl hover:bg-indigo-700 shadow-md shadow-indigo-200/50 transition-all">
+                    <i data-lucide="history" class="w-4 h-4"></i> Daily History Ledger
+                </a>
+                <span class="w-px h-6 bg-slate-200 mx-1 hidden lg:block"></span>
+                <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest hidden sm:block">Quick Export:</span>
+                <a href="{{ route('analytics.export.csv', ['type' => 'revenue', 'date_from' => $date_from, 'date_to' => $date_to]) }}"
+                   class="flex items-center gap-1.5 px-3 py-2 bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-bold rounded-xl hover:bg-emerald-100 transition-all">
+                    <i data-lucide="download" class="w-3 h-3"></i> Revenue
+                </a>
+                <a href="{{ route('analytics.export.csv', ['type' => 'drivers', 'date_from' => $date_from, 'date_to' => $date_to]) }}"
+                   class="flex items-center gap-1.5 px-3 py-2 bg-blue-50 border border-blue-200 text-blue-700 text-xs font-bold rounded-xl hover:bg-blue-100 transition-all">
+                    <i data-lucide="download" class="w-3 h-3"></i> Drivers
+                </a>
+                <a href="{{ route('analytics.export.csv', ['type' => 'maintenance', 'date_from' => $date_from, 'date_to' => $date_to]) }}"
+                   class="flex items-center gap-1.5 px-3 py-2 bg-amber-50 border border-amber-200 text-amber-700 text-xs font-bold rounded-xl hover:bg-amber-100 transition-all">
+                    <i data-lucide="download" class="w-3 h-3"></i> Maintenance
+                </a>
+            </div>
+        </div>
     </div>
 
-    {{-- ── Advanced Navigation ──────────────────────────────────────────────── --}}
-    <div class="flex flex-wrap items-center gap-2 p-1.5 bg-slate-100/80 backdrop-blur-md rounded-2xl mb-8 w-fit mx-auto shadow-inner border border-slate-200/60">
+    {{-- ── Advanced Navigation Tabs ─────────────────────────────────────────── --}}
+    <div class="flex flex-wrap items-center gap-1.5 p-1.5 bg-slate-900/5 backdrop-blur-md rounded-2xl mb-8 w-fit mx-auto shadow-inner border border-slate-200/60">
         <button onclick="switchTab('pulse')" id="tab-pulse"
-            class="tab-btn px-6 py-2.5 rounded-xl text-xs font-black transition-all flex items-center gap-2 bg-white text-slate-900 shadow-sm border border-slate-200">
-            <i data-lucide="activity" class="w-4 h-4 text-indigo-500"></i> Real-time Pulse
+            class="tab-btn px-5 py-2.5 rounded-xl text-xs font-black transition-all duration-200 flex items-center gap-2 bg-white text-indigo-700 shadow-sm border border-indigo-100 ring-1 ring-indigo-500/20">
+            <i data-lucide="activity" class="w-4 h-4 text-indigo-500"></i>
+            <span>Real-time Pulse</span>
         </button>
         <button onclick="switchTab('performance')" id="tab-performance"
-            class="tab-btn px-6 py-2.5 rounded-xl text-xs font-black transition-all flex items-center gap-2 text-slate-500 hover:text-slate-700">
-            <i data-lucide="bar-chart-3" class="w-4 h-4"></i> Descriptive Analytics
+            class="tab-btn px-5 py-2.5 rounded-xl text-xs font-black transition-all duration-200 flex items-center gap-2 text-slate-500 hover:bg-white hover:text-slate-800 hover:shadow-sm">
+            <i data-lucide="bar-chart-3" class="w-4 h-4"></i>
+            <span>Descriptive Analytics</span>
         </button>
         <button onclick="switchTab('forecast')" id="tab-forecast"
-            class="tab-btn px-6 py-2.5 rounded-xl text-xs font-black transition-all flex items-center gap-2 text-slate-500 hover:text-slate-700">
-            <i data-lucide="trending-up" class="w-4 h-4"></i> Predictive Forecasting
+            class="tab-btn px-5 py-2.5 rounded-xl text-xs font-black transition-all duration-200 flex items-center gap-2 text-slate-500 hover:bg-white hover:text-slate-800 hover:shadow-sm">
+            <i data-lucide="trending-up" class="w-4 h-4"></i>
+            <span>Predictive Forecasting</span>
         </button>
         <button onclick="switchTab('strategy')" id="tab-strategy"
-            class="tab-btn px-6 py-2.5 rounded-xl text-xs font-black transition-all flex items-center gap-2 text-slate-500 hover:text-slate-700">
-            <i data-lucide="brain-circuit" class="w-4 h-4"></i> AI Strategic Insights
+            class="tab-btn px-5 py-2.5 rounded-xl text-xs font-black transition-all duration-200 flex items-center gap-2 text-slate-500 hover:bg-white hover:text-slate-800 hover:shadow-sm">
+            <i data-lucide="brain-circuit" class="w-4 h-4"></i>
+            <span>AI Strategic Insights</span>
         </button>
     </div>
 
     {{-- ══════════════════════════════════════════════════════════════════════
          SECTION 1: OPERATIONAL PULSE (Real-time)
          ══════════════════════════════════════════════════════════════════════ --}}
-    <div id="section-pulse" class="space-y-8 animate-in fade-in duration-500">
+    <div id="section-pulse" class="space-y-8">
         {{-- High Level Pulse Cards --}}
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             {{-- Fleet Health --}}
-            <div class="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm hover:shadow-md transition-all group">
+            <div class="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-sm hover:shadow-xl hover:border-indigo-200 hover:-translate-y-1 transition-all duration-300 group">
                 <div class="flex items-start justify-between mb-4">
-                    <div class="p-3 bg-indigo-50 rounded-2xl text-indigo-600 group-hover:scale-110 transition-transform">
+                    <div class="p-3 bg-indigo-50 rounded-2xl text-indigo-600 group-hover:scale-110 group-hover:shadow-md transition-all duration-300">
                         <i data-lucide="car" class="w-6 h-6"></i>
                     </div>
                     <span class="text-[10px] font-black text-indigo-600 bg-indigo-50 px-2.5 py-1 rounded-full uppercase tracking-widest">Real-time</span>
@@ -79,8 +86,8 @@
                     <span class="text-3xl font-black text-slate-800 leading-none">{{ $fleet_utilization }}%</span>
                     <span class="text-xs font-bold text-slate-500 pb-0.5">Active Now</span>
                 </div>
-                <div class="h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                    <div class="h-full bg-indigo-500 transition-all duration-1000" style="width: {{ $fleet_utilization }}%"></div>
+                <div class="h-2 bg-slate-100 rounded-full overflow-hidden p-0.5 border border-slate-200/30">
+                    <div class="h-full bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 rounded-full transition-all duration-1000 shadow-[0_0_8px_rgba(99,102,241,0.5)]" style="width: {{ $fleet_utilization }}%"></div>
                 </div>
                 <p class="text-[10px] text-slate-500 mt-3 leading-relaxed">
                     Percentage of units currently generating revenue versus idle or in maintenance.
@@ -88,9 +95,9 @@
             </div>
 
             {{-- Financial Pulse --}}
-            <div class="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm hover:shadow-md transition-all group">
+            <div class="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-sm hover:shadow-xl hover:border-emerald-200 hover:-translate-y-1 transition-all duration-300 group">
                 <div class="flex items-start justify-between mb-4">
-                    <div class="p-3 bg-emerald-50 rounded-2xl text-emerald-600 group-hover:scale-110 transition-transform">
+                    <div class="p-3 bg-emerald-50 rounded-2xl text-emerald-600 group-hover:scale-110 group-hover:shadow-md transition-all duration-300">
                         <i data-lucide="wallet" class="w-6 h-6"></i>
                     </div>
                     <span class="text-[10px] font-black text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-full uppercase tracking-widest">Net Pulse</span>
@@ -105,9 +112,9 @@
             </div>
 
             {{-- Revenue Leakage --}}
-            <div class="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm hover:shadow-md transition-all group">
+            <div class="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-sm hover:shadow-xl hover:border-rose-200 hover:-translate-y-1 transition-all duration-300 group">
                 <div class="flex items-start justify-between mb-4">
-                    <div class="p-3 bg-rose-50 rounded-2xl text-rose-600 group-hover:scale-110 transition-transform">
+                    <div class="p-3 bg-rose-50 rounded-2xl text-rose-600 group-hover:scale-110 group-hover:shadow-md transition-all duration-300">
                         <i data-lucide="trending-down" class="w-6 h-6"></i>
                     </div>
                     <span class="text-[10px] font-black text-rose-600 bg-rose-50 px-2.5 py-1 rounded-full uppercase tracking-widest">Risk Factor</span>
@@ -123,9 +130,9 @@
             </div>
 
             {{-- Break-even Analysis --}}
-            <div class="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm hover:shadow-md transition-all group">
+            <div class="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-sm hover:shadow-xl hover:border-amber-200 hover:-translate-y-1 transition-all duration-300 group">
                 <div class="flex items-start justify-between mb-4">
-                    <div class="p-3 bg-amber-50 rounded-2xl text-amber-600 group-hover:scale-110 transition-transform">
+                    <div class="p-3 bg-amber-50 rounded-2xl text-amber-600 group-hover:scale-110 group-hover:shadow-md transition-all duration-300">
                         <i data-lucide="target" class="w-6 h-6"></i>
                     </div>
                     <span class="text-[10px] font-black text-amber-600 bg-amber-50 px-2.5 py-1 rounded-full uppercase tracking-widest">KPI Target</span>
@@ -166,18 +173,26 @@
                     </div>
                 </div>
                 <div class="p-8">
-                    <div class="flex h-12 w-full rounded-2xl overflow-hidden shadow-inner border border-slate-200/50 mb-8">
-                        @php 
-                            $total = array_sum($fleet_pulse); 
-                            $actPct = $total > 0 ? ($fleet_pulse['active_units'] / $total) * 100 : 0;
-                            $idlPct = $total > 0 ? ($fleet_pulse['idle_units'] / $total) * 100 : 0;
-                            $mntPct = $total > 0 ? ($fleet_pulse['maintenance'] / $total) * 100 : 0;
-                            $surPct = $total > 0 ? ($fleet_pulse['surveillance'] / $total) * 100 : 0;
-                        @endphp
-                        <div class="h-full bg-emerald-500 transition-all" style="width: {{ $actPct }}%" title="Active: {{ $fleet_pulse['active_units'] }}"></div>
-                        <div class="h-full bg-slate-300 transition-all" style="width: {{ $idlPct }}%" title="Idle: {{ $fleet_pulse['idle_units'] }}"></div>
-                        <div class="h-full bg-amber-500 transition-all" style="width: {{ $mntPct }}%" title="Maintenance: {{ $fleet_pulse['maintenance'] }}"></div>
-                        <div class="h-full bg-rose-500 transition-all" style="width: {{ $surPct }}%" title="Surveillance: {{ $fleet_pulse['surveillance'] }}"></div>
+                    @php 
+                        $total = array_sum($fleet_pulse); 
+                        $actPct = $total > 0 ? ($fleet_pulse['active_units'] / $total) * 100 : 0;
+                        $idlPct = $total > 0 ? ($fleet_pulse['idle_units'] / $total) * 100 : 0;
+                        $mntPct = $total > 0 ? ($fleet_pulse['maintenance'] / $total) * 100 : 0;
+                        $surPct = $total > 0 ? ($fleet_pulse['surveillance'] / $total) * 100 : 0;
+                    @endphp
+                    <div class="flex h-10 w-full rounded-3xl overflow-hidden shadow-inner border border-slate-200/40 p-1 bg-slate-50 gap-1 mb-8">
+                        @if($actPct > 0)
+                            <div class="h-full bg-gradient-to-r from-emerald-400 to-emerald-500 rounded-l-2xl transition-all hover:scale-[1.01] hover:brightness-105 cursor-help" style="width: {{ $actPct }}%" title="Active: {{ $fleet_pulse['active_units'] }}"></div>
+                        @endif
+                        @if($idlPct > 0)
+                            <div class="h-full bg-gradient-to-r from-slate-300 to-slate-400 transition-all hover:scale-[1.01] hover:brightness-105 cursor-help" style="width: {{ $idlPct }}%" title="Idle: {{ $fleet_pulse['idle_units'] }}"></div>
+                        @endif
+                        @if($mntPct > 0)
+                            <div class="h-full bg-gradient-to-r from-amber-400 to-amber-500 transition-all hover:scale-[1.01] hover:brightness-105 cursor-help" style="width: {{ $mntPct }}%" title="Maintenance: {{ $fleet_pulse['maintenance'] }}"></div>
+                        @endif
+                        @if($surPct > 0)
+                            <div class="h-full bg-gradient-to-r from-rose-400 to-rose-500 rounded-r-2xl transition-all hover:scale-[1.01] hover:brightness-105 cursor-help" style="width: {{ $surPct }}%" title="Surveillance: {{ $fleet_pulse['surveillance'] }}"></div>
+                        @endif
                     </div>
 
                     <div class="grid grid-cols-2 sm:grid-cols-4 gap-6">
@@ -206,9 +221,11 @@
             </div>
 
             {{-- Operational Insight Summary --}}
-            <div class="bg-indigo-900 rounded-3xl p-8 text-white relative overflow-hidden group">
+            <div class="bg-gradient-to-br from-indigo-900 via-indigo-950 to-slate-900 rounded-3xl p-8 text-white relative overflow-hidden group shadow-xl shadow-indigo-950/40 border border-indigo-800/30">
                 <div class="relative z-10">
-                    <h3 class="text-xl font-black mb-4">Pulse Analysis</h3>
+                    <h3 class="text-xl font-black mb-4 flex items-center gap-2">
+                        <i data-lucide="activity" class="w-5 h-5 text-indigo-400 animate-pulse"></i> Pulse Analysis
+                    </h3>
                     <div class="space-y-6">
                         <div class="flex gap-4">
                             <div class="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center shrink-0">
@@ -236,8 +253,8 @@
                             </p>
                         </div>
                     </div>
-                    <button onclick="switchTab('strategy')" class="mt-8 w-full py-3 bg-white text-indigo-900 rounded-xl font-black text-sm hover:bg-indigo-50 transition-all flex items-center justify-center gap-2 shadow-xl">
-                        View AI Strategy <i data-lucide="arrow-right" class="w-4 h-4"></i>
+                    <button onclick="switchTab('strategy')" class="mt-8 w-full py-3 bg-gradient-to-r from-emerald-500 to-teal-600 text-white rounded-xl font-black text-sm hover:from-emerald-400 hover:to-teal-500 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-2 shadow-lg shadow-emerald-900/30 border border-emerald-400/20">
+                        View AI Strategy <i data-lucide="arrow-right" class="w-4 h-4 text-emerald-300"></i>
                     </button>
                 </div>
                 {{-- Decorative background --}}
@@ -250,7 +267,7 @@
     {{-- ══════════════════════════════════════════════════════════════════════
          SECTION 2: PERFORMANCE TRENDS (Historical)
          ══════════════════════════════════════════════════════════════════════ --}}
-    <div id="section-performance" class="hidden space-y-8 animate-in slide-in-from-bottom-4 duration-500">
+    <div id="section-performance" class="hidden space-y-8">
 
         {{-- Revenue Heatmap Calendar --}}
         <div class="bg-white rounded-3xl border border-slate-200 shadow-sm p-6 mb-6">
@@ -420,7 +437,7 @@
         {{-- ┌─────────────────────────────────────────────────────────────────────┐
              │  1. HERO BANNER – Hulaan ng Kita sa Susunod na Buwan               │
              └─────────────────────────────────────────────────────────────────────┘ --}}
-        <div class="relative bg-gradient-to-br from-indigo-900 via-indigo-800 to-slate-900 rounded-3xl p-8 md:p-12 text-white shadow-2xl">
+        <div class="relative z-20 bg-gradient-to-br from-indigo-900 via-indigo-800 to-slate-900 rounded-3xl p-8 md:p-12 text-white shadow-2xl">
             {{-- Decorative elements --}}
             <div class="absolute inset-0 overflow-hidden rounded-3xl pointer-events-none">
                 <div class="absolute -right-16 -top-16 w-64 h-64 bg-indigo-500/20 rounded-full blur-3xl"></div>
@@ -437,39 +454,39 @@
                                 <i data-lucide="trending-up" class="w-6 h-6 text-emerald-400"></i>
                             </div>
                             <div>
-                                <h2 class="text-xl md:text-2xl font-black leading-tight">Hulaan ng Kita sa Susunod na Buwan</h2>
-                                <p class="text-indigo-300 text-xs font-bold">Next Month Income Prediction</p>
+                                <h2 class="text-xl md:text-2xl font-black leading-tight">Next Month Income Prediction</h2>
+                                <p class="text-indigo-300 text-xs font-bold">Predictive Analytics Model</p>
                             </div>
                         </div>
                         <p class="text-indigo-200/80 text-sm max-w-xl leading-relaxed mb-6">
-                            Batay sa iyong nakaraang 6 na buwan na datos ng boundary, gastos, pagpapaayos, at sahod — ito ang aming hinuhulaang kita mo sa susunod na buwan.
+                            Based on your past 6 months of boundary collections, expenses, maintenance, and salaries — this is your predicted net income for next month.
                         </p>
                         @php
                             $lastMonthNet = collect($forecast_monthly_history)->last()['net_income'] ?? 0;
                             $diffNet = ($forecast_predicted['net_income'] ?? 0) - $lastMonthNet;
                             $trendUpNet = $diffNet >= 0;
                         @endphp
-                        <div class="flex items-end gap-3 mb-2 relative group w-fit">
-                            <span class="text-4xl md:text-5xl font-black text-white leading-none tracking-tight cursor-help border-b-2 border-dashed border-indigo-400/50 pb-1" id="forecast-net-income-trigger">
+                        <div class="flex items-end gap-3 mb-2 relative z-30 w-fit">
+                            <span class="text-4xl md:text-5xl font-black text-white leading-none tracking-tight cursor-help border-b-2 border-dashed border-indigo-400/50 pb-1" id="forecast-net-income-trigger" onclick="toggleForecastPopover(event)" onmouseenter="showForecastPopover(event)" onmouseleave="scheduleForecastPopoverHide()">
                                 {{ formatCurrency($forecast_predicted['net_income'] ?? 0) }}
                             </span>
                             
-                            {{-- DETAILED COMPUTATION POPOVER - Fixed with JS click/hover --}}
-                            <div id="forecast-computation-popover" class="fixed z-[999] w-[400px] bg-white rounded-2xl shadow-2xl border border-slate-200 hidden p-6 text-slate-800" style="pointer-events:auto;">
+                            {{-- DETAILED COMPUTATION POPOVER - JS Smart Positioning --}}
+                            <div id="forecast-computation-popover" class="fixed z-[9999] w-[360px] bg-white rounded-2xl shadow-2xl border border-slate-200 p-6 text-slate-800 opacity-0 invisible transition-all duration-200 pointer-events-none" onmouseenter="cancelForecastPopoverHide()" onmouseleave="scheduleForecastPopoverHide()">
                                 {{-- Arrow indicator --}}
-                                <div class="flex items-center gap-2 mb-4 pb-3 border-b border-slate-100">
+                                <div id="forecast-popover-arrow" class="absolute w-4 h-4 bg-white rotate-45 border-slate-200"></div>
+                                <div class="flex items-center gap-2 mb-4 pb-3 border-b border-slate-100 relative z-10">
                                     <div class="w-8 h-8 bg-indigo-50 rounded-xl flex items-center justify-center shrink-0">
                                         <i data-lucide="calculator" class="w-4 h-4 text-indigo-600"></i>
                                     </div>
                                     <div>
-                                        <h4 class="text-sm font-black text-slate-800 leading-tight">Detalyadong Kompyutasyon</h4>
+                                        <h4 class="text-sm font-black text-slate-800 leading-tight">Detailed Computation</h4>
                                         <p class="text-[10px] text-indigo-500 font-bold">Next Month Income Forecast Breakdown</p>
                                     </div>
-                                    <button onclick="document.getElementById('forecast-computation-popover').classList.add('hidden')" class="ml-auto w-6 h-6 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-400 text-xs transition-colors">✕</button>
                                 </div>
                                 
                                 <p class="text-[10px] text-slate-500 mb-4 leading-relaxed font-medium bg-indigo-50 p-3 rounded-xl border border-indigo-100">
-                                    📊 Kinalkula gamit ang <strong class="text-indigo-700">Weighted Moving Average</strong> ng nakaraang <strong class="text-indigo-700">6 na buwan</strong>. Mas mabigat ang timbang ng mga kamakailang buwan.
+                                    📊 Calculated using a <strong class="text-indigo-700">Weighted Moving Average</strong> of the past <strong class="text-indigo-700">6 months</strong>. More recent months have a higher weight.
                                 </p>
                                 
                                 {{-- Revenue Line --}}
@@ -478,8 +495,8 @@
                                         <div class="flex items-center gap-2">
                                             <span class="w-6 h-6 rounded-lg bg-emerald-500 text-white text-xs font-black flex items-center justify-center">+</span>
                                             <div>
-                                                <p class="text-xs font-black text-slate-700">Koleksyon (Boundary)</p>
-                                                <p class="text-[9px] text-slate-400 font-bold">Inaasahang boundary collections</p>
+                                                <p class="text-xs font-black text-slate-700">Boundary Collection</p>
+                                                <p class="text-[9px] text-slate-400 font-bold">Expected boundary collections</p>
                                             </div>
                                         </div>
                                         <span class="font-black text-emerald-600 text-sm">{{ formatCurrency($forecast_predicted['predicted_boundary'] ?? 0) }}</span>
@@ -488,8 +505,8 @@
                                         <div class="flex items-center gap-2">
                                             <span class="w-6 h-6 rounded-lg bg-rose-500 text-white text-xs font-black flex items-center justify-center">-</span>
                                             <div>
-                                                <p class="text-xs font-black text-slate-700">Gastos (Office Expenses)</p>
-                                                <p class="text-[9px] text-slate-400 font-bold">Kuryente, tubig, supplies, atbp.</p>
+                                                <p class="text-xs font-black text-slate-700">Office Expenses</p>
+                                                <p class="text-[9px] text-slate-400 font-bold">Electricity, water, office supplies, etc.</p>
                                             </div>
                                         </div>
                                         <span class="font-black text-rose-600 text-sm">{{ formatCurrency($forecast_predicted['predicted_expenses'] ?? 0) }}</span>
@@ -498,8 +515,8 @@
                                         <div class="flex items-center gap-2">
                                             <span class="w-6 h-6 rounded-lg bg-amber-500 text-white text-xs font-black flex items-center justify-center">-</span>
                                             <div>
-                                                <p class="text-xs font-black text-slate-700">Pagpapaayos (Maintenance)</p>
-                                                <p class="text-[9px] text-slate-400 font-bold">Repair costs ng lahat ng unit</p>
+                                                <p class="text-xs font-black text-slate-700">Maintenance Costs</p>
+                                                <p class="text-[9px] text-slate-400 font-bold">Repair costs for all active units</p>
                                             </div>
                                         </div>
                                         <span class="font-black text-amber-600 text-sm">{{ formatCurrency($forecast_predicted['predicted_maintenance'] ?? 0) }}</span>
@@ -508,8 +525,8 @@
                                         <div class="flex items-center gap-2">
                                             <span class="w-6 h-6 rounded-lg bg-indigo-500 text-white text-xs font-black flex items-center justify-center">-</span>
                                             <div>
-                                                <p class="text-xs font-black text-slate-700">Sahod (Salaries)</p>
-                                                <p class="text-[9px] text-slate-400 font-bold">Payroll ng lahat ng empleyado</p>
+                                                <p class="text-xs font-black text-slate-700">Employee Salaries</p>
+                                                <p class="text-[9px] text-slate-400 font-bold">Payroll for all employees</p>
                                             </div>
                                         </div>
                                         <span class="font-black text-indigo-600 text-sm">{{ formatCurrency($forecast_predicted['predicted_salaries'] ?? 0) }}</span>
@@ -518,9 +535,9 @@
                                 
                                 {{-- Divider + Formula --}}
                                 <div class="border-t-2 border-dashed border-slate-200 pt-3 mt-3">
-                                    <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">Formula: Koleksyon − Gastos − Pagpapaayos − Sahod</p>
+                                    <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">Formula: Collections − Expenses − Maintenance − Salaries</p>
                                     <div class="flex justify-between items-center bg-gradient-to-r from-slate-800 to-slate-900 p-4 rounded-xl">
-                                        <span class="text-[11px] font-black text-white uppercase tracking-widest">Inaasahang Net Income</span>
+                                        <span class="text-[11px] font-black text-white uppercase tracking-widest">Expected Net Income</span>
                                         <span class="text-lg font-black {{ ($forecast_predicted['net_income'] ?? 0) >= 0 ? 'text-emerald-400' : 'text-rose-400' }}">
                                             {{ formatCurrency($forecast_predicted['net_income'] ?? 0) }}
                                         </span>
@@ -547,8 +564,8 @@
                             </div>
                         </div>
                         <p class="text-indigo-300/70 text-[11px] font-bold mt-1 relative z-0 flex items-center gap-1.5">
-                            <i data-lucide="mouse-pointer-click" class="w-3 h-3"></i>
-                            I-click ang numero para makita ang detalyadong kompyutasyon
+                            <i data-lucide="mouse-pointer-2" class="w-3 h-3"></i>
+                            Hover over the figure to view the full calculation
                         </p>
                     </div>
 
@@ -558,33 +575,33 @@
                         <div class="flex-1 p-5 bg-white/10 backdrop-blur-sm rounded-2xl border border-white/10">
                             <div class="flex items-center gap-2 mb-2">
                                 <i data-lucide="arrow-up-circle" class="w-4 h-4 text-emerald-400"></i>
-                                <span class="text-[10px] font-black text-emerald-300 uppercase tracking-widest">Pinakamataas (Best Case)</span>
+                                <span class="text-[10px] font-black text-emerald-300 uppercase tracking-widest">Highest (Best Case)</span>
                             </div>
                             <p class="text-2xl font-black text-emerald-300">{{ formatCurrency($forecast_predicted['best_case_net'] ?? 0) }}</p>
-                            <p class="text-[10px] text-indigo-300/60 mt-1">Kung lahat ng unit kumita nang maayos</p>
+                            <p class="text-[10px] text-indigo-300/60 mt-1">Assumes optimal performance across all units</p>
                         </div>
                         {{-- Worst Case --}}
                         <div class="flex-1 p-5 bg-white/10 backdrop-blur-sm rounded-2xl border border-white/10">
                             <div class="flex items-center gap-2 mb-2">
                                 <i data-lucide="arrow-down-circle" class="w-4 h-4 text-amber-400"></i>
-                                <span class="text-[10px] font-black text-amber-300 uppercase tracking-widest">Pinakamababa (Worst Case)</span>
+                                <span class="text-[10px] font-black text-amber-300 uppercase tracking-widest">Lowest (Worst Case)</span>
                             </div>
                             <p class="text-2xl font-black text-amber-300">{{ formatCurrency($forecast_predicted['worst_case_net'] ?? 0) }}</p>
-                            <p class="text-[10px] text-indigo-300/60 mt-1">Kung may unexpected na gastos o shortage</p>
+                            <p class="text-[10px] text-indigo-300/60 mt-1">Accounts for unexpected expenses or shortages</p>
                         </div>
                         {{-- Confidence --}}
                         <div class="flex items-center gap-3 p-4 bg-white/5 rounded-2xl border border-white/10">
                             <i data-lucide="shield-check" class="w-5 h-5 text-indigo-300"></i>
                             <div>
                                 <p class="text-[10px] font-black text-indigo-300/70 uppercase tracking-widest">Confidence Level</p>
-                                <p class="text-sm font-black text-white">{{ $forecast_predicted['confidence'] ?? 'N/A' }}</p>
+                                <p class="text-sm font-black text-white">@if(($forecast_predicted['confidence'] ?? '') === 'Mataas' || ($forecast_predicted['confidence'] ?? '') === 'High') High @elseif(($forecast_predicted['confidence'] ?? '') === 'Katamtaman' || ($forecast_predicted['confidence'] ?? '') === 'Medium') Medium @elseif(($forecast_predicted['confidence'] ?? '') === 'Mababa' || ($forecast_predicted['confidence'] ?? '') === 'Low') Low @else {{ $forecast_predicted['confidence'] ?? 'N/A' }} @endif</p>
                             </div>
                             <span class="ml-auto px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider
                                 @php
                                     $conf = $forecast_predicted['confidence'] ?? '';
                                 @endphp
-                                {{ $conf === 'Mataas' ? 'bg-emerald-500/20 text-emerald-300' : ($conf === 'Katamtaman' ? 'bg-amber-500/20 text-amber-300' : 'bg-rose-500/20 text-rose-300') }}
-                            ">{{ $conf }}</span>
+                                {{ $conf === 'High' || $conf === 'Mataas' ? 'bg-emerald-500/20 text-emerald-300' : ($conf === 'Medium' || $conf === 'Katamtaman' ? 'bg-amber-500/20 text-amber-300' : 'bg-rose-500/20 text-rose-300') }}
+                            ">@if($conf === 'Mataas' || $conf === 'High') High @elseif($conf === 'Katamtaman' || $conf === 'Medium') Medium @elseif($conf === 'Mababa' || $conf === 'Low') Low @else {{ $conf }} @endif</span>
                         </div>
                     </div>
                 </div>
@@ -598,36 +615,36 @@
             @php
                 $forecastCards = [
                     [
-                        'label' => 'Inaasahang Koleksyon',
+                        'label' => 'Expected Collections',
                         'sublabel' => 'Expected Collections',
                         'key' => 'boundary',
                         'icon' => 'wallet',
                         'color' => 'emerald',
-                        'source' => 'Mula sa average ng nakolektang boundary ng mga taxi unit sa nakaraang 6 na buwan.',
+                        'source' => 'Derived from the average boundary collected across active taxi units over the past 6 months.',
                     ],
                     [
-                        'label' => 'Inaasahang Gastos',
+                        'label' => 'Expected Expenses',
                         'sublabel' => 'Expected Expenses',
                         'key' => 'expenses',
                         'icon' => 'receipt',
                         'color' => 'rose',
-                        'source' => 'Mula sa average ng mga office expenses (kuryente, tubig, supplies, atbp.) sa nakaraang 6 na buwan.',
+                        'source' => 'Derived from the average office expenses (utilities, office supplies, etc.) over the past 6 months.',
                     ],
                     [
-                        'label' => 'Inaasahang Pagpapaayos',
+                        'label' => 'Expected Repairs',
                         'sublabel' => 'Expected Repairs',
                         'key' => 'maintenance',
                         'icon' => 'wrench',
                         'color' => 'amber',
-                        'source' => 'Mula sa maintenance records — average ng repair costs ng lahat ng unit sa nakaraang 6 na buwan.',
+                        'source' => 'Derived from vehicle maintenance records — average repair costs of all units over the past 6 months.',
                     ],
                     [
-                        'label' => 'Inaasahang Sahod',
+                        'label' => 'Expected Salaries',
                         'sublabel' => 'Expected Salaries',
                         'key' => 'salaries',
                         'icon' => 'users',
                         'color' => 'indigo',
-                        'source' => 'Mula sa payroll records — average ng mga salary payments sa nakaraang 6 na buwan.',
+                        'source' => 'Derived from employee payroll records — average salary payouts over the past 6 months.',
                     ],
                 ];
             @endphp
@@ -662,7 +679,7 @@
 
                         <h3 class="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-1">{{ $card['label'] }}</h3>
                         <p class="text-[9px] font-bold text-slate-400 mb-3 border-b border-slate-100 pb-2">
-                            Compute: ({{ formatCurrency($val) }} Inaasahan - {{ formatCurrency($lastVal) }} Huling Buwan)
+                            Compute: ({{ formatCurrency($val) }} Expected - {{ formatCurrency($lastVal) }} Last Month)
                         </p>
 
                         <p class="text-3xl font-black text-slate-800 mb-4">{{ formatCurrency($val) }}</p>
@@ -685,8 +702,8 @@
             <div class="px-8 py-6 border-b border-slate-100 bg-slate-50/50">
                 <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                     <div>
-                        <h3 class="text-lg font-black text-slate-800">Trend ng 6 na Buwan + Hulaan sa Susunod</h3>
-                        <p class="text-xs text-slate-500">Actual net income ng nakaraang 6 na buwan at inaasahan sa susunod</p>
+                        <h3 class="text-lg font-black text-slate-800">6-Month Trend & Next Month Prediction</h3>
+                        <p class="text-xs text-slate-500">Actual net income of the last 6 months and predicted next month</p>
                     </div>
                     <div class="flex items-center gap-4 text-[10px] font-bold text-slate-500">
                         <div class="flex items-center gap-1.5">
@@ -714,10 +731,10 @@
                     <div class="flex items-start gap-3">
                         <i data-lucide="info" class="w-5 h-5 text-indigo-500 flex-shrink-0 mt-0.5"></i>
                         <div>
-                            <p class="text-[11px] font-black text-indigo-700 uppercase tracking-widest mb-1">Paano Basahin ang Chart</p>
+                            <p class="text-[11px] font-black text-indigo-700 uppercase tracking-widest mb-1">How to Read the Chart</p>
                             <p class="text-xs text-slate-600 leading-relaxed">
-                                Ang <strong>blue bars</strong> ay ang tunay na net income sa nakaraang 6 na buwan. Ang <strong>green striped bar</strong> sa dulo ay ang aming prediction para sa susunod na buwan.
-                                Ang <strong>green line</strong> (Revenue) at <strong>red line</strong> (Total Expenses) ang nagpapakita ng overall trend. Kapag malayo ang green sa red, maganda ang margin mo.
+                                The <strong>blue bars</strong> represent the actual net income of the past 6 months. The <strong>green striped bar</strong> at the end is our prediction for next month.
+                                The <strong>green line</strong> (Revenue) and <strong>red line</strong> (Total Expenses) show the overall trends. A wider gap between the green and red lines indicates a better profit margin.
                             </p>
                         </div>
                     </div>
@@ -735,7 +752,7 @@
                 @php
                     $healthScore = $forecast_health['score'] ?? 0;
                     $gaugeColor = $healthScore >= 80 ? '#10b981' : ($healthScore >= 60 ? '#f59e0b' : '#ef4444');
-                    $gaugeLabel = $healthScore >= 80 ? 'Maganda' : ($healthScore >= 60 ? 'Katamtaman' : 'Nanganganib');
+                    $gaugeLabel = $healthScore >= 80 ? 'Good' : ($healthScore >= 60 ? 'Moderate' : ($healthScore >= 40 ? 'Needs Attention' : 'Critical'));
                     $gaugeBg = $healthScore >= 80 ? 'bg-emerald-50 text-emerald-700' : ($healthScore >= 60 ? 'bg-amber-50 text-amber-700' : 'bg-rose-50 text-rose-700');
                 @endphp
                 <div class="relative w-48 h-48 mb-6">
@@ -747,20 +764,20 @@
                 </div>
                 <span class="px-4 py-1.5 rounded-full text-xs font-black {{ $gaugeBg }}">{{ $gaugeLabel }}</span>
                 <p class="text-[10px] text-slate-400 mt-3 text-center leading-relaxed">
-                    Sinusukat base sa consistency ng revenue, trend ng expenses, at maintenance patterns.
+                    Measured based on revenue consistency, expense trends, and maintenance patterns.
                 </p>
             </div>
 
             {{-- Sub-metrics --}}
             <div class="lg:col-span-2 bg-white rounded-3xl border border-slate-200 shadow-sm p-8">
-                <h3 class="text-lg font-black text-slate-800 mb-2">Detalye ng Financial Health</h3>
-                <p class="text-xs text-slate-500 mb-8">Mga bahagi na bumubuo sa overall health score ng iyong fleet business</p>
+                <h3 class="text-lg font-black text-slate-800 mb-2">Financial Health Details</h3>
+                <p class="text-xs text-slate-500 mb-8">Key components that determine the overall health score of your fleet business</p>
 
                 <div class="space-y-6">
                     {{-- Revenue Consistency --}}
                     @php
                         $revCon = $forecast_health['revenue_consistency'] ?? 'N/A';
-                        $revConColor = $revCon === 'Stable' ? 'emerald' : ($revCon === 'Volatile' ? 'rose' : 'amber');
+                        $revConColor = ($revCon === 'Stable') ? 'emerald' : (($revCon === 'Volatile' || $revCon === 'Medyo Pabago-bago') ? 'rose' : 'amber');
                     @endphp
                     <div class="p-5 bg-slate-50 rounded-2xl border border-slate-100">
                         <div class="flex items-center justify-between mb-3">
@@ -770,39 +787,43 @@
                                 </div>
                                 <div>
                                     <h4 class="text-sm font-black text-slate-800">Revenue Consistency</h4>
-                                    <p class="text-[10px] text-slate-500">Gaano ka-stable ang iyong monthly collections?</p>
+                                    <p class="text-[10px] text-slate-500">How stable are your monthly collections?</p>
                                 </div>
                             </div>
-                            <span class="px-3 py-1 bg-{{ $revConColor }}-50 text-{{ $revConColor }}-700 rounded-full text-[10px] font-black border border-{{ $revConColor }}-200">{{ $revCon }}</span>
+                            <span class="px-3 py-1 bg-{{ $revConColor }}-50 text-{{ $revConColor }}-700 rounded-full text-[10px] font-black border border-{{ $revConColor }}-200">
+                                @if($revCon === 'Medyo Pabago-bago') Moderate Volatility @else {{ $revCon }} @endif
+                            </span>
                         </div>
-                        <p class="text-[10px] text-slate-500 leading-relaxed pl-[52px]">Kung "Stable", ibig sabihin malapit-lapit ang koleksyon buwan-buwan. Kung "Volatile", malaki ang pagbabago ng collection amounts.</p>
+                        <p class="text-[10px] text-slate-500 leading-relaxed pl-[52px]">A "Stable" status indicates consistent month-to-month collections. A "Volatile" status indicates high fluctuations in revenue.</p>
                     </div>
 
                     {{-- Expense Trend --}}
                     @php
                         $expTrend = $forecast_health['expense_trend'] ?? 'N/A';
-                        $expColor = $expTrend === 'Pababa' ? 'emerald' : ($expTrend === 'Pataas' ? 'rose' : 'amber');
+                        $expColor = ($expTrend === 'Decreasing' || $expTrend === 'Pababa') ? 'emerald' : (($expTrend === 'Increasing' || $expTrend === 'Pataas') ? 'rose' : 'amber');
                     @endphp
                     <div class="p-5 bg-slate-50 rounded-2xl border border-slate-100">
                         <div class="flex items-center justify-between mb-3">
                             <div class="flex items-center gap-3">
                                 <div class="p-2.5 bg-{{ $expColor }}-50 rounded-xl">
-                                    <i data-lucide="{{ $expTrend === 'Pababa' ? 'trending-down' : 'trending-up' }}" class="w-5 h-5 text-{{ $expColor }}-600"></i>
+                                    <i data-lucide="{{ ($expTrend === 'Decreasing' || $expTrend === 'Pababa') ? 'trending-down' : 'trending-up' }}" class="w-5 h-5 text-{{ $expColor }}-600"></i>
                                 </div>
                                 <div>
                                     <h4 class="text-sm font-black text-slate-800">Expense Trend</h4>
-                                    <p class="text-[10px] text-slate-500">Pataas ba o pababa ang iyong gastos?</p>
+                                    <p class="text-[10px] text-slate-500">Are your company expenses increasing or decreasing?</p>
                                 </div>
                             </div>
-                            <span class="px-3 py-1 bg-{{ $expColor }}-50 text-{{ $expColor }}-700 rounded-full text-[10px] font-black border border-{{ $expColor }}-200">{{ $expTrend }}</span>
+                            <span class="px-3 py-1 bg-{{ $expColor }}-50 text-{{ $expColor }}-700 rounded-full text-[10px] font-black border border-{{ $expColor }}-200">
+                                @if($expTrend === 'Pataas') Increasing @elseif($expTrend === 'Pababa') Decreasing @else {{ $expTrend }} @endif
+                            </span>
                         </div>
-                        <p class="text-[10px] text-slate-500 leading-relaxed pl-[52px]">Kung "Pataas" ang gastos, baka kailangan mong i-review ang mga office expenses at maintenance costs para makatipid.</p>
+                        <p class="text-[10px] text-slate-500 leading-relaxed pl-[52px]">An "Increasing" trend suggests you should audit office expenses and vehicle maintenance costs to identify savings.</p>
                     </div>
 
                     {{-- Maintenance Trend --}}
                     @php
                         $maintTrend = $forecast_health['maintenance_trend'] ?? 'N/A';
-                        $maintColor = $maintTrend === 'Pababa' ? 'emerald' : ($maintTrend === 'Pataas' ? 'rose' : 'amber');
+                        $maintColor = ($maintTrend === 'Decreasing' || $maintTrend === 'Pababa') ? 'emerald' : (($maintTrend === 'Increasing' || $maintTrend === 'Pataas') ? 'rose' : 'amber');
                     @endphp
                     <div class="p-5 bg-slate-50 rounded-2xl border border-slate-100">
                         <div class="flex items-center justify-between mb-3">
@@ -812,16 +833,18 @@
                                 </div>
                                 <div>
                                     <h4 class="text-sm font-black text-slate-800">Maintenance Trend</h4>
-                                    <p class="text-[10px] text-slate-500">Pataas ba o pababa ang repair costs?</p>
+                                    <p class="text-[10px] text-slate-500">Are vehicle repair costs increasing or decreasing?</p>
                                 </div>
                             </div>
-                            <span class="px-3 py-1 bg-{{ $maintColor }}-50 text-{{ $maintColor }}-700 rounded-full text-[10px] font-black border border-{{ $maintColor }}-200">{{ $maintTrend }}</span>
+                            <span class="px-3 py-1 bg-{{ $maintColor }}-50 text-{{ $maintColor }}-700 rounded-full text-[10px] font-black border border-{{ $maintColor }}-200">
+                                @if($maintTrend === 'Pataas') Increasing @elseif($maintTrend === 'Pababa') Decreasing @else {{ $maintTrend }} @endif
+                            </span>
                         </div>
-                        <p class="text-[10px] text-slate-500 leading-relaxed pl-[52px]">Kung "Pababa" — magandang senyales! Ibig sabihin bumaba ang pagpapaayos. Kung "Pataas" — check kung may lumang unit na paulit-ulit na nasasagawa.</p>
+                        <p class="text-[10px] text-slate-500 leading-relaxed pl-[52px]">A "Decreasing" trend is ideal, indicating fewer repairs. An "Increasing" trend suggests evaluating older units that require frequent repairs.</p>
+                    </div>
                     </div>
                 </div>
             </div>
-        </div>
 
         {{-- ┌─────────────────────────────────────────────────────────────────────┐
              │  6. HOW WE COMPUTE – Transparent Methodology                       │
@@ -833,8 +856,8 @@
                         <i data-lucide="eye" class="w-5 h-5 text-indigo-600"></i>
                     </div>
                     <div>
-                        <h3 class="text-lg font-black text-slate-800">Paano Namin Kinukuwenta Ito?</h3>
-                        <p class="text-xs text-slate-500">Transparency — makikita mo dito kung saan nanggaling ang bawat numero</p>
+                        <h3 class="text-lg font-black text-slate-800">How Do We Calculate This?</h3>
+                        <p class="text-xs text-slate-500">Transparency — track the data source of each metric below</p>
                     </div>
                 </div>
             </div>
@@ -847,10 +870,10 @@
                             <div class="p-2 bg-emerald-100 rounded-xl">
                                 <i data-lucide="wallet" class="w-5 h-5 text-emerald-600"></i>
                             </div>
-                            <h4 class="text-sm font-black text-slate-800">Inaasahang Koleksyon (Boundary)</h4>
+                            <h4 class="text-sm font-black text-slate-800">Expected Collections (Boundary)</h4>
                         </div>
                         <p class="text-xs text-slate-600 leading-relaxed">
-                            Kinukuha namin ang <strong>average ng nakolektang boundary sa nakaraang 6 na buwan</strong>. Binibigyan namin ng mas mataas na timbang (weight) ang mga kamakailang buwan dahil mas accurately nila ipinapakita ang kasalukuyang performance.
+                            We calculate the <strong>average boundary collected across the past 6 months</strong>. More recent months carry higher weights to reflect recent fleet productivity and trends accurately.
                         </p>
                         <div class="mt-3 flex items-center gap-2 text-[10px] font-bold text-emerald-600">
                             <i data-lucide="database" class="w-3 h-3"></i>
@@ -864,10 +887,10 @@
                             <div class="p-2 bg-rose-100 rounded-xl">
                                 <i data-lucide="receipt" class="w-5 h-5 text-rose-600"></i>
                             </div>
-                            <h4 class="text-sm font-black text-slate-800">Inaasahang Gastos (Office Expenses)</h4>
+                            <h4 class="text-sm font-black text-slate-800">Expected Expenses (Office Expenses)</h4>
                         </div>
                         <p class="text-xs text-slate-600 leading-relaxed">
-                            Tinitignan namin ang <strong>pattern ng iyong monthly office expenses</strong> — kasama ang kuryente, tubig, supplies, at iba pa. Kinukuha ang trend para malaman kung pataas o pababa ang gastos.
+                            We analyze the <strong>recurring patterns in monthly office expenses</strong> — including utility bills, office supplies, and administrative fees, calculating the trend line.
                         </p>
                         <div class="mt-3 flex items-center gap-2 text-[10px] font-bold text-rose-600">
                             <i data-lucide="database" class="w-3 h-3"></i>
@@ -881,10 +904,10 @@
                             <div class="p-2 bg-amber-100 rounded-xl">
                                 <i data-lucide="wrench" class="w-5 h-5 text-amber-600"></i>
                             </div>
-                            <h4 class="text-sm font-black text-slate-800">Inaasahang Pagpapaayos (Maintenance)</h4>
+                            <h4 class="text-sm font-black text-slate-800">Expected Repairs (Maintenance)</h4>
                         </div>
                         <p class="text-xs text-slate-600 leading-relaxed">
-                            Batay sa <strong>maintenance records ng lahat ng unit</strong>, kinukuha namin ang average ng monthly repair costs. Kasama ang parts replacement, labor, at emergency repairs. Ini-adjust din base sa edad ng bawat unit.
+                            Based on <strong>maintenance logs from all active vehicles</strong>, we average the monthly repair costs (parts, labor, and emergency servicing), adjusted by vehicle age.
                         </p>
                         <div class="mt-3 flex items-center gap-2 text-[10px] font-bold text-amber-600">
                             <i data-lucide="database" class="w-3 h-3"></i>
@@ -898,10 +921,10 @@
                             <div class="p-2 bg-indigo-100 rounded-xl">
                                 <i data-lucide="users" class="w-5 h-5 text-indigo-600"></i>
                             </div>
-                            <h4 class="text-sm font-black text-slate-800">Inaasahang Sahod (Salaries)</h4>
+                            <h4 class="text-sm font-black text-slate-800">Expected Salaries (Salaries)</h4>
                         </div>
                         <p class="text-xs text-slate-600 leading-relaxed">
-                            Tinitingnan ang <strong>payroll records ng nakaraang 6 na buwan</strong> — average ng lahat ng salary payments kasama ang overtime. Kung may bagong empleyado o nag-resign, naadjust ang prediction.
+                            We compile the <strong>payroll metrics over the past 6 months</strong> — including fixed base salaries, overtime pay, and adjustments, computing a reliable forward average.
                         </p>
                         <div class="mt-3 flex items-center gap-2 text-[10px] font-bold text-indigo-600">
                             <i data-lucide="database" class="w-3 h-3"></i>
@@ -915,12 +938,12 @@
                     <div class="flex items-start gap-3">
                         <i data-lucide="calculator" class="w-5 h-5 text-indigo-600 flex-shrink-0 mt-0.5"></i>
                         <div>
-                            <p class="text-[11px] font-black text-indigo-700 uppercase tracking-widest mb-2">Simpleng Formula</p>
+                            <p class="text-[11px] font-black text-indigo-700 uppercase tracking-widest mb-2">Simple Formula</p>
                             <p class="text-sm font-bold text-slate-700 mb-2">
-                                Net Income = Boundary Collections − Office Expenses − Maintenance Costs − Salaries
+                                Net Income = Expected Collections − Expected Expenses − Expected Repairs − Expected Salaries
                             </p>
                             <p class="text-xs text-slate-500 leading-relaxed">
-                                Ang bawat component ay kinukuha gamit ang <strong>weighted moving average</strong> ng nakaraang 6 na buwan. Mas malaki ang bigat (weight) ng pinakabagong buwan. Ang Best Case at Worst Case ay ±15% ng predicted net income, adjusted base sa historical volatility.
+                                Each component is computed using a <strong>weighted moving average</strong> of the last 6 months, prioritizing recent performance. Best/Worst Case represents a ±15% margin based on historical fleet volatility.
                             </p>
                         </div>
                     </div>
@@ -929,7 +952,7 @@
         </div>
 
         {{-- ┌─────────────────────────────────────────────────────────────────────┐
-             │  TOP PERFORMERS – Top 10 Pinakamalaking Kita na Unit               │
+             │  TOP PERFORMERS – Top 10 Highest Earning Units                     │
              └─────────────────────────────────────────────────────────────────────┘ --}}
         <div class="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
             {{-- Header --}}
@@ -940,10 +963,10 @@
                     </div>
                     <div>
                         <h3 class="text-lg font-black text-slate-800 flex items-center gap-2">
-                            Top 10 Pinakamalaking Kita na Unit
+                            Top 10 Highest Earning Units
                         </h3>
                         <p class="text-[11px] text-slate-500 mt-0.5">
-                            Batay sa average daily boundary collections ng nakaraang <strong>90 araw</strong> — aktibong unit lang
+                            Based on average daily boundary collections over the past <strong>90 days</strong> — active units only
                         </p>
                     </div>
                 </div>
@@ -989,7 +1012,7 @@
 
                             {{-- Monthly Profit (Main Metric) --}}
                             <div class="mb-4">
-                                <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Inaasahang Monthly Net Profit</p>
+                                <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Expected Monthly Net Profit</p>
                                 <p class="text-xl font-black {{ $monthlyProfit >= 0 ? $pc['text'] : 'text-rose-600' }}">
                                     {{ $monthlyProfit >= 0 ? '+' : '' }}₱{{ number_format($monthlyProfit) }}
                                 </p>
@@ -1071,15 +1094,15 @@
                         <div class="flex items-start gap-3">
                             <i data-lucide="info" class="w-5 h-5 text-indigo-500 flex-shrink-0 mt-0.5"></i>
                             <div>
-                                <p class="text-[11px] font-black text-indigo-700 uppercase tracking-widest mb-2">Paano Kinukuha ang Ranking?</p>
+                                <p class="text-[11px] font-black text-indigo-700 uppercase tracking-widest mb-2">How is the Ranking Calculated?</p>
                                 <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs text-slate-600">
                                     <div class="flex items-start gap-2">
                                         <span class="w-4 h-4 rounded-full bg-emerald-500 text-white text-[9px] font-black flex items-center justify-center shrink-0 mt-0.5">1</span>
-                                        <p><strong>Avg Daily Boundary</strong> — Kinuha ang average ng aktwal na nakolektang boundary ng unit sa nakaraang 90 araw.</p>
+                                        <p><strong>Avg Daily Boundary</strong> — The average actual boundary collected for this unit in the last 90 days.</p>
                                     </div>
                                     <div class="flex items-start gap-2">
                                         <span class="w-4 h-4 rounded-full bg-rose-500 text-white text-[9px] font-black flex items-center justify-center shrink-0 mt-0.5">2</span>
-                                        <p><strong>Avg Daily Maintenance Cost</strong> — Kabuuang gastos sa pagpapaayos ng unit sa 90 araw ÷ 90.</p>
+                                        <p><strong>Avg Daily Maintenance Cost</strong> — Total repair expenses of the unit over 90 days ÷ 90.</p>
                                     </div>
                                     <div class="flex items-start gap-2">
                                         <span class="w-4 h-4 rounded-full bg-amber-500 text-white text-[9px] font-black flex items-center justify-center shrink-0 mt-0.5">3</span>
@@ -1087,7 +1110,7 @@
                                     </div>
                                     <div class="flex items-start gap-2">
                                         <span class="w-4 h-4 rounded-full bg-indigo-500 text-white text-[9px] font-black flex items-center justify-center shrink-0 mt-0.5">4</span>
-                                        <p><strong>Monthly Projection</strong> = Daily Net Profit × 30 araw. Ito ang inaasahang kita ng bawat unit sa isang buwan.</p>
+                                        <p><strong>Monthly Projection</strong> = Daily Net Profit × 30 days. This represents the unit's expected monthly profit.</p>
                                     </div>
                                 </div>
                             </div>
@@ -1099,7 +1122,7 @@
                             <i data-lucide="trophy" class="w-8 h-8"></i>
                         </div>
                         <h4 class="text-lg font-black text-slate-700 mb-2">No Active Unit Data</h4>
-                        <p class="text-sm text-slate-400 max-w-xs leading-relaxed">Walang aktibong unit na may boundary records sa nakaraang 90 araw.</p>
+                        <p class="text-sm text-slate-400 max-w-xs leading-relaxed">No active units with boundary records in the last 90 days.</p>
                     </div>
                 @endif
             </div>
@@ -1166,7 +1189,7 @@
     {{-- ══════════════════════════════════════════════════════════════════════
          SECTION 4: AI STRATEGIC SUPPORT
          ══════════════════════════════════════════════════════════════════════ --}}
-    <div id="section-strategy" class="hidden space-y-8 animate-in zoom-in-95 duration-500">
+    <div id="section-strategy" class="hidden space-y-8">
         {{-- AI Logic Container --}}
         <div class="bg-slate-900 rounded-[2.5rem] p-1 shadow-2xl overflow-hidden">
             <div class="bg-white rounded-[2.3rem] overflow-hidden">
@@ -1235,6 +1258,30 @@
                                     {{-- JS Populated --}}
                                 </div>
                             </div>
+
+                            {{-- AI Control & Security Status Card --}}
+                            <div class="p-6 bg-emerald-50/50 rounded-3xl border border-emerald-100 shadow-sm transition-all hover:shadow-md duration-300">
+                                <h4 class="text-[10px] font-black text-emerald-700 uppercase tracking-widest mb-4 flex items-center gap-1.5">
+                                    <i data-lucide="shield-check" class="w-4 h-4 text-emerald-600 animate-pulse"></i> AI Integration Status
+                                </h4>
+                                <div class="space-y-3">
+                                    <div class="flex items-center justify-between text-xs font-bold text-slate-700">
+                                        <span>AI Data Visibility</span>
+                                        <span class="px-2 py-0.5 bg-emerald-100/70 text-emerald-800 text-[9px] font-black rounded-lg uppercase tracking-wider">Full Read</span>
+                                    </div>
+                                    <div class="flex items-center justify-between text-xs font-bold text-slate-700">
+                                        <span>System Control</span>
+                                        <span class="px-2 py-0.5 bg-indigo-100/70 text-indigo-800 text-[9px] font-black rounded-lg uppercase tracking-wider">Advisor Mode</span>
+                                    </div>
+                                    <div class="flex items-center justify-between text-xs font-bold text-slate-700">
+                                        <span>Security Protocol</span>
+                                        <span class="px-2 py-0.5 bg-amber-100/70 text-amber-800 text-[9px] font-black rounded-lg uppercase tracking-wider">No Passwords</span>
+                                    </div>
+                                    <div class="pt-3 border-t border-emerald-100/70 text-[10px] text-slate-500 leading-normal font-semibold">
+                                        The AI advisor reads telemetry data across all tables (Fleet, Drivers, Boundaries, Maintenance, Expenses, Legal, and Inventory) in real time to generate recommendations. User passwords and credentials are completely excluded.
+                                    </div>
+                                </div>
+                            </div>
                         </div>
 
                         {{-- Middle Column: Recommendation Cards --}}
@@ -1291,17 +1338,21 @@
             strategy: document.getElementById('tab-strategy')
         };
 
+        // Active and Inactive classes
+        const activeClasses   = ['bg-white', 'text-indigo-700', 'shadow-sm', 'border', 'border-indigo-100', 'ring-1', 'ring-indigo-500/20'];
+        const inactiveClasses = ['text-slate-500', 'hover:bg-white', 'hover:text-slate-800', 'hover:shadow-sm'];
+
         // Reset All
         Object.values(sections).forEach(s => s.classList.add('hidden'));
         Object.entries(buttons).forEach(([key, btn]) => {
-            btn.classList.remove('bg-white', 'text-slate-900', 'shadow-sm', 'border', 'border-slate-200');
-            btn.classList.add('text-slate-500', 'hover:text-slate-700');
+            btn.classList.remove(...activeClasses);
+            btn.classList.add(...inactiveClasses);
         });
 
         // Activate Selected
         sections[tab].classList.remove('hidden');
-        buttons[tab].classList.add('bg-white', 'text-slate-900', 'shadow-sm', 'border', 'border-slate-200');
-        buttons[tab].classList.remove('text-slate-500', 'hover:text-slate-700');
+        buttons[tab].classList.remove(...inactiveClasses);
+        buttons[tab].classList.add(...activeClasses);
 
         // Handle Chart Resizing if needed
         if (tab === 'performance' || tab === 'forecast') {
@@ -1309,46 +1360,96 @@
         }
     }
 
-    // ── Computation Popover (Click-Based) ────────────────────────────────────
-    (function initComputationPopover() {
-        const trigger = document.getElementById('forecast-net-income-trigger');
-        const popover = document.getElementById('forecast-computation-popover');
-        if (!trigger || !popover) return;
+    // ── Forecast Income Popover – Smart Viewport-Aware Positioning ──────────
+    (function() {
+        let popoverHideTimer = null;
+        const POPOVER_GAP = 14;
 
-        trigger.addEventListener('click', function(e) {
-            e.stopPropagation();
-            const rect = trigger.getBoundingClientRect();
-            const popoverW = 400;
-            const viewportW = window.innerWidth;
-            
-            // Position to the right, or left if not enough space
-            let left = rect.right + 12;
-            if (left + popoverW > viewportW - 16) {
-                left = rect.left - popoverW - 12;
+        window.showForecastPopover = function(e) {
+            cancelForecastPopoverHide();
+            const trigger  = document.getElementById('forecast-net-income-trigger');
+            const popover  = document.getElementById('forecast-computation-popover');
+            const arrow    = document.getElementById('forecast-popover-arrow');
+            if (!trigger || !popover) return;
+
+            popover.classList.remove('opacity-0', 'invisible', 'pointer-events-none');
+            popover.classList.add('opacity-100', 'visible', 'pointer-events-auto');
+
+            const tr = trigger.getBoundingClientRect();
+            const pw = popover.offsetWidth  || 360;
+            const ph = popover.offsetHeight || 400;
+            const vw = window.innerWidth;
+            const vh = window.innerHeight;
+
+            let top, left, arrowClass;
+
+            // Prefer right side
+            if (tr.right + pw + POPOVER_GAP <= vw) {
+                left = tr.right + POPOVER_GAP + window.scrollX;
+                top  = Math.max(8, Math.min(tr.top + window.scrollY - ph / 2 + tr.height / 2, vh + window.scrollY - ph - 8));
+                arrowClass = 'border-l border-b -left-2 top-1/2 -translate-y-1/2 border-r-0 border-t-0';
+            // Prefer left side
+            } else if (tr.left - pw - POPOVER_GAP >= 0) {
+                left = tr.left - pw - POPOVER_GAP + window.scrollX;
+                top  = Math.max(8, Math.min(tr.top + window.scrollY - ph / 2 + tr.height / 2, vh + window.scrollY - ph - 8));
+                arrowClass = 'border-r border-t -right-2 top-1/2 -translate-y-1/2 border-l-0 border-b-0';
+            // Fall to below trigger
+            } else if (tr.bottom + ph + POPOVER_GAP <= vh) {
+                top  = tr.bottom + POPOVER_GAP + window.scrollY;
+                left = Math.max(8, Math.min(tr.left + window.scrollX, vw + window.scrollX - pw - 8));
+                arrowClass = 'border-t border-l -top-2 left-8 border-r-0 border-b-0';
+            // Fall to above trigger
+            } else {
+                top  = tr.top + window.scrollY - ph - POPOVER_GAP;
+                left = Math.max(8, Math.min(tr.left + window.scrollX, vw + window.scrollX - pw - 8));
+                arrowClass = 'border-b border-r -bottom-2 left-8 border-t-0 border-l-0';
             }
-            if (left < 8) left = 8;
 
-            let top = rect.top + window.scrollY;
-            const popoverH = 480;
-            if (top + popoverH > window.scrollY + window.innerHeight - 16) {
-                top = window.scrollY + window.innerHeight - popoverH - 16;
-            }
-            if (top < window.scrollY + 8) top = window.scrollY + 8;
-
+            popover.style.top  = top  + 'px';
             popover.style.left = left + 'px';
-            popover.style.top  = top + 'px';
-            popover.classList.toggle('hidden');
+            if (arrow) {
+                arrow.className = 'absolute w-4 h-4 bg-white rotate-45 border-slate-200 ' + arrowClass;
+            }
+        };
 
-            if (window.lucide) lucide.createIcons({ nodes: [popover] });
-        });
+        window.scheduleForecastPopoverHide = function() {
+            popoverHideTimer = setTimeout(() => {
+                const popover = document.getElementById('forecast-computation-popover');
+                if (popover) {
+                    popover.classList.add('opacity-0', 'invisible', 'pointer-events-none');
+                    popover.classList.remove('opacity-100', 'visible', 'pointer-events-auto');
+                }
+            }, 180);
+        };
 
-        // Close when clicking outside
+        window.cancelForecastPopoverHide = function() {
+            if (popoverHideTimer) clearTimeout(popoverHideTimer);
+            popoverHideTimer = null;
+        };
+
+        window.toggleForecastPopover = function(e) {
+            e.stopPropagation();
+            const popover = document.getElementById('forecast-computation-popover');
+            if (!popover) return;
+            if (popover.classList.contains('invisible')) {
+                window.showForecastPopover(e);
+            } else {
+                scheduleForecastPopoverHide();
+            }
+        };
+
+        // Close popover when clicking outside
         document.addEventListener('click', function(e) {
-            if (!popover.classList.contains('hidden') && !popover.contains(e.target) && e.target !== trigger) {
-                popover.classList.add('hidden');
+            const trigger = document.getElementById('forecast-net-income-trigger');
+            const popover = document.getElementById('forecast-computation-popover');
+            if (!trigger || !popover) return;
+            if (!trigger.contains(e.target) && !popover.contains(e.target)) {
+                popover.classList.add('opacity-0', 'invisible', 'pointer-events-none');
+                popover.classList.remove('opacity-100', 'visible', 'pointer-events-auto');
             }
         });
     })();
+
 
     // ── Chart Data ────────────────────────────────────────────────────────────
     const dailyData         = @json($daily_trend);
@@ -1376,20 +1477,37 @@
     });
 
     // Expense Distribution Chart
-    const expCtx = document.getElementById('expenseChart').getContext('2d');
-    new Chart(expCtx, {
-        type: 'doughnut',
-        data: {
-            labels: expenseData.map(d => d.category),
-            datasets: [{ data: expenseData.map(d => d.total), backgroundColor: ['#6366f1','#10b981','#f59e0b','#ef4444','#ec4899','#8b5cf6','#06b6d4','#94a3b8'], borderWidth: 0, hoverOffset: 15 }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            cutout: '75%',
-            plugins: { legend: { position: 'right', labels: { boxWidth: 12, padding: 20, font: { weight: 'bold', size: 11 } } } }
+    const expCanvas = document.getElementById('expenseChart');
+    if (expCanvas) {
+        if (expenseData.length > 0) {
+            const expCtx = expCanvas.getContext('2d');
+            new Chart(expCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: expenseData.map(d => d.category),
+                    datasets: [{ data: expenseData.map(d => d.total), backgroundColor: ['#6366f1','#10b981','#f59e0b','#ef4444','#ec4899','#8b5cf6','#06b6d4','#94a3b8'], borderWidth: 0, hoverOffset: 15 }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    cutout: '75%',
+                    plugins: { legend: { position: 'right', labels: { boxWidth: 12, padding: 20, font: { weight: 'bold', size: 11 } } } }
+                }
+            });
+        } else {
+            const parent = expCanvas.parentElement;
+            parent.innerHTML = `
+                <div class="flex flex-col items-center justify-center text-center h-full">
+                    <div class="w-16 h-16 bg-slate-50 text-slate-400 rounded-3xl flex items-center justify-center mb-4 border border-slate-100/80">
+                        <i data-lucide="wrench" class="w-8 h-8"></i>
+                    </div>
+                    <h4 class="text-sm font-black text-slate-700 mb-1">No Data for this Period</h4>
+                    <p class="text-xs text-slate-400 max-w-[200px] leading-normal font-medium">No maintenance expenses recorded in the selected dates.</p>
+                </div>
+            `;
+            if (window.lucide) window.lucide.createIcons();
         }
-    });
+    }
 
     // Daily Boundary Trend Chart
     const dailyCtx = document.getElementById('dailyTrendChart').getContext('2d');
@@ -1435,6 +1553,8 @@
         drivers: 'text-blue-700 bg-blue-50',
         maintenance: 'text-orange-700 bg-orange-50',
         operations: 'text-purple-700 bg-purple-50',
+        legal: 'text-rose-700 bg-rose-50',
+        inventory: 'text-amber-700 bg-amber-50',
     };
 
     function renderInsightCard(insight) {
@@ -1565,13 +1685,13 @@
         const fCtx = document.getElementById('forecastTrendChart');
         if (fCtx) {
             const histLabels = fHistory.map(h => h.month);
-            const histNet = fHistory.map(h => h.net);
+            const histNet = fHistory.map(h => h.net_income);
             const histBoundary = fHistory.map(h => h.boundary);
             const histTotalExp = fHistory.map(h => (h.expenses || 0) + (h.maintenance || 0) + (h.salaries || 0));
 
             // Add predicted month
-            const allLabels = [...histLabels, 'Susunod'];
-            const allNet = [...histNet, fPredicted.net || 0];
+            const allLabels = [...histLabels, 'Predicted'];
+            const allNet = [...histNet, fPredicted.net_income || 0];
             const allBoundary = [...histBoundary, fPredicted.boundary || 0];
             const predTotalExp = (fPredicted.expenses || 0) + (fPredicted.maintenance || 0) + (fPredicted.salaries || 0);
             const allTotalExp = [...histTotalExp, predTotalExp];

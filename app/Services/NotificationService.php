@@ -322,6 +322,31 @@ class NotificationService
             })->whereNotNull('fcm_token')->get();
 
             foreach ($drivers as $user) {
+                // Auto-resolve older coding alerts for this user to keep the feed clean
+                DB::table('system_alerts')
+                    ->where('user_id', $user->id)
+                    ->where('type', 'coding_notice')
+                    ->whereDate('created_at', '<', now()->toDateString())
+                    ->update(['is_resolved' => true]);
+
+                $exists = DB::table('system_alerts')
+                    ->where('user_id', $user->id)
+                    ->where('type', 'coding_notice')
+                    ->whereDate('created_at', now()->toDateString())
+                    ->exists();
+
+                if (!$exists) {
+                    DB::table('system_alerts')->insert([
+                        'type' => 'coding_notice',
+                        'title' => 'Coding Alert Today!',
+                        'message' => "ALERTO: Coding po ang unit niyo ({$unit->plate_number}) ngayong {$todayName}. Mag-ingat po!",
+                        'user_id' => $user->id,
+                        'is_resolved' => false,
+                        'created_at' => now(),
+                        'updated_at' => now()
+                    ]);
+                }
+
                 $success = \App\Services\FirebasePushService::sendPush(
                     'Coding Alert Today!',
                     "ALERTO: Coding po ang unit niyo ({$unit->plate_number}) ngayong {$todayName}. Mag-ingat po!",

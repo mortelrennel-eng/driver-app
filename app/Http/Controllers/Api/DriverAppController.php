@@ -9,7 +9,6 @@ use App\Models\Driver;
 use App\Models\Unit;
 use App\Models\User;
 use App\Models\Staff;
-use App\Models\DriverAttendance;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
@@ -61,48 +60,7 @@ class DriverAppController extends Controller
             return response()->json(['success' => false, 'message' => $validator->errors()->first()], 422);
         }
 
-        // 1. Find Unit
-        $unit = Unit::where('plate_number', 'LIKE', '%' . trim($request->plate_number) . '%')->first();
-        if (!$unit) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Vehicle plate number not found. Please contact the office.'
-            ], 404);
-        }
-
-        // 2. Find Driver (Strictly check if they are Driver 1 or Driver 2 of this Unit)
-        $nameParts = explode(' ', $request->name, 2);
-        $firstName = trim($nameParts[0]);
-        $lastName = isset($nameParts[1]) ? trim($nameParts[1]) : '';
-
-        $driverIds = array_filter([$unit->driver_id, $unit->secondary_driver_id]);
-        $matchedDriver = null;
-
-        if (!empty($driverIds)) {
-            $matchedDriver = Driver::whereIn('id', $driverIds)
-                ->whereRaw('LOWER(first_name) = ?', [strtolower($firstName)])
-                ->whereRaw('LOWER(last_name) = ?', [strtolower($lastName)])
-                ->first();
-        }
-
-        if (!$matchedDriver) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Your name is not assigned to this unit.'
-            ], 404);
-        }
-
-        // 3. Check if driver record is already linked
-        if ($matchedDriver->user_id !== null) {
-            return response()->json([
-                'success' => false,
-                'message' => 'This account is already registered. Please log in.'
-            ], 422);
-        }
-
-        $driver = $matchedDriver;
-
-        // 4. Reject duplicate phone numbers
+        // Reject duplicate phone numbers
         $cleanPhone = preg_replace('/[^0-9]/', '', $request->phone);
         $existingByPhone = User::where('phone', $request->phone)
             ->orWhere('phone', $cleanPhone)
@@ -111,17 +69,48 @@ class DriverAppController extends Controller
         if ($existingByPhone) {
             return response()->json([
                 'success' => false,
-                'message' => 'This phone number is already registered.'
+                'message' => 'This phone number is already registered. Please log in instead.'
             ], 422);
         }
 
-        // 5. Reject duplicate names
-        $existingByName = User::where('name', trim($request->name))->first();
-        if ($existingByName) {
+        // Find Unit (EXACT MATCH)
+        $unit = Unit::where('plate_number', trim($request->plate_number))->first();
+        if (!$unit) {
             return response()->json([
                 'success' => false,
-                'message' => 'This name is already registered.'
-            ], 422);
+                'message' => 'Vehicle plate number not found or incorrect. Please check the spelling.'
+            ], 404);
+        }
+
+        // Check if there are any drivers assigned to this unit
+        $driverIds = array_filter([$unit->driver_id, $unit->secondary_driver_id]);
+        if (empty($driverIds)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'You cannot register because there are no drivers currently assigned to this unit.'
+            ], 403);
+        }
+
+        // Find Driver by EXACT NAME MATCH assigned to this unit
+        $driverName = trim($request->name);
+        
+        $driver = Driver::whereIn('id', $driverIds)
+            ->whereRaw("TRIM(CONCAT(TRIM(first_name), ' ', TRIM(last_name))) = ?", [$driverName])
+            ->first();
+
+        if (!$driver) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Registration failed. You are not assigned to this unit, or your name has a typo.'
+            ], 404);
+        }
+
+        // Check if this driver already has a user account
+        if (!is_null($driver->user_id)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Registration failed. You already have an existing account. You cannot create duplicate accounts.'
+            ], 403);
         }
 
         // Generate OTP and store pending registration in cache
@@ -312,24 +301,6 @@ class DriverAppController extends Controller
 
         return response()->json(['success' => true, 'message' => 'A new verification code has been sent to your phone.']);
     }
-    /**
-     * Get the active unit for the driver.
-     * Priority 1: Official assignment in units table (admin controls this)
-     */
-    private function getActiveUnit($driver)
-    {
-        if (!$driver) return null;
-
-        // HIGHEST PRIORITY: Official unit assignment from admin system
-        $officialUnit = \App\Models\Unit::where(function($q) use ($driver) {
-                $q->where('driver_id', $driver->id)
-                  ->orWhere('secondary_driver_id', $driver->id);
-            })
-            ->whereNull('deleted_at')
-            ->first();
-
-        return $officialUnit;
-    }
 
 
     public function performance(Request $request)
@@ -348,26 +319,27 @@ class DriverAppController extends Controller
 
         $today = now()->timezone('Asia/Manila')->toDateString();
 
-        // Get assigned unit dynamically
-        $unit = $this->getActiveUnit($driver);
+        // Get assigned unit
+        $unit = Unit::where(function($q) use ($driver) {
+                $q->where('driver_id', $driver->id)
+                  ->orWhere('secondary_driver_id', $driver->id);
+            })
+            ->whereNull('deleted_at')
+            ->first();
 
-        // Get boundary sum for today (filtered by currently assigned unit to prevent old unit's boundary from showing)
-        $boundaryData = null;
-        if ($unit) {
-            $boundaryData = DB::table('boundaries')
-                ->where('driver_id', $driver->id)
-                ->where('unit_id', $unit->id)
-                ->whereDate('date', $today)
-                ->whereNull('deleted_at')
-                ->select([
-                    DB::raw('SUM(actual_boundary) as total_actual'),
-                    DB::raw('SUM(boundary_amount) as total_target'),
-                    DB::raw('SUM(shortage) as total_shortage'),
-                    DB::raw('SUM(excess) as total_excess'),
-                    DB::raw('MAX(status) as last_status')
-                ])
-                ->first();
-        }
+        // Get boundary sum for today (matching system logic)
+        $boundaryData = DB::table('boundaries')
+            ->where('driver_id', $driver->id)
+            ->whereDate('date', $today)
+            ->whereNull('deleted_at')
+            ->select([
+                DB::raw('SUM(actual_boundary) as total_actual'),
+                DB::raw('SUM(boundary_amount) as total_target'),
+                DB::raw('SUM(shortage) as total_shortage'),
+                DB::raw('SUM(excess) as total_excess'),
+                DB::raw('MAX(status) as last_status')
+            ])
+            ->first();
 
         // Determine Target based on Rules (Sunday, Coding, etc.)
         $target_label = 'Regular Target';
@@ -523,8 +495,6 @@ class DriverAppController extends Controller
         $daily_dist = 0;
         $age = 'N/A';
 
-        $liveGpsArray = null;
-
         if ($unit) {
             // ALWAYS fetch live GPS from Tracksolid (same as web dashboard)
             $needsSync = true;
@@ -533,7 +503,6 @@ class DriverAppController extends Controller
                 \Log::info("Auto-syncing GPS for unit {$unit->plate_number} (Driver App Trigger)");
                 $liveData = $this->tracksolid->getLocations([$unit->imei]);
                 if ($liveData && isset($liveData[0])) {
-                    $liveGpsArray = $liveData[0];
                     $gps = $liveData[0];
                     $ignition = ($gps['accStatus'] ?? 0) == 1;
                     $speed = $ignition ? (float)($gps['speed'] ?? 0) : 0;
@@ -566,11 +535,45 @@ class DriverAppController extends Controller
                 $heading = (float) $gps->heading;
                 $last_update = $gps->timestamp;
 
-                // Determine Status using the same logic as LiveTrackingController
-                $statusInfo = $this->resolveGpsStatus($liveGpsArray, $last_update, $ignition, $speed);
-                $gps_status = ucfirst($statusInfo['status']);
-                $speed = $statusInfo['speed'];
-                $ignition = $statusInfo['ignition'];
+                $liveStatus = null;
+                if (isset($liveData) && isset($liveData[0])) {
+                    $gpsArr = $liveData[0];
+                    $heartbeatAge = isset($gpsArr['hbTime']) ? max(0, time() - strtotime($gpsArr['hbTime'] . ' UTC')) : PHP_INT_MAX;
+                    $gpsAge = isset($gpsArr['gpsTime']) ? max(0, time() - strtotime($gpsArr['gpsTime'] . ' UTC')) : PHP_INT_MAX;
+                    $providerOffline = (bool)($gpsArr['providerOffline'] ?? false);
+                    $liveIgnition = ($gpsArr['accStatus'] ?? 0) == 1;
+                    $liveSpeed = $liveIgnition ? (float)($gpsArr['speed'] ?? 0) : 0;
+                    
+                    if (!$providerOffline && $heartbeatAge < 600) {
+                        if ($liveIgnition) {
+                            $safeSpeed = $gpsAge > 300 ? 0.0 : max(0.0, $liveSpeed);
+                            $liveStatus = $safeSpeed > 2 ? 'Moving' : 'Idle';
+                        } else {
+                            $liveStatus = $gpsAge > 600 ? 'Offline' : 'Stopped';
+                        }
+                    } else {
+                        $liveStatus = 'Offline';
+                    }
+                }
+
+                // Determine Status based on ignition/speed and time difference (matching web dashboard)
+                $gps_status = 'Offline';
+                if (isset($liveStatus)) {
+                    $gps_status = $liveStatus;
+                } elseif ($gps->timestamp) {
+                    $lastUpdateTs = strtotime($gps->timestamp . ' UTC');
+                    $diff = time() - $lastUpdateTs;
+                    
+                    if ($diff < 600) { 
+                        if (!$ignition) {
+                            $gps_status = 'Stopped';
+                        } else {
+                            $gps_status = $speed > 2 ? 'Moving' : 'Idle';
+                        }
+                    } else {
+                        $gps_status = 'Offline';
+                    }
+                }
                 
                 // Use the actual GPS fix time for display, matching web dashboard
                 $last_update = $gps->timestamp;
@@ -608,6 +611,7 @@ class DriverAppController extends Controller
             'success' => true,
             'data' => [
                 'unread_support_messages' => $unread_support_messages,
+                'has_unit' => $unit ? true : false,
                 'driver_name' => $driver->first_name . ' ' . $driver->last_name,
                 'unit' => ($unit ? ($unit->make ? $unit->make . ' ' : '') . $unit->model . ' (' . $unit->plate_number . ')' : 'No Unit'),
                 'plate_number' => $unit ? $unit->plate_number : '',
@@ -650,6 +654,7 @@ class DriverAppController extends Controller
         ]);
     }
 
+
     protected function getCodingDayForDigit($digit)
     {
         if ($digit == 1 || $digit == 2)
@@ -680,7 +685,12 @@ class DriverAppController extends Controller
             'notes' => 'nullable|string',
         ]);
 
-        $unit = $this->getActiveUnit($driver);
+        $unit = Unit::where(function($q) use ($driver) {
+                $q->where('driver_id', $driver->id)
+                  ->orWhere('secondary_driver_id', $driver->id);
+            })
+            ->whereNull('deleted_at')
+            ->first();
 
         $rescue = RescueRequest::create([
             'driver_id' => $driver->id,
@@ -714,7 +724,12 @@ class DriverAppController extends Controller
             'heading' => 'nullable|string',
         ]);
 
-        $unit = $this->getActiveUnit($driver);
+        $unit = Unit::where(function($q) use ($driver) {
+                $q->where('driver_id', $driver->id)
+                  ->orWhere('secondary_driver_id', $driver->id);
+            })
+            ->whereNull('deleted_at')
+            ->first();
 
         if (!$unit) {
             return response()->json(['success' => false, 'message' => 'No assigned unit found for tracking'], 404);
@@ -780,7 +795,12 @@ class DriverAppController extends Controller
             return response()->json(['success' => false, 'message' => 'Driver record not found.'], 404);
         }
 
-        $unit = $this->getActiveUnit($driver);
+        $unit = Unit::where(function($q) use ($driver) {
+                $q->where('driver_id', $driver->id)
+                  ->orWhere('secondary_driver_id', $driver->id);
+            })
+            ->whereNull('deleted_at')
+            ->first();
 
         if (!$unit) {
             return response()->json(['success' => false, 'message' => 'No unit assigned'], 404);
@@ -815,15 +835,15 @@ class DriverAppController extends Controller
         }
 
         try {
-            // 1. Unlink the Driver record if it exists
+            // Unlink the Driver record if it exists so driver data is preserved in the system
             \App\Models\Driver::where('user_id', $user->id)->update(['user_id' => null]);
 
-            // 2. Archive the User account (Hard Delete to free up email/phone)
+            // Permanently delete the User account (Hard Delete to free up email/phone)
             $user->forceDelete();
 
             return response()->json([
                 'success' => true,
-                'message' => 'Account deleted successfully. Your driver records have been preserved for management.'
+                'message' => 'Account permanently deleted. Your driver records have been preserved for management.'
             ]);
         } catch (\Exception $e) {
             return response()->json([
@@ -889,8 +909,7 @@ class DriverAppController extends Controller
 
         $charges = DB::table('driver_behavior')
             ->where('driver_id', $driver->id)
-            ->where('charge_status', 'pending')
-            ->where('remaining_balance', '>', 0)
+            ->where('total_charge_to_driver', '>', 0)
             ->whereNull('deleted_at')
             ->orderByDesc('incident_date')
             ->get();
@@ -986,7 +1005,7 @@ class DriverAppController extends Controller
                     if ($item->ignition_status) {
                         $gps_status = $item->speed > 2 ? 'Moving' : 'Idle';
                     } else {
-                        $gps_status = 'Stopped';
+                        $gps_status = 'Park';
                     }
                 }
             }
@@ -1022,75 +1041,6 @@ class DriverAppController extends Controller
         return response()->json(['success' => true, 'message' => 'Password updated successfully']);
     }
 
-    private const GPS_ONLINE_WINDOW_SECONDS = 600;
-    private const GPS_SPEED_STALE_SECONDS = 300;
-
-    private function secondsSinceUtc(?string $time): int
-    {
-        if (!$time) return PHP_INT_MAX;
-        $timestamp = strtotime($time . ' UTC');
-        if ($timestamp === false) return PHP_INT_MAX;
-        return max(0, time() - $timestamp);
-    }
-
-    private function gpsDwellSeconds(?array $gps): ?int
-    {
-        if (!$gps) return null;
-        if (isset($gps['dwellSeconds']) && $gps['dwellSeconds'] !== '') {
-            return max(0, (int)$gps['dwellSeconds']);
-        }
-        return null;
-    }
-
-    private function resolveGpsStatus(?array $gps, ?string $lastUpdate, bool $ignition, float $rawSpeed): array
-    {
-        $heartbeatAge = PHP_INT_MAX;
-        $gpsAge = PHP_INT_MAX;
-
-        if ($gps && isset($gps['hbTime']) && isset($gps['gpsTime'])) {
-            $heartbeatAge = $this->secondsSinceUtc($gps['hbTime']);
-            $gpsAge = $this->secondsSinceUtc($gps['gpsTime']);
-        } else {
-            $fallbackAge = $this->secondsSinceUtc($lastUpdate);
-            $heartbeatAge = $fallbackAge;
-            $gpsAge = $fallbackAge;
-        }
-
-        $effectiveGpsAge = $gpsAge;
-        $dwellSeconds = $this->gpsDwellSeconds($gps);
-
-        if (!$ignition && $dwellSeconds !== null) {
-            $effectiveGpsAge = $gpsAge === PHP_INT_MAX
-                ? $dwellSeconds
-                : max($gpsAge, $dwellSeconds);
-        }
-
-        $providerOffline = (bool)($gps['providerOffline'] ?? false);
-        $status = 'offline';
-        $speed = 0.0;
-        $safeIgnition = $ignition;
-
-        if (!$providerOffline && $heartbeatAge < self::GPS_ONLINE_WINDOW_SECONDS) {
-            if ($ignition) {
-                $speed = $gpsAge > self::GPS_SPEED_STALE_SECONDS ? 0.0 : max(0.0, $rawSpeed);
-                $status = $speed > 2 ? 'moving' : 'idle';
-            } else {
-                $status = $effectiveGpsAge > self::GPS_ONLINE_WINDOW_SECONDS ? 'offline' : 'stopped';
-            }
-        }
-
-        if ($status === 'offline' || $status === 'stopped') {
-            $speed = 0.0;
-            $safeIgnition = false;
-        }
-
-        return [
-            'status'   => $status,
-            'speed'    => $speed,
-            'ignition' => $safeIgnition,
-        ];
-    }
-
     public function getProfile(Request $request)
     {
         $user = $request->user();
@@ -1107,6 +1057,10 @@ class DriverAppController extends Controller
                 'license_expiry' => $driver ? $driver->license_expiry : '',
                 'emergency_contact' => $driver ? $driver->emergency_contact : '',
                 'emergency_phone' => $driver ? $driver->emergency_phone : '',
+                'license_photo' => $driver && $driver->license_photo ? asset($driver->license_photo) : null,
+                'nbi_clearance_photo' => $driver && $driver->nbi_clearance_photo ? asset($driver->nbi_clearance_photo) : null,
+                'pnp_clearance_photo' => $driver && $driver->pnp_clearance_photo ? asset($driver->pnp_clearance_photo) : null,
+                'profile_photo' => $driver && $driver->profile_photo ? asset($driver->profile_photo) : null,
             ]
         ]);
     }
@@ -1409,4 +1363,364 @@ class DriverAppController extends Controller
         return null;
     }
 
+    // ─── SOS ACCIDENT ALERT ─────────────────────────────────────────────
+    public function sosAlert(Request $request)
+    {
+        $user = $request->user();
+        $driver = $this->resolveDriver($user);
+
+        if (!$driver) {
+            return response()->json(['success' => false, 'message' => 'Driver record not found.'], 404);
+        }
+
+        try {
+            $unit = Unit::where(function($q) use ($driver) {
+                    $q->where('driver_id', $driver->id)
+                      ->orWhere('secondary_driver_id', $driver->id);
+                })
+                ->whereNull('deleted_at')
+                ->first();
+
+            // Get GPS location from gps_tracking table
+            $gps = null;
+            if ($unit) {
+                $gps = DB::table('gps_tracking')->where('unit_id', $unit->id)->orderByDesc('timestamp')->first();
+            }
+
+            $latitude  = $request->latitude  ?? ($gps->latitude ?? null);
+            $longitude = $request->longitude ?? ($gps->longitude ?? null);
+
+            // Use DB::table to safely insert, avoiding Eloquent column issues
+            $insertData = [
+                'driver_id'  => $driver->id,
+                'unit_id'    => $unit ? $unit->id : null,
+                'latitude'   => $latitude,
+                'longitude'  => $longitude,
+                'notes'      => $request->notes ?? 'Emergency Alert triggered by driver',
+                'status'     => 'pending',
+                'created_at' => now(),
+                'updated_at' => now(),
+            ];
+
+            // Add 'type' column only if it exists in the table
+            if (\Illuminate\Support\Facades\Schema::hasColumn('rescue_requests', 'type')) {
+                $insertData['type'] = 'accident';
+            }
+
+            $rescueId = DB::table('rescue_requests')->insertGetId($insertData);
+            $rescue = DB::table('rescue_requests')->where('id', $rescueId)->first();
+
+            // Send FCM push notification to ALL admin + dispatcher users
+            try {
+                $adminUsers = User::whereIn('role', ['admin', 'super_admin', 'dispatcher'])
+                    ->where('is_active', true)
+                    ->whereNotNull('fcm_token')
+                    ->get();
+
+                $driverName  = trim(($driver->first_name ?? '') . ' ' . ($driver->last_name ?? ''));
+                $plateTxt    = $unit ? $unit->plate_number : 'Unknown Unit';
+
+                foreach ($adminUsers as $admin) {
+                    \App\Services\FirebasePushService::sendPush(
+                        '🚨 SOS ACCIDENT ALERT!',
+                        "EMERGENCY: {$driverName} ({$plateTxt}) has triggered an SOS alert! Check dashboard immediately.",
+                        $admin->fcm_token,
+                        'sos_accident'
+                    );
+                }
+            } catch (\Exception $e) {
+                \Log::error('SOS FCM Error: ' . $e->getMessage());
+            }
+
+            return response()->json([
+                'success' => true,
+                'message' => 'SOS Alert sent! Management has been notified.',
+                'data'    => [
+                    'alert_id' => $rescue->id,
+                    'status'   => 'pending',
+                ]
+            ]);
+
+        } catch (\Exception $e) {
+            \Log::error('SOS Alert Error: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to send SOS. Please call emergency services directly.'
+            ], 500);
+        }
+    }
+
+    // ─── SUBMIT ACCIDENT REPORT (after SOS) ─────────────────────────────
+    public function submitAccidentReport(Request $request)
+    {
+        $user = $request->user();
+        $driver = $this->resolveDriver($user);
+
+        if (!$driver) {
+            return response()->json(['success' => false, 'message' => 'Driver record not found.'], 404);
+        }
+
+        $request->validate([
+            'alert_id'    => 'nullable|integer',
+            'description' => 'required|string|max:2000',
+            'damage_level'=> 'nullable|string|in:minor,moderate,major,total_loss',
+            'photo'       => 'nullable|image|max:5120',
+        ]);
+
+        try {
+            $alertId = $request->alert_id;
+            $rescue = null;
+
+            if ($alertId) {
+                $rescue = DB::table('rescue_requests')
+                    ->where('id', $alertId)
+                    ->where('driver_id', $driver->id)
+                    ->first();
+            }
+
+            if (!$rescue) {
+                $query = DB::table('rescue_requests')
+                    ->where('driver_id', $driver->id)
+                    ->where('status', 'pending');
+                    
+                if (\Illuminate\Support\Facades\Schema::hasColumn('rescue_requests', 'type')) {
+                    $query->where('type', 'accident');
+                }
+                
+                $rescue = $query->orderByDesc('created_at')->first();
+            }
+
+            // Handle photo upload
+            $photoPath = null;
+            if ($request->hasFile('photo')) {
+                $file = $request->file('photo');
+                $filename = time() . '_accident.' . $file->getClientOriginalExtension();
+                $destinationPath = public_path('uploads/accident_photos');
+                if (!file_exists($destinationPath)) {
+                    mkdir($destinationPath, 0755, true);
+                }
+                $file->move($destinationPath, $filename);
+                $photoPath = 'uploads/accident_photos/' . $filename;
+            }
+
+            if ($rescue) {
+                $notes = $rescue->notes ?? '';
+                $notes .= "\n\n--- ACCIDENT REPORT ---\n";
+                $notes .= "Damage Level: " . ($request->damage_level ?? 'Not specified') . "\n";
+                $notes .= "Description: " . $request->description;
+
+                $updateData = ['notes' => $notes, 'updated_at' => now()];
+                
+                if (\Illuminate\Support\Facades\Schema::hasColumn('rescue_requests', 'photo_path')) {
+                    $updateData['photo_path'] = $photoPath ?? ($rescue->photo_path ?? null);
+                }
+
+                DB::table('rescue_requests')
+                    ->where('id', $rescue->id)
+                    ->update($updateData);
+
+                $rescueId = $rescue->id;
+            } else {
+                $unit = DB::table('units')->where(function($q) use ($driver) {
+                        $q->where('driver_id', $driver->id)
+                          ->orWhere('secondary_driver_id', $driver->id);
+                    })
+                    ->whereNull('deleted_at')
+                    ->first();
+
+                $insertData = [
+                    'driver_id'  => $driver->id,
+                    'unit_id'    => $unit ? $unit->id : null,
+                    'latitude'   => $request->latitude ?? null,
+                    'longitude'  => $request->longitude ?? null,
+                    'notes'      => "Damage Level: " . ($request->damage_level ?? 'Not specified') . "\nDescription: " . $request->description,
+                    'status'     => 'pending',
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ];
+
+                if (\Illuminate\Support\Facades\Schema::hasColumn('rescue_requests', 'type')) {
+                    $insertData['type'] = 'accident';
+                }
+                if (\Illuminate\Support\Facades\Schema::hasColumn('rescue_requests', 'photo_path')) {
+                    $insertData['photo_path'] = $photoPath;
+                }
+
+                $rescueId = DB::table('rescue_requests')->insertGetId($insertData);
+            }
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Accident report submitted successfully.',
+                'data'    => ['alert_id' => $rescueId]
+            ]);
+
+        } catch (\Exception $e) {
+            \Log::error('Accident Report Error: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to submit report due to an internal error. Please try again.'
+            ], 500);
+        }
+    }
+
+    // ─── GET ACCIDENT REPORTS FOR DRIVER ─────────────────────────────────
+    public function accidentReports(Request $request)
+    {
+        $user = $request->user();
+        $driver = $this->resolveDriver($user);
+
+        if (!$driver) {
+            return response()->json(['success' => false, 'message' => 'Driver not found'], 404);
+        }
+
+        try {
+            $reports = DB::table('rescue_requests')
+                ->leftJoin('units', 'rescue_requests.unit_id', '=', 'units.id')
+                ->where('rescue_requests.driver_id', $driver->id)
+                ->whereNull('rescue_requests.deleted_at')
+                ->select([
+                    'rescue_requests.id',
+                    'rescue_requests.status',
+                    'rescue_requests.notes',
+                    'rescue_requests.latitude',
+                    'rescue_requests.longitude',
+                    'rescue_requests.created_at',
+                    'rescue_requests.updated_at',
+                    'units.plate_number',
+                ])
+                ->orderByDesc('rescue_requests.created_at')
+                ->get();
+
+            // Safely add optional columns
+            if (\Illuminate\Support\Facades\Schema::hasColumn('rescue_requests', 'type')) {
+                $reportsWithType = DB::table('rescue_requests')
+                    ->whereIn('id', $reports->pluck('id'))
+                    ->pluck('type', 'id');
+                $reports->transform(function ($r) use ($reportsWithType) {
+                    $r->type = $reportsWithType[$r->id] ?? 'sos';
+                    return $r;
+                });
+            } else {
+                $reports->transform(function ($r) {
+                    $r->type = 'sos';
+                    return $r;
+                });
+            }
+
+            // Reverse geocode addresses for reports with coordinates
+            $reports->transform(function ($r) {
+                if ($r->latitude && $r->longitude) {
+                    $r->address = $this->reverseGeocodeAddress((float)$r->latitude, (float)$r->longitude);
+                } else {
+                    $r->address = null;
+                }
+                return $r;
+            });
+
+            return response()->json([
+                'success' => true,
+                'data' => $reports
+            ]);
+        } catch (\Exception $e) {
+            \Log::error('Accident Reports Fetch Error: ' . $e->getMessage());
+            return response()->json([
+                'success' => true,
+                'data' => []
+            ]);
+        }
+    }
+
+    // ─── UPDATE ACCIDENT REPORT (same-day only) ─────────────────────────
+    public function updateAccidentReport(Request $request, $id)
+    {
+        $user = $request->user();
+        $driver = $this->resolveDriver($user);
+
+        if (!$driver) {
+            return response()->json(['success' => false, 'message' => 'Driver not found'], 404);
+        }
+
+        try {
+            $report = DB::table('rescue_requests')
+                ->where('id', $id)
+                ->where('driver_id', $driver->id)
+                ->whereNull('deleted_at')
+                ->first();
+
+            if (!$report) {
+                return response()->json(['success' => false, 'message' => 'Report not found'], 404);
+            }
+
+            // Check if report was created today (Manila timezone)
+            $createdDate = Carbon::parse($report->created_at)->timezone('Asia/Manila')->toDateString();
+            $todayDate = Carbon::now('Asia/Manila')->toDateString();
+
+            if ($createdDate !== $todayDate) {
+                return response()->json(['success' => false, 'message' => 'This report can no longer be edited. Reports are only editable on the same day they were created.'], 403);
+            }
+
+            $request->validate([
+                'notes'        => 'nullable|string|max:2000',
+                'damage_level' => 'nullable|string|in:minor,moderate,major,total_loss',
+            ]);
+
+            $notes = $request->notes ?? $report->notes;
+
+            // If damage_level is provided, reconstruct notes
+            if ($request->has('damage_level') || $request->has('description')) {
+                $desc = $request->description ?? $request->notes ?? '';
+                $dmg = $request->damage_level ?? 'Not specified';
+                $notes = "Damage Level: {$dmg}\nDescription: {$desc}";
+            }
+
+            DB::table('rescue_requests')
+                ->where('id', $id)
+                ->update([
+                    'notes' => $notes,
+                    'updated_at' => now(),
+                ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Report updated successfully.',
+            ]);
+        } catch (\Exception $e) {
+            \Log::error('Update Accident Report Error: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to update report.'
+            ], 500);
+        }
+    }
+
+    // ─── REVERSE GEOCODE HELPER ─────────────────────────────────────────
+    private function reverseGeocodeAddress(float $lat, float $lng): ?string
+    {
+        try {
+            $cacheKey = "geocode_{$lat}_{$lng}";
+            $cached = \Cache::get($cacheKey);
+            if ($cached) return $cached;
+
+            $url = "https://nominatim.openstreetmap.org/reverse?format=json&lat={$lat}&lon={$lng}&zoom=16&addressdetails=0";
+            $ctx = stream_context_create(['http' => [
+                'timeout' => 3,
+                'header' => "User-Agent: EuroTaxiSystem/1.0\r\n"
+            ]]);
+            $response = @file_get_contents($url, false, $ctx);
+            if ($response) {
+                $data = json_decode($response, true);
+                $address = $data['display_name'] ?? null;
+                if ($address) {
+                    \Cache::put($cacheKey, $address, 86400); // cache 24h
+                }
+                return $address;
+            }
+        } catch (\Exception $e) {
+            // Silently fail
+        }
+        return null;
+    }
+
 }
+

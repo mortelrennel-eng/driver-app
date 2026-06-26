@@ -283,7 +283,6 @@ class LiveTrackingController extends Controller
                 ->leftJoin('gps_tracking as g', 'u.id', '=', 'g.unit_id')
                 ->select(
                     'u.id', 'u.plate_number', 'u.imei', 'u.status', 'u.driver_id', 'u.gps_provider', 'u.gps_password',
-                    'u.engine_status',
                     DB::raw("TRIM(CONCAT(COALESCE(d1.first_name,''), ' ', COALESCE(d1.last_name,''))) as driver_name"),
                     DB::raw("TRIM(CONCAT(COALESCE(d2.first_name,''), ' ', COALESCE(d2.last_name,''))) as secondary_driver"),
                     'd1.contact_number as driver_phone',

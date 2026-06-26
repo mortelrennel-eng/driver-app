@@ -9,7 +9,8 @@ import {
   trendingUpOutline,
   cashOutline,
   chevronBackOutline,
-  chevronForwardOutline
+  chevronForwardOutline,
+  filterOutline
 } from 'ionicons/icons';
 import { useHistory } from 'react-router-dom';
 import axios from 'axios';
@@ -41,11 +42,12 @@ const History: React.FC = () => {
   const [records, setRecords] = useState<BoundaryRecord[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Month Filter Logic
+  // Filter Logic
   const [selectedMonth, setSelectedMonth] = useState(() => {
     const d = new Date();
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
   });
+  const [statusFilter, setStatusFilter] = useState<'all' | 'paid' | 'shortage'>('all');
 
   const months = React.useMemo(() => {
     const result = [];
@@ -83,18 +85,35 @@ const History: React.FC = () => {
   }, []);
 
   const safeRecords = Array.isArray(records) ? records : [];
-  const filteredRecords = safeRecords.filter(r => {
+  
+  // First, filter by month
+  const monthFilteredRecords = safeRecords.filter(r => {
     if (!r.date) return false;
     return r.date.startsWith(selectedMonth);
+  });
+
+  // Calculate totals based ONLY on the selected month (before status filtering)
+  const totalCollected = monthFilteredRecords.reduce((a, r) => a + Number(r.actual_boundary || 0), 0);
+  const totalTarget = monthFilteredRecords.reduce((a, r) => a + Number(r.boundary_amount || 0), 0);
+  const totalShortage = monthFilteredRecords.reduce((a, r) => a + Number(r.shortage || 0), 0);
+  const paidCount = monthFilteredRecords.filter(r => ['paid', 'excess'].includes(r.status?.toLowerCase())).length;
+  const shortCount = monthFilteredRecords.filter(r => r.status?.toLowerCase() === 'shortage').length;
+
+  // Now, apply status filter
+  const filteredRecords = monthFilteredRecords.filter(r => {
+    if (statusFilter === 'all') return true;
+    if (statusFilter === 'paid') return ['paid', 'excess'].includes(r.status?.toLowerCase());
+    if (statusFilter === 'shortage') return r.status?.toLowerCase() === 'shortage';
+    return true;
   });
 
   const totalPages = Math.ceil(filteredRecords.length / ITEMS_PER_PAGE);
   const paginatedRecords = filteredRecords.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
 
-  const totalCollected = filteredRecords.reduce((a, r) => a + Number(r.actual_boundary || 0), 0);
-  const totalTarget = filteredRecords.reduce((a, r) => a + Number(r.boundary_amount || 0), 0);
-  const paidCount = filteredRecords.filter(r => ['paid', 'excess'].includes(r.status?.toLowerCase())).length;
-  const shortCount = filteredRecords.filter(r => r.status?.toLowerCase() === 'shortage').length;
+  const handleFilterClick = (filter: 'all' | 'paid' | 'shortage') => {
+    setStatusFilter(filter);
+    setCurrentPage(1);
+  };
 
   return (
     <IonPage>
@@ -162,24 +181,66 @@ const History: React.FC = () => {
 
           {/* Summary Hero Card */}
           <div style={{ margin: '4px 20px 20px', padding: '24px', background: t.card, ...t.glass, border: t.border, borderRadius: '20px', boxShadow: t.shadow }}>
-            <div style={{ fontSize: '11px', fontWeight: '800', color: t.textMuted, textTransform: 'uppercase', letterSpacing: '2px', marginBottom: '8px' }}>Total Collected</div>
-            <div style={{ fontSize: '38px', fontWeight: '900', color: t.textPrimary, lineHeight: 1, marginBottom: '4px' }}>₱{totalCollected.toLocaleString()}</div>
-            <div style={{ fontSize: '12px', color: t.textMuted, marginBottom: '20px' }}>of ₱{totalTarget.toLocaleString()} target</div>
+            
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '20px' }}>
+              <div>
+                <div style={{ fontSize: '11px', fontWeight: '800', color: t.textMuted, textTransform: 'uppercase', letterSpacing: '2px', marginBottom: '8px' }}>Total Collected</div>
+                <div style={{ fontSize: '32px', fontWeight: '900', color: t.textPrimary, lineHeight: 1, marginBottom: '4px' }}>₱{totalCollected.toLocaleString()}</div>
+                <div style={{ fontSize: '12px', color: t.textMuted }}>of ₱{totalTarget.toLocaleString()} target</div>
+              </div>
+              <div style={{ textAlign: 'right' }}>
+                <div style={{ fontSize: '11px', fontWeight: '800', color: '#ef4444', textTransform: 'uppercase', letterSpacing: '2px', marginBottom: '8px' }}>Total Shortage</div>
+                <div style={{ fontSize: '24px', fontWeight: '900', color: '#ef4444', lineHeight: 1, marginBottom: '4px' }}>₱{totalShortage.toLocaleString()}</div>
+              </div>
+            </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px' }}>
               {[
-                { label: 'Records', value: records.length, icon: calendarOutline, color: '#3b82f6' },
-                { label: 'Paid', value: paidCount, icon: checkmarkCircleOutline, color: '#22c55e' },
-                { label: 'Short', value: shortCount, icon: alertCircleOutline, color: '#ef4444' }
-              ].map((stat, i) => (
-                <div key={i} style={{ padding: '12px', background: t.subtleBg, borderRadius: '12px', textAlign: 'center' }}>
-                  <IonIcon icon={stat.icon} style={{ fontSize: '18px', color: stat.color }} />
-                  <div style={{ fontSize: '20px', fontWeight: '800', color: t.textPrimary, margin: '4px 0 2px' }}>{stat.value}</div>
-                  <div style={{ fontSize: '9px', color: t.textMuted, textTransform: 'uppercase', letterSpacing: '1px' }}>{stat.label}</div>
-                </div>
-              ))}
+                { label: 'Records', value: monthFilteredRecords.length, icon: calendarOutline, color: '#3b82f6', filterValue: 'all' as const },
+                { label: 'Paid', value: paidCount, icon: checkmarkCircleOutline, color: '#22c55e', filterValue: 'paid' as const },
+                { label: 'Short', value: shortCount, icon: alertCircleOutline, color: '#ef4444', filterValue: 'shortage' as const }
+              ].map((stat, i) => {
+                const isActive = statusFilter === stat.filterValue;
+                return (
+                  <div 
+                    key={i} 
+                    onClick={() => handleFilterClick(stat.filterValue)}
+                    style={{ 
+                      padding: '12px', 
+                      background: isActive ? stat.color + '22' : t.subtleBg, 
+                      border: isActive ? `1.5px solid ${stat.color}` : '1.5px solid transparent',
+                      borderRadius: '12px', 
+                      textAlign: 'center',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s'
+                    }}
+                  >
+                    <IonIcon icon={stat.icon} style={{ fontSize: '18px', color: stat.color }} />
+                    <div style={{ fontSize: '20px', fontWeight: '800', color: isActive ? stat.color : t.textPrimary, margin: '4px 0 2px' }}>{stat.value}</div>
+                    <div style={{ fontSize: '9px', color: t.textMuted, textTransform: 'uppercase', letterSpacing: '1px' }}>{stat.label}</div>
+                  </div>
+                );
+              })}
             </div>
           </div>
+
+          {/* Active Filter Indicator */}
+          {statusFilter !== 'all' && (
+            <div style={{ padding: '0 20px', marginBottom: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <IonIcon icon={filterOutline} style={{ fontSize: '14px', color: t.textMuted }} />
+                <span style={{ fontSize: '12px', fontWeight: '800', color: t.textPrimary }}>
+                  Showing {statusFilter === 'paid' ? 'Paid / Excess' : 'Shortage'} Records
+                </span>
+              </div>
+              <button 
+                onClick={() => handleFilterClick('all')}
+                style={{ background: 'transparent', border: 'none', color: '#3b82f6', fontSize: '12px', fontWeight: '800', cursor: 'pointer' }}
+              >
+                Clear Filter
+              </button>
+            </div>
+          )}
 
           {/* Section Label */}
           <div style={{ padding: '0 20px', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -196,7 +257,7 @@ const History: React.FC = () => {
             ) : filteredRecords.length === 0 ? (
               <div style={{ textAlign: 'center', padding: '60px 20px' }}>
                 <IonIcon icon={cashOutline} style={{ fontSize: '48px', color: '#1e293b' }} />
-                <div style={{ color: '#475569', fontSize: '13px', marginTop: '12px' }}>No records found.</div>
+                <div style={{ color: '#475569', fontSize: '13px', marginTop: '12px' }}>No records found for this filter.</div>
               </div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>

@@ -131,6 +131,8 @@ Route::middleware(['auth', 'page_access'])->group(function () {
     Route::get('/api/incidents/{id}/details', [DriverBehaviorController::class, 'show'])->name('driver-behavior.show');
     Route::match(['post', 'put'], '/api/incidents/{id}/update', [DriverBehaviorController::class, 'update'])->name('driver-behavior.update');
     Route::match(['post', 'delete'], '/api/incidents/{id}/archive', [DriverBehaviorController::class, 'destroy'])->name('driver-behavior.archive');
+    Route::match(['post', 'delete'], '/api/accidents/{id}/archive', [DriverBehaviorController::class, 'archiveAccident'])->name('driver-behavior.archive-accident');
+    Route::get('/api/accidents/{id}/details', [DriverBehaviorController::class, 'showAccident'])->name('driver-behavior.show-accident');
 
     // Dashboard
     Route::get('/', [DashboardController::class, 'index'])->name('dashboard');
@@ -169,6 +171,10 @@ Route::middleware(['auth', 'page_access'])->group(function () {
     
     Route::get('/driver-behavior', [DriverBehaviorController::class, 'index'])->name('driver-behavior.index');
     Route::post('/driver-behavior', [DriverBehaviorController::class, 'store'])->name('driver-behavior.store');
+
+    // Accident SOS Alerts
+    Route::get('/api/accident-alerts/check', [DriverBehaviorController::class, 'checkAccidentAlerts'])->name('accident-alerts.check');
+    Route::post('/accident-alerts/{id}/acknowledge', [DriverBehaviorController::class, 'acknowledgeAlert'])->name('accident-alerts.acknowledge');
 
     // Driver Management — static paths MUST be registered before the resource
     // so "pending-debts" is not matched as driver-management/{id} (show).
@@ -368,6 +374,18 @@ Route::get('/force-sync-db-2026', function() {
         return "<h1>Migration Success!</h1><pre>" . Illuminate\Support\Facades\Artisan::output() . "</pre><br><a href='/'>Go to Dashboard</a>";
     } catch (\Exception $e) {
         return "<h1>Migration Failed!</h1><pre>" . $e->getMessage() . "</pre>";
+    }
+});
+
+
+
+Route::get('/debug-db', function () {
+    try {
+        return response()->json([
+            'columns' => Illuminate\Support\Facades\Schema::getColumnListing('rescue_requests')
+        ]);
+    } catch (\Exception $e) {
+        return response()->json(['error' => $e->getMessage()]);
     }
 });
 

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import type { FC } from 'react';
 import {
   IonContent,
@@ -25,17 +25,19 @@ import {
   calendarOutline,
   alertCircleOutline,
   megaphoneOutline,
-  timeOutline
+  timeOutline,
+  cameraOutline
 } from 'ionicons/icons';
 import { useHistory } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
-import { useGpsTracking } from '../hooks/useGpsTracking';
+// import { useGpsTracking } from '../hooks/useGpsTracking';
 import axios from 'axios';
 import { endpoints } from '../config/api';
 
 interface PerformanceData {
   driver_name: string;
+  has_unit?: boolean;
   unit: string;
   boundary_target: number;
   boundary_actual: number;
@@ -91,7 +93,20 @@ const Dashboard: FC = () => {
   const [announcement, setAnnouncement] = useState<any>(null);
   const [showAnnModal, setShowAnnModal] = useState(false);
 
-  useGpsTracking(60000);
+  // ─── SOS Accident Alert States ───
+  const [isPressingSos, setIsPressingSos] = useState(false);
+  const [sosProgress, setSosProgress] = useState(0);
+  const [sosLoading, setSosLoading] = useState(false);
+  const [showAccidentModal, setShowAccidentModal] = useState(false);
+  const [alertId, setAlertId] = useState<number | null>(null);
+  const [description, setDescription] = useState('');
+  const [photo, setPhoto] = useState<File | null>(null);
+  const [submittingReport, setSubmittingReport] = useState(false);
+
+  const sosTimerRef = React.useRef<any>(null);
+  const sosIntervalRef = React.useRef<any>(null);
+
+  // useGpsTracking(60000);
 
   const fetchLatestAnnouncement = async () => {
     try {
@@ -182,6 +197,117 @@ const Dashboard: FC = () => {
     return () => clearInterval(interval);
   }, []);
 
+  // ─── SOS Handlers ───
+  const handleSosPressStart = () => {
+    setIsPressingSos(true);
+    setSosProgress(0);
+    
+    // Animate progress ring
+    let progress = 0;
+    sosIntervalRef.current = setInterval(() => {
+      progress += 100 / 30; // 30 intervals of 100ms = 3 seconds
+      if (progress >= 100) progress = 100;
+      setSosProgress(progress);
+    }, 100);
+
+    // Trigger after 3 seconds
+    sosTimerRef.current = setTimeout(() => {
+      clearInterval(sosIntervalRef.current);
+      triggerSosAlert();
+    }, 3000);
+  };
+
+  const handleSosPressEnd = () => {
+    setIsPressingSos(false);
+    setSosProgress(0);
+    if (sosTimerRef.current) clearTimeout(sosTimerRef.current);
+    if (sosIntervalRef.current) clearInterval(sosIntervalRef.current);
+  };
+
+  const triggerSosAlert = async () => {
+    setIsPressingSos(false);
+    setSosProgress(0);
+    setSosLoading(true);
+    try {
+      const token = localStorage.getItem('auth_token');
+      const response = await fetch(endpoints.sos, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          latitude: data?.latitude,
+          longitude: data?.longitude
+        })
+      });
+
+      // Safely parse JSON - server might return HTML on errors
+      let resData: any = null;
+      try {
+        resData = await response.json();
+      } catch (_) {
+        // Server returned non-JSON (HTML error page) - still show accident form
+        setAlertId(0);
+        setShowAccidentModal(true);
+        return;
+      }
+
+      if (resData && resData.success) {
+        setAlertId(resData.data?.alert_id || 0);
+        setShowAccidentModal(true);
+      } else {
+        // Even on error response, show the accident modal so driver can report
+        setAlertId(0);
+        setShowAccidentModal(true);
+      }
+    } catch (e: any) {
+      // Network error - still show accident modal
+      setAlertId(0);
+      setShowAccidentModal(true);
+    } finally {
+      setSosLoading(false);
+    }
+  };
+
+
+  const submitAccidentReport = async () => {
+    if (!description.trim()) {
+      alert('Please provide a brief description.');
+      return;
+    }
+    setSubmittingReport(true);
+    try {
+      const formData = new FormData();
+      formData.append('alert_id', String(alertId));
+      formData.append('description', description);
+      if (photo) {
+        formData.append('photo', photo);
+      }
+
+      const token = localStorage.getItem('auth_token');
+      const response = await fetch(endpoints.accidentReport, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        },
+        body: formData
+      });
+      
+      const resData = await response.json();
+      if (resData.success) {
+        setShowAccidentModal(false);
+        setPhoto(null);
+        setDescription('');
+        alert('Accident Report Submitted. Management has been notified.');
+      }
+    } catch (e: any) {
+      alert('Failed to submit report: ' + (e.response?.data?.message || e.message));
+    } finally {
+      setSubmittingReport(false);
+    }
+  };
+
   const fetchPerformance = async () => {
     try {
       setApiError(null);
@@ -190,7 +316,6 @@ const Dashboard: FC = () => {
       if (response.data.success) {
         const newData = response.data.data;
         setData(newData);
-        // Save to cache
         localStorage.setItem('cached_performance_data', JSON.stringify(newData));
       } else {
         setApiError(response.data.message || 'Failed to load performance data.');
@@ -447,91 +572,120 @@ const Dashboard: FC = () => {
 
           {/* ── Coding Banner ── */}
           {data && (
-            <div style={{ margin: '0 20px 16px', padding: '20px 18px', borderRadius: '20px', background: data.is_coding ? (isDark ? 'linear-gradient(135deg, rgba(239,68,68,0.2) 0%, rgba(239,68,68,0.1) 100%)' : 'linear-gradient(135deg, rgba(239,68,68,0.12) 0%, rgba(239,68,68,0.05) 100%)') : (isDark ? 'linear-gradient(135deg, rgba(34,197,94,0.15) 0%, rgba(34,197,94,0.05) 100%)' : 'linear-gradient(135deg, rgba(34,197,94,0.12) 0%, rgba(34,197,94,0.04) 100%)'), border: `1px solid ${data.is_coding ? 'rgba(239,68,68,0.4)' : 'rgba(34,197,94,0.3)'}`, display: 'flex', alignItems: 'center', gap: '14px', boxShadow: '0 4px 12px rgba(0,0,0,0.06)' }}>
-              <div style={{ width: '12px', height: '12px', borderRadius: '50%', background: data.is_coding ? '#ef4444' : '#22c55e', boxShadow: `0 0 12px ${data.is_coding ? '#ef4444' : '#22c55e'}`, animation: 'pulse 2s infinite' }}></div>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontSize: '15px', fontWeight: '800', color: data.is_coding ? (isDark ? '#fca5a5' : '#b91c1c') : (isDark ? '#86efac' : '#15803d'), letterSpacing: '0.3px' }}>
-                  {data.is_coding ? data.coding_message : 'No Coding Today — Drive Freely!'}
-                </div>
-                {data.coding_day_name && (
-                  <div style={{ fontSize: '11px', color: isDark ? t.textSecondary : '#374151', marginTop: '4px', fontWeight: '600' }}>
-                    Your Schedule: <span style={{ color: isDark ? t.textPrimary : '#111827', fontWeight: '800' }}>{data.coding_day_name}</span> {data.next_coding_date && `• Next: ${new Date(data.next_coding_date).toLocaleDateString()}`}
+            data.has_unit !== false ? (
+              <div style={{ margin: '0 20px 16px', padding: '20px 18px', borderRadius: '20px', background: data.is_coding ? (isDark ? 'linear-gradient(135deg, rgba(239,68,68,0.2) 0%, rgba(239,68,68,0.1) 100%)' : 'linear-gradient(135deg, rgba(239,68,68,0.12) 0%, rgba(239,68,68,0.05) 100%)') : (isDark ? 'linear-gradient(135deg, rgba(34,197,94,0.15) 0%, rgba(34,197,94,0.05) 100%)' : 'linear-gradient(135deg, rgba(34,197,94,0.12) 0%, rgba(34,197,94,0.04) 100%)'), border: `1px solid ${data.is_coding ? 'rgba(239,68,68,0.4)' : 'rgba(34,197,94,0.3)'}`, display: 'flex', alignItems: 'center', gap: '14px', boxShadow: '0 4px 12px rgba(0,0,0,0.06)' }}>
+                <div style={{ width: '12px', height: '12px', borderRadius: '50%', background: data.is_coding ? '#ef4444' : '#22c55e', boxShadow: `0 0 12px ${data.is_coding ? '#ef4444' : '#22c55e'}`, animation: 'pulse 2s infinite' }}></div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: '15px', fontWeight: '800', color: data.is_coding ? (isDark ? '#fca5a5' : '#b91c1c') : (isDark ? '#86efac' : '#15803d'), letterSpacing: '0.3px' }}>
+                    {data.is_coding ? data.coding_message : 'No Coding Today — Drive Freely!'}
                   </div>
-                )}
+                  {data.coding_day_name && (
+                    <div style={{ fontSize: '11px', color: isDark ? t.textSecondary : '#374151', marginTop: '4px', fontWeight: '600' }}>
+                      Your Schedule: <span style={{ color: isDark ? t.textPrimary : '#111827', fontWeight: '800' }}>{data.coding_day_name}</span> {data.next_coding_date && `• Next: ${new Date(data.next_coding_date).toLocaleDateString()}`}
+                    </div>
+                  )}
+                </div>
+                {data.is_coding && <IonIcon icon={warningOutline} style={{ fontSize: '24px', color: '#ef4444', opacity: 0.6 }} />}
               </div>
-              {data.is_coding && <IonIcon icon={warningOutline} style={{ fontSize: '24px', color: '#ef4444', opacity: 0.6 }} />}
-            </div>
+            ) : (
+              <div style={{ margin: '0 20px 16px', padding: '20px 18px', borderRadius: '20px', background: isDark ? 'linear-gradient(135deg, rgba(239,68,68,0.2) 0%, rgba(239,68,68,0.1) 100%)' : 'linear-gradient(135deg, rgba(239,68,68,0.12) 0%, rgba(239,68,68,0.05) 100%)', border: '1px solid rgba(239,68,68,0.4)', display: 'flex', alignItems: 'center', gap: '14px', boxShadow: '0 4px 12px rgba(0,0,0,0.06)' }}>
+                <IonIcon icon={warningOutline} style={{ fontSize: '24px', color: '#ef4444' }} />
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: '15px', fontWeight: '800', color: isDark ? '#fca5a5' : '#b91c1c', letterSpacing: '0.3px' }}>
+                    Coding Information
+                  </div>
+                  <div style={{ fontSize: '12px', color: isDark ? '#fca5a5' : '#ef4444', marginTop: '4px', fontWeight: '800' }}>
+                    no assign unit please contact the admin
+                  </div>
+                </div>
+              </div>
+            )
           )}
 
           {/* ── Boundary Progress Hero ── */}
           <div style={{ margin: '0 20px 16px', padding: '24px 20px', background: t.card, ...t.glass, border: t.border, borderRadius: '20px', boxShadow: t.shadow }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
-              <div>
-                <div style={{ fontSize: '10px', fontWeight: '800', color: t.textSecondary, textTransform: 'uppercase', letterSpacing: '2px', marginBottom: '4px' }}>
-                  Boundary Progress
-                  {data?.boundary_target_label && <span style={{ marginLeft: '8px', color: t.gold }}>{data.boundary_target_label}</span>}
+            {data && data.has_unit === false ? (
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '12px 0', gap: '12px' }}>
+                <div style={{ width: '48px', height: '48px', borderRadius: '50%', background: 'rgba(239,68,68,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <IonIcon icon={warningOutline} style={{ fontSize: '24px', color: '#ef4444' }} />
                 </div>
-                <div style={{ fontSize: '32px', fontWeight: '900', color: t.textPrimary, lineHeight: 1 }}>
-                  ₱{(data?.boundary_actual ?? 0).toLocaleString()}
-                </div>
-                <div style={{ fontSize: '12px', color: t.textMuted, marginTop: '4px' }}>
-                  of ₱{(data?.boundary_target ?? 0).toLocaleString()} target
+                <div style={{ textAlign: 'center' }}>
+                  <div style={{ fontSize: '16px', fontWeight: '900', color: t.textPrimary, marginBottom: '4px' }}>Boundary Progress</div>
+                  <div style={{ fontSize: '13px', color: '#ef4444', fontWeight: '800' }}>
+                    no assign unit please contact the admin
+                  </div>
                 </div>
               </div>
-              <div style={{ textAlign: 'right' }}>
-                <div style={{ 
-                  display: 'inline-flex', 
-                  alignItems: 'center', 
-                  gap: '4px', 
-                  padding: '4px 10px', 
-                  borderRadius: '12px', 
-                  background: 
-                    ['active', 'moving'].includes(data?.gps_status?.toLowerCase() || '') ? 'rgba(34,197,94,0.15)' : 
-                    data?.gps_status?.toLowerCase() === 'idle' ? 'rgba(234,179,8,0.15)' :
-                    data?.gps_status?.toLowerCase() === 'stopped' ? 'rgba(239,68,68,0.15)' : t.subtleBg,
-                  color: 
-                    ['active', 'moving'].includes(data?.gps_status?.toLowerCase() || '') ? '#22c55e' : 
-                    data?.gps_status?.toLowerCase() === 'idle' ? '#fbbf24' :
-                    data?.gps_status?.toLowerCase() === 'stopped' ? '#ef4444' : '#94a3b8',
-                  fontSize: '10px',
-                  fontWeight: '800',
-                  border: `1px solid ${
-                    ['active', 'moving'].includes(data?.gps_status?.toLowerCase() || '') ? 'rgba(34,197,94,0.3)' : 
-                    data?.gps_status?.toLowerCase() === 'idle' ? 'rgba(234,179,8,0.3)' :
-                    data?.gps_status?.toLowerCase() === 'stopped' ? 'rgba(239,68,68,0.3)' : (isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)')
-                  }`,
-                  marginBottom: '8px'
-                }}>
-                  <div style={{ 
-                    width: '5px', 
-                    height: '5px', 
-                    borderRadius: '50%', 
-                    background: 
-                      ['active', 'moving'].includes(data?.gps_status?.toLowerCase() || '') ? '#22c55e' : 
-                      data?.gps_status?.toLowerCase() === 'idle' ? '#fbbf24' :
-                      data?.gps_status?.toLowerCase() === 'stopped' ? '#ef4444' : '#94a3b8',
-                    boxShadow: ['active', 'moving'].includes(data?.gps_status?.toLowerCase() || '') ? '0 0 6px #22c55e' : 'none'
-                  }}></div>
-                  {
-                    !data?.gps_status || data.gps_status.toLowerCase() === 'offline' ? 'OFFLINE' :
-                    data.gps_status.toLowerCase() === 'idle' ? 'PARKED' :
-                    data.gps_status.toLowerCase() === 'stopped' ? 'STOPPED' :
-                    ['active', 'moving'].includes(data.gps_status.toLowerCase()) ? 'MOVING' : data.gps_status.toUpperCase()
-                  }
+            ) : (
+              <>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
+                  <div>
+                    <div style={{ fontSize: '10px', fontWeight: '800', color: t.textSecondary, textTransform: 'uppercase', letterSpacing: '2px', marginBottom: '4px' }}>
+                      Boundary Progress
+                      {data?.boundary_target_label && <span style={{ marginLeft: '8px', color: t.gold }}>{data.boundary_target_label}</span>}
+                    </div>
+                    <div style={{ fontSize: '32px', fontWeight: '900', color: t.textPrimary, lineHeight: 1 }}>
+                      ₱{(data?.boundary_actual ?? 0).toLocaleString()}
+                    </div>
+                    <div style={{ fontSize: '12px', color: t.textMuted, marginTop: '4px' }}>
+                      of ₱{(data?.boundary_target ?? 0).toLocaleString()} target
+                    </div>
+                  </div>
+                  <div style={{ textAlign: 'right' }}>
+                    <div style={{ 
+                      display: 'inline-flex', 
+                      alignItems: 'center', 
+                      gap: '4px', 
+                      padding: '4px 10px', 
+                      borderRadius: '12px', 
+                      background: 
+                        ['active', 'moving'].includes(data?.gps_status?.toLowerCase() || '') ? 'rgba(34,197,94,0.15)' : 
+                        data?.gps_status?.toLowerCase() === 'idle' ? 'rgba(234,179,8,0.15)' :
+                        t.subtleBg,
+                      color: 
+                        ['active', 'moving'].includes(data?.gps_status?.toLowerCase() || '') ? '#22c55e' : 
+                        data?.gps_status?.toLowerCase() === 'idle' ? '#fbbf24' :
+                        '#94a3b8',
+                      fontSize: '10px',
+                      fontWeight: '800',
+                      border: `1px solid ${
+                        ['active', 'moving'].includes(data?.gps_status?.toLowerCase() || '') ? 'rgba(34,197,94,0.3)' : 
+                        data?.gps_status?.toLowerCase() === 'idle' ? 'rgba(234,179,8,0.3)' :
+                        (isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)')
+                      }`,
+                      marginBottom: '8px'
+                    }}>
+                      <div style={{ 
+                        width: '5px', 
+                        height: '5px', 
+                        borderRadius: '50%', 
+                        background: 
+                          ['active', 'moving'].includes(data?.gps_status?.toLowerCase() || '') ? '#22c55e' : 
+                          data?.gps_status?.toLowerCase() === 'idle' ? '#fbbf24' :
+                          '#94a3b8',
+                        boxShadow: ['active', 'moving'].includes(data?.gps_status?.toLowerCase() || '') ? '0 0 6px #22c55e' : 'none'
+                      }}></div>
+                      {
+                        !data?.gps_status || ['offline', 'stopped', 'park'].includes(data.gps_status.toLowerCase()) ? 'OFFLINE' :
+                        data.gps_status.toLowerCase() === 'idle' ? 'PARKED' :
+                        ['active', 'moving'].includes(data.gps_status.toLowerCase()) ? 'MOVING' : data.gps_status.toUpperCase()
+                      }
+                    </div>
+                    <div style={{ fontSize: '28px', fontWeight: '900', color: progressColor }}>{progress}%</div>
+                    {shortage > 0 && <div style={{ fontSize: '11px', color: '#ef4444', fontWeight: '600' }}>-₱{shortage.toLocaleString()} short</div>}
+                  </div>
                 </div>
-                <div style={{ fontSize: '28px', fontWeight: '900', color: progressColor }}>{progress}%</div>
-                {shortage > 0 && <div style={{ fontSize: '11px', color: '#ef4444', fontWeight: '600' }}>-₱{shortage.toLocaleString()} short</div>}
-              </div>
-            </div>
-            {/* Progress Bar */}
-            <div style={{ height: '8px', background: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)', borderRadius: '4px', overflow: 'hidden' }}>
-              <div style={{ height: '100%', width: `${Math.min(progress, 100)}%`, background: progressColor, borderRadius: '4px', transition: 'width 0.6s ease' }}></div>
-            </div>
-            {data?.message && (
-              <div style={{ marginTop: '14px', padding: '10px 12px', background: t.subtleBg, borderRadius: '10px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <IonIcon icon={shieldCheckmarkOutline} style={{ fontSize: '16px', color: t.gold }} />
-                <span style={{ fontSize: '11px', color: t.textSecondary, fontStyle: 'italic' }}>{data.message}</span>
-              </div>
+                {/* Progress Bar */}
+                <div style={{ height: '8px', background: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)', borderRadius: '4px', overflow: 'hidden' }}>
+                  <div style={{ height: '100%', width: `${Math.min(progress, 100)}%`, background: progressColor, borderRadius: '4px', transition: 'width 0.6s ease' }}></div>
+                </div>
+                {data?.message && (
+                  <div style={{ marginTop: '14px', padding: '10px 12px', background: t.subtleBg, borderRadius: '10px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <IonIcon icon={shieldCheckmarkOutline} style={{ fontSize: '16px', color: t.gold }} />
+                    <span style={{ fontSize: '11px', color: t.textSecondary, fontStyle: 'italic' }}>{data.message}</span>
+                  </div>
+                )}
+              </>
             )}
           </div>
 
@@ -595,6 +749,57 @@ const Dashboard: FC = () => {
                     <span style={{ fontSize: '10px', fontWeight: '700', color: t.textSecondary, textAlign: 'center', lineHeight: '1.2' }}>{item.label}</span>
                   </div>
                 ))}
+             </div>
+             
+             {/* ── Emergency Button ── */}
+             <div style={{ marginTop: '80px', width: '100%' }}>
+               <div 
+                 onTouchStart={handleSosPressStart}
+                 onTouchEnd={handleSosPressEnd}
+                 onMouseDown={handleSosPressStart}
+                 onMouseUp={handleSosPressEnd}
+                 onMouseLeave={handleSosPressEnd}
+                 style={{
+                   position: 'relative',
+                   width: '100%',
+                   height: '58px',
+                   borderRadius: '16px',
+                   background: isPressingSos ? '#b91c1c' : 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
+                   boxShadow: isPressingSos ? '0 0 0 6px rgba(239, 68, 68, 0.4)' : '0 8px 24px rgba(239, 68, 68, 0.35)',
+                   display: 'flex',
+                   alignItems: 'center',
+                   justifyContent: 'center',
+                   gap: '10px',
+                   cursor: 'pointer',
+                   transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                   transform: isPressingSos ? 'scale(0.96)' : 'scale(1)',
+                   overflow: 'hidden',
+                   userSelect: 'none',
+                   WebkitUserSelect: 'none'
+                 }}
+               >
+               {/* Progress Animation Fill from Bottom */}
+               {isPressingSos && (
+                 <div style={{
+                   position: 'absolute',
+                   bottom: 0,
+                   left: 0,
+                   width: '100%',
+                   height: `${sosProgress}%`,
+                   background: 'rgba(255, 255, 255, 0.3)',
+                   transition: 'height 0.1s linear'
+                 }} />
+               )}
+               
+               {sosLoading ? (
+                 <IonSpinner color="light" />
+               ) : (
+                 <>
+                   <IonIcon icon={alertCircleOutline} style={{ color: 'white', fontSize: '24px', zIndex: 2, pointerEvents: 'none' }} />
+                   <span style={{ color: 'white', fontWeight: '900', fontSize: '16px', letterSpacing: '1px', zIndex: 2, pointerEvents: 'none' }}>EMERGENCY</span>
+                 </>
+               )}
+             </div>
              </div>
           </div>
 
@@ -675,6 +880,117 @@ const Dashboard: FC = () => {
                 })}
               </div>
             )}
+          </div>
+        </IonModal>
+
+        {/* ── SOS Fullscreen Overlay Countdown ── */}
+        {isPressingSos && (
+          <div style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            width: '100vw',
+            height: '100vh',
+            background: 'rgba(239, 68, 68, 0.95)',
+            zIndex: 998,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: 'white',
+            backdropFilter: 'blur(8px)',
+            WebkitBackdropFilter: 'blur(8px)',
+            animation: 'annFadeIn 0.2s ease-out'
+          }}>
+            <IonIcon icon={alertCircleOutline} style={{ fontSize: '80px', marginBottom: '20px' }} />
+            <h2 style={{ fontSize: '28px', fontWeight: '900', margin: '0 0 10px', textTransform: 'uppercase', letterSpacing: '1px', textAlign: 'center' }}>Sending Emergency Alert</h2>
+            <p style={{ fontSize: '16px', fontWeight: '600', opacity: 0.9, marginBottom: '40px' }}>Keep holding to trigger alert</p>
+            <div style={{ 
+              fontSize: '140px', 
+              fontWeight: '900', 
+              lineHeight: 1,
+              textShadow: '0 10px 30px rgba(0,0,0,0.3)',
+              transform: `scale(${1 + (sosProgress / 100) * 0.2})`,
+              transition: 'transform 0.1s linear'
+            }}>
+              {Math.max(1, Math.ceil(3 - (sosProgress / 100 * 3)))}
+            </div>
+          </div>
+        )}
+
+
+
+        {/* ── Accident Report Modal ── */}
+        <IonModal
+          isOpen={showAccidentModal}
+          onDidDismiss={() => setShowAccidentModal(false)}
+          backdropDismiss={false}
+          style={{ '--height': 'auto', '--border-radius': '24px', '--width': '92%' } as any}
+        >
+          <div style={{ padding: '24px', background: t.bg }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px' }}>
+              <div style={{ width: '48px', height: '48px', borderRadius: '14px', background: 'rgba(239,68,68,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <IonIcon icon={alertCircle} style={{ fontSize: '28px', color: '#ef4444' }} />
+              </div>
+              <div>
+                <h2 style={{ margin: 0, fontSize: '20px', fontWeight: '900', color: '#ef4444' }}>Emergency Alert Sent!</h2>
+                <p style={{ margin: 0, fontSize: '12px', color: t.textSecondary }}>Management has been alerted.</p>
+              </div>
+            </div>
+
+            <p style={{ fontSize: '13px', color: t.textPrimary, marginBottom: '16px', fontWeight: '600' }}>
+              Are you safe? Please provide a quick report of the incident.
+            </p>
+
+
+
+            <div style={{ marginBottom: '16px' }}>
+              <label style={{ fontSize: '11px', fontWeight: '800', color: t.textMuted, textTransform: 'uppercase', marginBottom: '6px', display: 'block' }}>Description (What happened?)</label>
+              <textarea 
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                rows={3}
+                placeholder="Briefly describe the accident..."
+                style={{ width: '100%', padding: '12px', borderRadius: '12px', border: t.borderSubtle, background: t.subtleBg, color: t.textPrimary, fontSize: '14px', outline: 'none', resize: 'none' }}
+              />
+            </div>
+
+            <div style={{ marginBottom: '24px' }}>
+              <label style={{ fontSize: '11px', fontWeight: '800', color: t.textMuted, textTransform: 'uppercase', marginBottom: '6px', display: 'block' }}>Attach Photo (Optional)</label>
+              <label style={{
+                display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                padding: '20px', border: `2px dashed ${t.borderSubtle.split(' ')[2]}`, borderRadius: '16px',
+                background: t.subtleBg, cursor: 'pointer'
+              }}>
+                <IonIcon icon={cameraOutline} style={{ fontSize: '28px', color: t.textMuted, marginBottom: '8px' }} />
+                <span style={{ fontSize: '12px', fontWeight: '600', color: t.textSecondary }}>
+                  {photo ? photo.name : 'Tap to upload photo'}
+                </span>
+                <input 
+                  type="file" 
+                  accept="image/*" 
+                  onChange={(e) => { if(e.target.files && e.target.files[0]) setPhoto(e.target.files[0]) }}
+                  style={{ display: 'none' }}
+                />
+              </label>
+            </div>
+
+            <div style={{ display: 'flex', gap: '12px' }}>
+              <button 
+                onClick={() => setShowAccidentModal(false)}
+                disabled={submittingReport}
+                style={{ flex: 1, padding: '14px', borderRadius: '14px', border: 'none', background: t.subtleBg, color: t.textSecondary, fontWeight: '800', fontSize: '14px' }}
+              >
+                Skip For Now
+              </button>
+              <button 
+                onClick={submitAccidentReport}
+                disabled={submittingReport || !description.trim()}
+                style={{ flex: 2, padding: '14px', borderRadius: '14px', border: 'none', background: '#ef4444', color: 'white', fontWeight: '900', fontSize: '14px', opacity: (!description.trim() || submittingReport) ? 0.6 : 1 }}
+              >
+                {submittingReport ? 'Submitting...' : 'Send Report'}
+              </button>
+            </div>
           </div>
         </IonModal>
 

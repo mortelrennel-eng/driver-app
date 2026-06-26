@@ -15,10 +15,14 @@ class RescueRequest extends Model
     protected $fillable = [
         'driver_id',
         'unit_id',
+        'type',
         'latitude',
         'longitude',
         'status',
         'notes',
+        'photo_path',
+        'acknowledged_by',
+        'acknowledged_at',
     ];
 
     public function driver()

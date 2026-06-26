@@ -39,4 +39,9 @@ export const endpoints = {
   driverIncidents: `${API_BASE_URL}/driver/incidents`,
   announcements: `${API_BASE_URL}/driver/announcements`,
   latestAnnouncement: `${API_BASE_URL}/driver/announcements/latest`,
+  termsImages: `${API_BASE_URL}/driver/terms-images`,
+  sos: `${API_BASE_URL}/driver/sos`,
+  accidentReport: `${API_BASE_URL}/driver/accident-report`,
+  accidentReports: `${API_BASE_URL}/driver/accident-reports`,
+  updateAccidentReport: (id: number) => `${API_BASE_URL}/driver/accident-reports/${id}`,
 };

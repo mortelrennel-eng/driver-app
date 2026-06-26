@@ -8,7 +8,7 @@ const config = {
     readyTimeout: 20000
 };
 
-const command = `cd /home/u747826271/domains/eurotaxisystem.site/public_html && rm -f bootstrap/cache/*.php && php artisan config:clear && php artisan cache:clear && echo "---CACHE_NUKED---"`;
+const command = `cd /home/u747826271/domains/eurotaxisystem.site/public_html && rm -f bootstrap/cache/*.php && rm -f storage/framework/views/*.php && php artisan config:clear && php artisan cache:clear && php artisan route:clear && php artisan view:clear && echo "---CACHE_NUKED---"`;
 
 const conn = new Client();
 conn.on('ready', () => {

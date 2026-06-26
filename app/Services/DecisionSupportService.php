@@ -166,6 +166,44 @@ class DecisionSupportService
             ->where('created_at', '>=', now()->subDays(60))
             ->sum('total_salary') ?? 0;
 
+        // ─── DRIVER VIOLATIONS & SAFETY INCIDENTS (Last 90 days) ──────────────
+        $safetyStats = DB::table('driver_behavior')
+            ->whereNull('deleted_at')
+            ->selectRaw('
+                COUNT(*) as total_incidents,
+                SUM(CASE WHEN is_driver_fault = 1 THEN 1 ELSE 0 END) as driver_fault_incidents,
+                SUM(traffic_fine_amount) as total_traffic_fines,
+                SUM(own_unit_damage_cost) as total_own_damage_cost,
+                SUM(third_party_damage_cost) as total_third_party_damage_cost,
+                SUM(remaining_balance) as outstanding_behavior_debts
+            ')
+            ->first();
+
+        $incidentCategories = DB::table('driver_behavior')
+            ->whereNull('deleted_at')
+            ->selectRaw('incident_type, COUNT(*) as count')
+            ->groupBy('incident_type')
+            ->orderByDesc('count')
+            ->get();
+
+        // ─── FRANCHISE & LEGAL DOCUMENTS EXPIRY STATUS ───────────────────────
+        $expiredCases = DB::table('franchise_cases')
+            ->whereNull('deleted_at')
+            ->where('expiry_date', '<', now()->toDateString())
+            ->count();
+
+        $expiringCases = DB::table('franchise_cases')
+            ->whereNull('deleted_at')
+            ->whereBetween('expiry_date', [now()->toDateString(), now()->addDays(90)->toDateString()])
+            ->count();
+
+        // ─── SPARE PARTS INVENTORY LEVELS ─────────────────────────────────────
+        $lowStockSpareParts = DB::table('spare_parts')
+            ->whereNull('deleted_at')
+            ->where('stock_quantity', '<=', 3)
+            ->select('name', 'stock_quantity', 'price', 'supplier')
+            ->get();
+
         return [
             'fleet' => [
                 'total'       => $totalUnits,
@@ -200,6 +238,17 @@ class DecisionSupportService
             ],
             'expenses_by_category' => $expenseStats->toArray(),
             'driver_performance'   => $driverPerf->toArray(),
+            'safety_incidents' => [
+                'summary' => $safetyStats,
+                'by_type' => $incidentCategories->toArray(),
+            ],
+            'franchise_status' => [
+                'expired_cases' => $expiredCases,
+                'expiring_in_90_days' => $expiringCases,
+            ],
+            'inventory_status' => [
+                'low_stock_parts' => $lowStockSpareParts->toArray(),
+            ]
         ];
     }
 
@@ -220,15 +269,15 @@ Your job is to analyze the data deeply and provide actionable strategic recommen
 
 ## YOUR TASK:
 Analyze the above data and return a JSON object containing:
-1. "recommendations": An array of 5-7 strategic recommendations.
+1. "recommendations": An array of 6-8 strategic recommendations covering fleet management, driver behavior, inventory optimization, legal doc expirations, and financial safety.
 2. "forecast": A 30-day prediction object for Revenue, Expenses, and Maintenance.
-3. "risks": A list of top 3 operational risks based on current trends.
+3. "risks": A list of top 4 operational risks based on current trends.
 
 You must return ONLY valid JSON, no markdown, no extra text.
 
 Each recommendation must follow this structure:
 {
-  "category": "fleet|finance|drivers|maintenance|operations",
+  "category": "fleet|finance|drivers|maintenance|operations|inventory|legal",
   "priority": "critical|high|medium|low",
   "icon": "a single relevant emoji",
   "title": "Short title",
@@ -433,6 +482,9 @@ PROMPT;
         $bound    = $snapshot['boundaries'] ?? [];
         $unitROI  = $snapshot['unit_roi']   ?? [];
         $maint    = $snapshot['maintenance'] ?? [];
+        $safety    = $snapshot['safety_incidents'] ?? [];
+        $franchise = $snapshot['franchise_status'] ?? [];
+        $inventory = $snapshot['inventory_status'] ?? [];
 
         // 1. Fleet Utilization
         $util = $fleet['utilization_pct'] ?? 0;
@@ -516,6 +568,82 @@ PROMPT;
             'metric_label' => 'Latest Monthly Net',
             'confidence'   => 85,
         ];
+
+        // 6. Legal / Franchise Expirations
+        $expiredCases = $franchise['expired_cases'] ?? 0;
+        $expiringCases = $franchise['expiring_in_90_days'] ?? 0;
+        if ($expiredCases > 0 || $expiringCases > 0) {
+            $insights[] = [
+                'category'     => 'legal',
+                'priority'     => $expiredCases > 0 ? 'critical' : 'high',
+                'icon'         => '⚖️',
+                'title'        => $expiredCases > 0 ? 'Expired Franchise Cases Detected' : 'Upcoming Franchise Expirations',
+                'insight'      => "{$expiredCases} franchise case(s) have expired, and {$expiringCases} case(s) are expiring in the next 90 days.",
+                'reasoning'    => "Operating taxis with expired franchises or registration documents poses massive regulatory risk, including heavy LTFRB/LTO fines and vehicle impoundment. Addressing expirations proactively is crucial to keep the fleet fully compliant and operational without road disruptions.",
+                'actions'      => [
+                    'Renew the expired franchise cases immediately',
+                    'Set up a tracking log for documents expiring in the next 90 days',
+                    'Conduct a compliance audit on driver licenses and permit documentation'
+                ],
+                'metric'       => ($expiredCases + $expiringCases) . ' cases',
+                'metric_label' => 'Pending Expiries',
+                'confidence'   => 95,
+            ];
+        }
+
+        // 7. Spare Parts Inventory
+        $lowStockParts = $inventory['low_stock_parts'] ?? [];
+        if (count($lowStockParts) > 0) {
+            $partNames = collect($lowStockParts)->take(3)->pluck('name')->implode(', ');
+            if (count($lowStockParts) > 3) {
+                $partNames .= ' and ' . (count($lowStockParts) - 3) . ' more';
+            }
+            $insights[] = [
+                'category'     => 'inventory',
+                'priority'     => 'high',
+                'icon'         => '📦',
+                'title'        => 'Critical Spare Parts Low Stock',
+                'insight'      => count($lowStockParts) . " critical spare part(s) are low on stock (<= 3 units). Low: {$partNames}.",
+                'reasoning'    => "A lack of replacement parts when vehicles break down leads to prolonged fleet downtime. Keeping a buffer of high-turnover spare parts (e.g., brake pads, filters, belts) ensures rapid repairs and maximizes unit utilization.",
+                'actions'      => [
+                    'Reorder low-stock spare parts immediately',
+                    'Establish minimum safety stock levels and reorder triggers with suppliers',
+                    'Optimize supplier lead times to avoid stockouts for critical parts'
+                ],
+                'metric'       => count($lowStockParts) . ' items',
+                'metric_label' => 'Low Stock Items',
+                'confidence'   => 90,
+            ];
+        }
+
+        // 8. Driver Behavior & Safety Incidents
+        $safetySummary = $safety['summary'] ?? null;
+        $totalIncidents = (int)($safetySummary->total_incidents ?? 0);
+        if ($totalIncidents > 0) {
+            $faultIncidents = (int)($safetySummary->driver_fault_incidents ?? 0);
+            $fines = (float)($safetySummary->total_traffic_fines ?? 0);
+            $ownDamage = (float)($safetySummary->total_own_damage_cost ?? 0);
+            $thirdPartyDamage = (float)($safetySummary->total_third_party_damage_cost ?? 0);
+            $totalDamage = $ownDamage + $thirdPartyDamage;
+            $behaviorDebts = (float)($safetySummary->outstanding_behavior_debts ?? 0);
+
+            $insights[] = [
+                'category'     => 'operations',
+                'priority'     => ($totalDamage + $fines) > 20000 ? 'high' : 'medium',
+                'icon'         => '🛡️',
+                'title'        => 'Driver Safety & Incident Liability',
+                'insight'      => "{$totalIncidents} safety incident(s) recorded ({$faultIncidents} driver fault). Liability: ₱" . number_format($totalDamage + $fines, 2) . " in damages/fines, with ₱" . number_format($behaviorDebts, 2) . " outstanding driver debt.",
+                'reasoning'    => "Accidents and traffic violations cause significant revenue loss, expensive repairs, liability claims, and driver downtime. Monitoring incident metrics helps weed out high-risk drivers and promotes defensive driving practices.",
+                'actions'      => [
+                    'Implement mandatory defensive driving seminars for drivers with fault incidents',
+                    'Set up a payroll/boundary deduction schedule to recover the outstanding ₱' . number_format($behaviorDebts, 0) . ' behavior debts',
+                    'Establish a driver safety scorecard program with monthly incentives for accident-free records'
+                ],
+                'metric'       => '₱' . number_format($totalDamage + $fines, 0),
+                'metric_label' => 'Incident Cost',
+                'confidence'   => 92,
+            ];
+        }
 
         return [
             'insights'    => $insights,

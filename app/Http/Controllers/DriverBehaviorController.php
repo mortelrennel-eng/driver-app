@@ -114,12 +114,79 @@ class DriverBehaviorController extends Controller
         $classifications = \App\Models\IncidentClassification::orderBy('name')->get();
         $archivedClassifications = \App\Models\IncidentClassification::onlyTrashed()->orderBy('name')->get();
 
+        // ── Accident Reports ─────────────────────────────────────────
+        $accident_reports = \App\Models\RescueRequest::with(['driver', 'unit'])
+            ->where('type', 'accident')
+            ->orderByDesc('created_at')
+            ->get();
+
         return view('driver-behavior.index', compact(
             'incidents', 'search', 'type_filter', 'severity_filter',
             'date_from', 'date_to', 'pagination', 'stats',
             'driver_profiles', 'incentive_summary',
-            'drivers', 'units', 'tab', 'spare_parts', 'classifications', 'archivedClassifications'
+            'drivers', 'units', 'tab', 'spare_parts', 'classifications', 'archivedClassifications', 'accident_reports'
         ));
+    }
+
+    // ─── ACCIDENT SOS METHODS ──────────────────────────────────────────
+    public function checkAccidentAlerts()
+    {
+        try {
+            $query = \App\Models\RescueRequest::with(['driver', 'unit'])
+                ->where('status', 'pending');
+                
+            if (\Illuminate\Support\Facades\Schema::hasColumn('rescue_requests', 'type')) {
+                $query->where('type', 'accident');
+            }
+            if (\Illuminate\Support\Facades\Schema::hasColumn('rescue_requests', 'acknowledged_at')) {
+                $query->whereNull('acknowledged_at');
+            }
+            
+            $alerts = $query->orderBy('created_at', 'desc')->get();
+
+            return response()->json([
+                'count' => $alerts->count(),
+                'alerts' => $alerts
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'count' => 0,
+                'alerts' => []
+            ]);
+        }
+    }
+
+    public function acknowledgeAlert(Request $request, $id)
+    {
+        try {
+            $alert = \App\Models\RescueRequest::findOrFail($id);
+            
+            // Only check type if column exists
+            if (\Illuminate\Support\Facades\Schema::hasColumn('rescue_requests', 'type')) {
+                if ($alert->type !== 'accident') {
+                    return response()->json(['success' => false, 'message' => 'Not an accident alert']);
+                }
+            }
+
+            $updateData = ['status' => 'responding', 'updated_at' => now()];
+            
+            if (\Illuminate\Support\Facades\Schema::hasColumn('rescue_requests', 'acknowledged_by')) {
+                $updateData['acknowledged_by'] = \Illuminate\Support\Facades\Auth::id();
+            }
+            if (\Illuminate\Support\Facades\Schema::hasColumn('rescue_requests', 'acknowledged_at')) {
+                $updateData['acknowledged_at'] = now();
+            }
+
+            \Illuminate\Support\Facades\DB::table('rescue_requests')
+                ->where('id', $id)
+                ->update($updateData);
+
+            return response()->json(['success' => true]);
+            
+        } catch (\Exception $e) {
+            \Log::error('Acknowledge Alert Error: ' . $e->getMessage());
+            return response()->json(['success' => false, 'message' => 'Failed to acknowledge due to internal error.']);
+        }
     }
 
     // ─── STORE: Record Incident ──────────────────────────────────────────
@@ -304,13 +371,33 @@ class DriverBehaviorController extends Controller
         }
 
         if ($shouldAutoBan) {
-            // Mark driver as banned
-            DB::table('drivers')
-                ->where('id', $data['driver_id'])
-                ->update([
-                    'driver_status' => 'banned',
-                    'updated_at'    => now(),
-                ]);
+            // Mark driver as banned and delete User credentials
+            $driverModel = Driver::find($data['driver_id']);
+            if ($driverModel) {
+                $user = $driverModel->user;
+                if ($user) {
+                    $user->tokens()->delete();
+                    // Keep user_id on driver so account can be restored via unban()
+                    $driverModel->update(['driver_status' => 'banned']);
+                    // Soft delete — preserved in archive, login blocked with ban message
+                    $user->update([
+                        'is_disabled'    => true,
+                        'disable_reason' => '🚫 Your account has been permanently banned due to a serious violation. Please contact the admin to settle.',
+                    ]);
+                    $user->delete();
+                } else {
+                    $driverModel->update([
+                        'driver_status' => 'banned'
+                    ]);
+                }
+            } else {
+                DB::table('drivers')
+                    ->where('id', $data['driver_id'])
+                    ->update([
+                        'driver_status' => 'banned',
+                        'updated_at'    => now(),
+                    ]);
+            }
 
             // Automatically unassign banned driver from any units
             DB::table('units')
@@ -375,15 +462,33 @@ class DriverBehaviorController extends Controller
         $plate = DB::table('units')->where('id', $data['unit_id'])->value('plate_number');
         ActivityLogController::log('Recorded Incident', "Driver: {$driverName}\nUnit: {$plate}\nType: {$data['incident_type']}\nSeverity: " . ucfirst($data['severity']));
         
-        // Notify Driver via Push
+        // Notify Driver via Push + in-app system_alert
         try {
             $chargeMsg = $totalCharge > 0 ? " and a charge of ₱" . number_format($totalCharge, 2) . " was added." : ".";
+            $notifTitle = 'Incident Recorded: ' . $data['incident_type'];
+            $notifBody  = "A new " . strtolower($data['severity']) . " severity incident was recorded" . $chargeMsg;
+
+            // Push via Firebase
             app(\App\Services\NotificationService::class)->notifyDriver(
                 $data['driver_id'],
-                'Incident Recorded: ' . $data['incident_type'],
-                "A new " . strtolower($data['severity']) . " severity incident was recorded" . $chargeMsg,
+                $notifTitle,
+                $notifBody,
                 'incident'
             );
+
+            // Persist in system_alerts so the driver sees it in-app Notifications feed
+            $driverUserId = DB::table('drivers')->where('id', $data['driver_id'])->value('user_id');
+            if ($driverUserId) {
+                DB::table('system_alerts')->insert([
+                    'type'        => 'incident',
+                    'title'       => $notifTitle,
+                    'message'     => $notifBody,
+                    'user_id'     => $driverUserId,
+                    'is_resolved' => false,
+                    'created_at'  => now(),
+                    'updated_at'  => now(),
+                ]);
+            }
         } catch (\Exception $e) {}
 
         return redirect()->route('driver-behavior.index', ['tab' => 'incidents'])
@@ -857,5 +962,26 @@ class DriverBehaviorController extends Controller
     {
         // Kept for backward compatibility
         return response()->json($this->getStats(now()->subDays(30)->toDateString(), now()->toDateString()));
+    }
+
+    public function archiveAccident($id)
+    {
+        try {
+            $alert = \App\Models\RescueRequest::findOrFail($id);
+            $alert->delete();
+            return response()->json(['success' => true, 'message' => 'Accident report archived successfully.']);
+        } catch (\Exception $e) {
+            return response()->json(['success' => false, 'message' => 'Failed to archive: ' . $e->getMessage()], 500);
+        }
+    }
+
+    public function showAccident($id)
+    {
+        try {
+            $alert = \App\Models\RescueRequest::with(['driver', 'unit'])->findOrFail($id);
+            return response()->json(['success' => true, 'data' => $alert]);
+        } catch (\Exception $e) {
+            return response()->json(['success' => false, 'message' => 'Accident not found.'], 404);
+        }
     }
 }

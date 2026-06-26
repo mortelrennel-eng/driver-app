@@ -336,10 +336,17 @@
                             </a>
                             {{-- Dropdown Sub-menu on Hover --}}
                             <div class="hidden group-hover:block lg:pl-10 pl-0 space-y-1 mt-1 transition-all duration-300">
-                                <a href="{{ route('driver-management.banned') }}"
-                                   class="sidebar-sub-item flex items-center justify-start md:justify-center lg:justify-start gap-2 px-4 md:px-0 lg:px-4 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider text-red-600 hover:bg-red-50 hover:text-red-700 {{ request()->routeIs('driver-management.banned') ? 'bg-red-50 text-red-700 font-black' : '' }}">
-                                    <i data-lucide="ban" class="w-3.5 h-3.5 text-red-500"></i>
-                                    <span class="block md:hidden lg:block">Banned Drivers</span>
+                                <a href="{{ route('driver-management.banned') }}" class="{{ request()->routeIs('driver-management.banned') ? 'text-red-500 font-bold bg-red-50/50 block rounded-xl py-2 px-3' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50 block rounded-xl py-2 px-3' }} flex items-center gap-2">
+                                    <i data-lucide="ban" class="w-3.5 h-3.5 {{ request()->routeIs('driver-management.banned') ? 'text-red-500' : 'text-slate-400' }}"></i> 
+                                    <span class="text-[10px] uppercase tracking-wider font-bold">Banned Drivers</span>
+                                </a>
+                                <a href="{{ route('driver-management.terms') }}" class="{{ request()->routeIs('driver-management.terms') ? 'text-blue-600 font-bold bg-blue-50/50 block rounded-xl py-2 px-3' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50 block rounded-xl py-2 px-3' }} flex items-center gap-2">
+                                    <i data-lucide="file-signature" class="w-3.5 h-3.5 {{ request()->routeIs('driver-management.terms') ? 'text-blue-600' : 'text-slate-400' }}"></i> 
+                                    <span class="text-[10px] uppercase tracking-wider font-bold">Driver Terms</span>
+                                </a>
+                                <a href="{{ route('driver-management.debts') }}" class="{{ request()->routeIs('driver-management.debts') ? 'text-rose-600 font-bold bg-rose-50/50 block rounded-xl py-2 px-3' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50 block rounded-xl py-2 px-3' }} flex items-center gap-2">
+                                    <i data-lucide="wallet" class="w-3.5 h-3.5 {{ request()->routeIs('driver-management.debts') ? 'text-rose-600' : 'text-slate-400' }}"></i> 
+                                    <span class="text-[10px] uppercase tracking-wider font-bold">Pending Debts</span>
                                 </a>
                             </div>
                         </div>
@@ -509,7 +516,7 @@
             </aside>
 
             <!-- Main Content -->
-            <main id="appMainContent" class="flex-1 flex flex-col overflow-hidden">
+            <main id="appMainContent" class="flex-1 flex flex-col min-h-0">
                 <!-- Top Bar -->
                 <header class="bg-white shadow-sm border-b px-4 md:px-6 py-2">
                     <div class="flex items-center justify-between">
@@ -1839,6 +1846,131 @@
     </style>
     
     @include('partials.chat-drawer')
+
+    <!-- ─── GLOBAL SOS ACCIDENT ALERT ─── -->
+    <div id="globalSosAlert" class="fixed inset-0 z-[100000] hidden items-center justify-center bg-red-900/90 backdrop-blur-sm">
+        <div class="bg-white border-4 border-red-600 rounded-2xl shadow-2xl p-6 md:p-10 w-11/12 max-w-2xl text-center animate-bounce-in relative overflow-hidden">
+            <div class="absolute top-0 left-0 w-full h-2 bg-red-600 animate-pulse"></div>
+            
+            <div class="mx-auto w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mb-6 shadow-inner">
+                <i data-lucide="triangle-alert" class="w-12 h-12 text-red-600 animate-pulse"></i>
+            </div>
+            
+            <h1 class="text-3xl md:text-5xl font-black text-red-600 mb-2 tracking-tight uppercase">Emergency!</h1>
+            <h2 class="text-lg md:text-2xl font-bold text-gray-900 mb-6" id="sosAlertDriver">Driver Name - Plate Number</h2>
+            
+            <div class="bg-gray-50 rounded-xl p-4 mb-8 text-left border border-red-100">
+                <p class="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-1">Location / Details</p>
+                <p class="text-lg font-medium text-gray-800" id="sosAlertLocation">Lat: --, Lng: --</p>
+                <p class="text-sm text-gray-500 mt-2" id="sosAlertTime">Time: --</p>
+            </div>
+            
+            <button onclick="acknowledgeSosAlert()" id="btnAcknowledgeSos" class="w-full py-4 bg-red-600 hover:bg-red-700 text-white text-xl font-black rounded-xl shadow-lg hover:shadow-xl transition-all active:scale-95 uppercase tracking-wider">
+                Acknowledge Alert
+            </button>
+        </div>
+    </div>
+
+    <script>
+        (function() {
+            let sosAlertSound = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3'); // Klaxon sound
+            sosAlertSound.loop = true;
+            let isAlertShowing = false;
+            let currentAlertId = null;
+
+            async function pollSosAlerts() {
+                try {
+                    const response = await fetch('/api/accident-alerts/check');
+                    const data = await response.json();
+                    
+                    if (data.count > 0 && data.alerts && data.alerts.length > 0) {
+                        const alert = data.alerts[0]; // Get oldest pending alert
+                        
+                        if (!isAlertShowing || currentAlertId !== alert.id) {
+                            currentAlertId = alert.id;
+                            
+                            // Format details
+                            const driverName = alert.driver ? `${alert.driver.first_name} ${alert.driver.last_name}` : 'Unknown Driver';
+                            const plateNum = alert.unit ? alert.unit.plate_number : 'Unknown Unit';
+                            
+                            document.getElementById('sosAlertDriver').innerText = `${driverName} — ${plateNum}`;
+                            
+                            if (alert.latitude && alert.longitude) {
+                                document.getElementById('sosAlertLocation').innerHTML = `<a href="https://maps.google.com/?q=${alert.latitude},${alert.longitude}" target="_blank" class="text-blue-600 hover:underline"><i data-lucide="map-pin" class="inline w-4 h-4 mr-1"></i>View on Google Maps (${alert.latitude}, ${alert.longitude})</a>`;
+                            } else {
+                                document.getElementById('sosAlertLocation').innerText = 'GPS location not available';
+                            }
+                            
+                            const d = new Date(alert.created_at);
+                            document.getElementById('sosAlertTime').innerText = `Reported at: ${d.toLocaleString()}`;
+                            
+                            // Show alert UI
+                            document.getElementById('globalSosAlert').classList.remove('hidden');
+                            document.getElementById('globalSosAlert').classList.add('flex');
+                            isAlertShowing = true;
+                            
+                            // Play sound (requires user interaction first on modern browsers, but will try)
+                            sosAlertSound.play().catch(e => console.log('Autoplay blocked for SOS sound', e));
+                            
+                            if(window.lucide) lucide.createIcons();
+                        }
+                    } else {
+                        // No alerts
+                        if (isAlertShowing) {
+                            hideSosAlert();
+                        }
+                    }
+                } catch (e) {
+                    console.error('Error polling SOS alerts', e);
+                }
+            }
+
+            window.hideSosAlert = function() {
+                document.getElementById('globalSosAlert').classList.add('hidden');
+                document.getElementById('globalSosAlert').classList.remove('flex');
+                sosAlertSound.pause();
+                sosAlertSound.currentTime = 0;
+                isAlertShowing = false;
+                currentAlertId = null;
+            }
+
+            window.acknowledgeSosAlert = async function() {
+                if (!currentAlertId) return;
+                
+                const btn = document.getElementById('btnAcknowledgeSos');
+                btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Acknowledging...';
+                btn.disabled = true;
+                
+                try {
+                    const response = await fetch(`/accident-alerts/${currentAlertId}/acknowledge`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+                        }
+                    });
+                    
+                    const data = await response.json();
+                    if (data.success) {
+                        hideSosAlert();
+                        // Redirect to the Accident Reports tab
+                        window.location.href = '/driver-behavior?tab=accidents';
+                    } else {
+                        alert('Failed to acknowledge alert.');
+                    }
+                } catch (e) {
+                    alert('Error: ' + e.message);
+                } finally {
+                    btn.innerHTML = 'Acknowledge Alert';
+                    btn.disabled = false;
+                }
+            }
+
+            // Poll every 10 seconds
+            setInterval(pollSosAlerts, 10000);
+            setTimeout(pollSosAlerts, 2000); // Initial check
+        })();
+    </script>
 </body>
 
 </html>

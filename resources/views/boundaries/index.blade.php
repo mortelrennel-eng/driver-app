@@ -71,6 +71,59 @@
     </form>
 </div>
 
+<!-- Daily Fleet Deployment Status -->
+<div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6" id="fleetStatsBoard">
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 flex flex-col justify-center relative overflow-hidden">
+        <div class="absolute right-0 top-0 w-24 h-24 bg-gray-50 rounded-full -mr-10 -mt-10 pointer-events-none"></div>
+        <span class="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1 relative z-10">Total Deployable Fleet</span>
+        <div class="flex items-end gap-2 relative z-10">
+            <span class="text-4xl font-black text-gray-800 tracking-tighter" id="stat_total_deployable">{{ $fleet_stats['total_deployable'] }}</span>
+            <span class="text-xs font-bold text-gray-500 mb-1.5 uppercase">Units</span>
+        </div>
+    </div>
+    
+    <div onclick="openPlatesModal('remitted')" class="bg-gradient-to-br from-green-500 to-emerald-600 rounded-2xl shadow-lg shadow-green-500/20 p-5 flex flex-col justify-center relative overflow-hidden text-white cursor-pointer hover:scale-[1.02] transition-transform active:scale-95">
+        <div class="absolute right-0 top-0 w-32 h-32 bg-white/10 rounded-full -mr-10 -mt-10 pointer-events-none"></div>
+        <div class="flex justify-between items-start relative z-10 mb-1">
+            <span class="text-[10px] font-black text-green-100 uppercase tracking-widest">Remitted Boundary Today</span>
+            <div class="px-2 py-0.5 bg-white/20 rounded text-[9px] font-bold uppercase tracking-wider backdrop-blur-sm">View List</div>
+        </div>
+        <div class="flex items-end gap-2 relative z-10">
+            <span class="text-4xl font-black tracking-tighter" id="stat_total_remitted">{{ $fleet_stats['total_remitted'] }}</span>
+            <span class="text-xs font-bold text-green-200 mb-1.5 uppercase">Units Paid</span>
+        </div>
+    </div>
+    
+    <div onclick="openPlatesModal('vacant')" class="bg-gradient-to-br from-red-500 to-rose-600 rounded-2xl shadow-lg shadow-red-500/20 p-5 flex flex-col justify-center relative overflow-hidden text-white cursor-pointer hover:scale-[1.02] transition-transform active:scale-95">
+        <div class="absolute right-0 top-0 w-32 h-32 bg-white/10 rounded-full -mr-10 -mt-10 pointer-events-none"></div>
+        <div class="flex justify-between items-start relative z-10 mb-1">
+            <span class="text-[10px] font-black text-red-100 uppercase tracking-widest">Unremitted</span>
+            <div class="px-2 py-0.5 bg-white/20 rounded text-[9px] font-bold uppercase tracking-wider backdrop-blur-sm">Action Needed</div>
+        </div>
+        <div class="flex items-end gap-2 relative z-10">
+            <span class="text-4xl font-black tracking-tighter" id="stat_total_vacant">{{ $fleet_stats['total_vacant'] }}</span>
+            <span class="text-xs font-bold text-red-200 mb-1.5 uppercase">Missing</span>
+        </div>
+    </div>
+</div>
+
+{{-- Plate Lists Modals --}}
+<div id="platesListModal" class="hidden fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm transition-all p-4">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-3xl overflow-hidden flex flex-col max-h-[80vh]">
+        <div id="platesModalHeader" class="p-5 flex justify-between items-center shrink-0">
+            <h3 id="platesModalTitle" class="text-lg font-black text-white uppercase tracking-wider"></h3>
+            <button onclick="closePlatesModal()" class="text-white/60 hover:text-white p-1.5 rounded-full transition-colors bg-black/20 hover:bg-black/40 focus:outline-none">
+                <i data-lucide="x" class="w-5 h-5"></i>
+            </button>
+        </div>
+        <div class="p-6 overflow-y-auto flex-1 bg-gray-50/50">
+            <div id="platesModalContent" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+                <!-- Plates injected here -->
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Boundaries Table -->
 <div id="boundariesTableWrapper">
     @include('boundaries.partials._boundaries_table', ['boundaries' => $boundariesArray])
@@ -476,6 +529,52 @@
 // Boundary records keyed by ID for the view modal
 const boundaryRecords = @json(collect($boundariesArray)->keyBy('id'));
 
+// Fleet Stats global object
+let currentFleetStats = @json($fleet_stats);
+
+function openPlatesModal(type) {
+    const modal = document.getElementById('platesListModal');
+    const header = document.getElementById('platesModalHeader');
+    const title = document.getElementById('platesModalTitle');
+    const content = document.getElementById('platesModalContent');
+    
+    if (type === 'remitted') {
+        header.className = 'p-5 flex justify-between items-center shrink-0 bg-gradient-to-r from-green-600 to-emerald-700';
+        title.innerText = 'Remitted Units Today';
+        
+        if (currentFleetStats.remitted_plates.length > 0) {
+            content.innerHTML = currentFleetStats.remitted_plates.map(plate => 
+                `<div class="flex items-center justify-center px-2 py-2.5 bg-white border-2 border-green-100 rounded-xl shadow-sm text-green-800 font-mono font-black text-sm tracking-wide hover:border-green-300 hover:shadow-md transition-all cursor-default">${plate}</div>`
+            ).join('');
+        } else {
+            content.innerHTML = `<div class="col-span-full p-8 text-center text-gray-500 font-bold italic">No remitted units yet.</div>`;
+        }
+    } else {
+        header.className = 'p-5 flex justify-between items-center shrink-0 bg-gradient-to-r from-red-600 to-rose-700';
+        title.innerText = 'Unremitted Units';
+        
+        if (currentFleetStats.vacant_plates.length > 0) {
+            content.innerHTML = currentFleetStats.vacant_plates.map(plate => 
+                `<div class="flex items-center justify-center px-2 py-2.5 bg-white border-2 border-red-100 rounded-xl shadow-sm text-red-800 font-mono font-black text-sm tracking-wide hover:border-red-300 hover:shadow-md transition-all cursor-default">${plate}</div>`
+            ).join('');
+        } else {
+            content.innerHTML = `<div class="col-span-full p-8 text-center text-gray-500 font-bold italic">All units accounted for!</div>`;
+        }
+    }
+    
+    modal.classList.remove('hidden');
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+}
+
+function closePlatesModal() {
+    document.getElementById('platesListModal').classList.add('hidden');
+}
+
+// Close on backdrop click
+document.getElementById('platesListModal').addEventListener('click', function(e) {
+    if (e.target === this) closePlatesModal();
+});
+
 function openViewBoundary(id) {
     const r = boundaryRecords[id];
     if (!r) return;
@@ -650,6 +749,14 @@ function performLiveSearch() {
                 // Update Table
                 tableWrapper.innerHTML = result.html;
                 if (typeof lucide !== 'undefined') lucide.createIcons();
+
+                // Update Fleet Stats Board
+                if (result.fleet_stats) {
+                    currentFleetStats = result.fleet_stats;
+                    document.getElementById('stat_total_deployable').innerText = result.fleet_stats.total_deployable;
+                    document.getElementById('stat_total_remitted').innerText = result.fleet_stats.total_remitted;
+                    document.getElementById('stat_total_vacant').innerText = result.fleet_stats.total_vacant;
+                }
             }
         } catch (error) {
             console.error('Search error:', error);

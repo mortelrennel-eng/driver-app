@@ -73,27 +73,8 @@
                             <input type="hidden" name="_method" value="POST">
                             <input type="hidden" name="driver_id" id="driverDocumentsDriverId" value="">
 
-                            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                                <div class="space-y-1.5">
-                                    <label class="block text-[10px] font-black text-slate-500 uppercase tracking-widest">License (Front)</label>
-                                    <input type="file" name="license_front" accept=".jpg,.jpeg,.png,.pdf" class="block w-full text-xs text-slate-700 bg-white border border-slate-200 rounded-xl p-2 cursor-pointer focus:outline-none hover:border-blue-300 transition-colors">
-                                </div>
-                                <div class="space-y-1.5">
-                                    <label class="block text-[10px] font-black text-slate-500 uppercase tracking-widest">License (Back)</label>
-                                    <input type="file" name="license_back" accept=".jpg,.jpeg,.png,.pdf" class="block w-full text-xs text-slate-700 bg-white border border-slate-200 rounded-xl p-2 cursor-pointer focus:outline-none hover:border-blue-300 transition-colors">
-                                </div>
-                                <div class="space-y-1.5">
-                                    <label class="block text-[10px] font-black text-slate-500 uppercase tracking-widest">NBI Clearance</label>
-                                    <input type="file" name="nbi_clearance" accept=".jpg,.jpeg,.png,.pdf" class="block w-full text-xs text-slate-700 bg-white border border-slate-200 rounded-xl p-2 cursor-pointer focus:outline-none hover:border-blue-300 transition-colors">
-                                </div>
-                                <div class="space-y-1.5">
-                                    <label class="block text-[10px] font-black text-slate-500 uppercase tracking-widest">Barangay Clearance</label>
-                                    <input type="file" name="barangay_clearance" accept=".jpg,.jpeg,.png,.pdf" class="block w-full text-xs text-slate-700 bg-white border border-slate-200 rounded-xl p-2 cursor-pointer focus:outline-none hover:border-blue-300 transition-colors">
-                                </div>
-                                <div class="space-y-1.5">
-                                    <label class="block text-[10px] font-black text-slate-500 uppercase tracking-widest">Medical Certificate</label>
-                                    <input type="file" name="medical_certificate" accept=".jpg,.jpeg,.png,.pdf" class="block w-full text-xs text-slate-700 bg-white border border-slate-200 rounded-xl p-2 cursor-pointer focus:outline-none hover:border-blue-300 transition-colors">
-                                </div>
+                            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" id="driverDocumentsGrid">
+                                <!-- Documents will be populated via JS -->
                             </div>
 
                             <div class="pt-4 flex justify-end">
@@ -253,24 +234,11 @@
                 </div>
             `;
 
-            const docBase = '{{ url('/') }}/';
-            const docImg = (path, label) => path
-                ? `<div class="flex flex-col items-center gap-2">
-                    <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest">${label}</p>
-                    <a href="${docBase}${path}" target="_blank" class="block">
-                        <img src="${docBase}${path}" alt="${label}" class="w-[140px] h-[90px] object-cover rounded-xl border border-slate-200 shadow-sm hover:opacity-80 transition cursor-pointer" />
-                    </a>
-                   </div>`
-                : `<div class="flex flex-col items-center gap-2">
-                    <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest">${label}</p>
-                    <div class="w-[140px] h-[90px] flex items-center justify-center rounded-xl border border-dashed border-slate-300 bg-slate-50 text-[9px] text-slate-400 font-black uppercase tracking-wider">Not Uploaded</div>
-                   </div>`;
-
             document.getElementById('licenseInfoContent').innerHTML = `
                 <div class="space-y-4">
                     <div class="flex flex-col">
                         <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Professional License Number</span>
-                        <p class="text-base font-mono font-black text-slate-900 mt-1 tracking-wider">${data.license_number || '—'}</p>
+                        <p class="text-base font-mono font-black text-slate-900 mt-1 tracking-wider">${data.license_number || ''}</p>
                     </div>
                     <div class="flex flex-col">
                         <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Validation Expiry Date</span>
@@ -288,16 +256,71 @@
                     </div>
                     <p class="text-xs text-indigo-600/80 leading-relaxed font-medium">Automatic system verification of driver credentials. All documents uploaded are cross-referenced with fleet security protocols.</p>
                 </div>
-                <div class="col-span-2 mt-2 pt-4 border-t border-slate-100">
-                    <p class="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4">Documents Uploaded via Driver App</p>
-                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-                        ${docImg(data.profile_photo, 'Profile Photo')}
-                        ${docImg(data.license_photo, "Driver's License")}
-                        ${docImg(data.nbi_clearance_photo, 'NBI Clearance')}
-                        ${docImg(data.pnp_clearance_photo, 'PNP Clearance')}
-                    </div>
-                </div>
             `;
+
+            // ===================== DOCUMENTS VAULT =====================
+            const docs = [
+                { id: 'profile_photo', label: 'Profile Photo', file: data.profile_photo },
+                { id: 'license_photo', label: 'License Photo', file: data.license_photo },
+                { id: 'nbi_clearance_photo', label: 'NBI Clearance', file: data.nbi_clearance_photo },
+                { id: 'pnp_clearance_photo', label: 'PNP/Barangay Clearance', file: data.pnp_clearance_photo },
+            ];
+
+            let docsHtml = '';
+            docs.forEach(doc => {
+                let previewHtml = '';
+                if (doc.file) {
+                    const isPdf = doc.file.toLowerCase().endsWith('.pdf');
+                    if (isPdf) {
+                        previewHtml = `
+                            <div class="mt-2 mb-3 bg-slate-50 border border-slate-100 rounded-lg p-3 flex flex-col items-center justify-center">
+                                <i data-lucide="file-text" class="w-8 h-8 text-slate-400 mb-2"></i>
+                                <a href="/${doc.file}" target="_blank" class="inline-flex items-center gap-1 text-[10px] font-black text-blue-600 hover:text-blue-800 uppercase tracking-widest bg-blue-50 px-3 py-1.5 rounded-full">
+                                    <i data-lucide="external-link" class="w-3 h-3"></i> Open PDF
+                                </a>
+                            </div>
+                        `;
+                    } else {
+                        previewHtml = `
+                            <div class="mt-2 mb-3">
+                                <div class="relative w-full h-32 bg-slate-100 rounded-lg overflow-hidden border border-slate-200 group">
+                                    <img src="/${doc.file}" alt="${doc.label}" class="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" />
+                                    <a href="/${doc.file}" target="_blank" class="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                                        <span class="bg-white/90 text-slate-800 text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-full flex items-center gap-1 shadow-xl">
+                                            <i data-lucide="maximize-2" class="w-3 h-3"></i> View Full Size
+                                        </span>
+                                    </a>
+                                </div>
+                            </div>
+                        `;
+                    }
+                } else {
+                    previewHtml = `
+                        <div class="mt-2 mb-3 bg-slate-50 border border-dashed border-slate-200 rounded-lg h-32 flex flex-col items-center justify-center text-slate-400">
+                            <i data-lucide="image-off" class="w-6 h-6 mb-2 opacity-50"></i>
+                            <span class="text-[9px] font-black uppercase tracking-widest opacity-60">No Document</span>
+                        </div>
+                    `;
+                }
+
+                docsHtml += `
+                    <div class="space-y-1.5 p-4 bg-white border border-slate-200 rounded-2xl shadow-sm hover:shadow-md transition-shadow">
+                        <label class="block text-[10px] font-black text-slate-600 uppercase tracking-widest flex items-center gap-1.5 border-b border-slate-100 pb-2 mb-2">
+                            <i data-lucide="file-check-2" class="w-3.5 h-3.5 text-blue-500"></i> ${doc.label}
+                        </label>
+                        ${previewHtml}
+                        <div class="pt-2">
+                            <input type="file" name="${doc.id}" accept=".jpg,.jpeg,.png,.pdf" class="block w-full text-[10px] font-bold text-slate-600 file:mr-3 file:py-1.5 file:px-3 file:rounded-full file:border-0 file:text-[10px] file:font-black file:uppercase file:tracking-widest file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer">
+                            <p class="text-[8px] text-slate-400 mt-1.5 uppercase tracking-widest font-bold">Upload new to overwrite</p>
+                        </div>
+                    </div>
+                `;
+            });
+            document.getElementById('driverDocumentsGrid').innerHTML = docsHtml;
+            // Re-initialize lucide icons for the new HTML
+            if (typeof lucide !== 'undefined') {
+                lucide.createIcons();
+            }
 
             // ===================== INCENTIVES TAB =====================
             const incentiveRate = data.incentive_rate || 0;

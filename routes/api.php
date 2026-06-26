@@ -33,6 +33,19 @@ Route::post('/driver/register/verify-otp', [\App\Http\Controllers\Api\DriverAppC
 Route::post('/driver/register/resend-otp', [\App\Http\Controllers\Api\DriverAppController::class, 'resendRegistrationOtp']);
 Route::get('/cron/trigger-daily-coding', [NotificationController::class, 'triggerDailyCodingAlerts']);
 
+// Terms & Conditions images (public — drivers view from app)
+Route::get('/driver/terms-images', function () {
+    $directory = public_path('uploads/terms');
+    if (!file_exists($directory)) {
+        return response()->json(['success' => true, 'images' => []]);
+    }
+    $files = array_values(array_diff(scandir($directory), ['.', '..']));
+    $baseUrl = rtrim(config('app.url'), '/');
+    $images = array_map(function ($file) use ($baseUrl) {
+        return $baseUrl . '/uploads/terms/' . $file;
+    }, $files);
+    return response()->json(['success' => true, 'images' => array_values($images)]);
+});
 
 // Protected routes
 Route::middleware('auth:sanctum')->group(function () {
@@ -128,6 +141,10 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/feed', [NotificationController::class, 'index']);
         
         Route::post('/rescue', [\App\Http\Controllers\Api\DriverAppController::class, 'requestRescue']);
+        Route::post('/sos', [\App\Http\Controllers\Api\DriverAppController::class, 'sosAlert']);
+        Route::post('/accident-report', [\App\Http\Controllers\Api\DriverAppController::class, 'submitAccidentReport']);
+        Route::get('/accident-reports', [\App\Http\Controllers\Api\DriverAppController::class, 'accidentReports']);
+        Route::put('/accident-reports/{id}', [\App\Http\Controllers\Api\DriverAppController::class, 'updateAccidentReport']);
         Route::post('/save-token', [\App\Http\Controllers\Api\DriverAppController::class, 'saveNotificationToken']);
         Route::post('/location', [\App\Http\Controllers\Api\DriverAppController::class, 'updateLocation']);
         Route::post('/account/delete', [\App\Http\Controllers\Api\DriverAppController::class, 'deleteAccount']);

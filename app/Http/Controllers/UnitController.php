@@ -210,8 +210,8 @@ class UnitController extends Controller
             'boundary_rate' => 'required|numeric|max:100000',
             'purchase_date' => 'nullable|date|before_or_equal:'.$today,
             'purchase_cost' => 'nullable|numeric|max:1000000',
-            'motor_no' => 'required|string|max:25|regex:/^[A-Z0-9\-]+$/',
-            'chassis_no' => 'required|string|max:25|regex:/^[A-Z0-9\-]+$/',
+            'motor_no' => 'required|string|max:30|regex:/^[A-Za-z0-9\-\s]+$/',
+            'chassis_no' => 'required|string|max:30|regex:/^[A-Za-z0-9\-\s]+$/',
             'unit_type' => 'sometimes|required|in:new,old,rented',
             'coding_day' => 'nullable|string',
             'driver_id' => 'nullable|integer',
@@ -223,8 +223,8 @@ class UnitController extends Controller
             'plate_number.regex' => 'Plate number must be alphanumeric and can contain at most one space.',
             'make.regex' => 'Vehicle make cannot be pure numbers, spaces, or symbols.',
             'model.regex' => 'Vehicle model cannot be pure numbers, spaces, or symbols.',
-            'motor_no.regex' => 'Motor number must be alphanumeric (hyphens allowed) with no spaces or other symbols.',
-            'chassis_no.regex' => 'Chassis number must be alphanumeric (hyphens allowed) with no spaces or other symbols.',
+            'motor_no.regex' => 'Motor number must only contain letters, numbers, hyphens, or spaces.',
+            'chassis_no.regex' => 'Chassis number must only contain letters, numbers, hyphens, or spaces.',
             'imei.regex' => 'IMEI must be alphanumeric (hyphens allowed) with no spaces or symbols.',
             'purchase_date.before_or_equal' => 'Purchase date cannot be in the future.',
             'year.max' => 'Year cannot exceed 2026.',
@@ -312,8 +312,8 @@ class UnitController extends Controller
             'boundary_rate'        => 'required|numeric|max:100000',
             'purchase_date'        => 'nullable|date|before_or_equal:'.$today,
             'purchase_cost'        => 'nullable|numeric|max:1000000',
-            'motor_no'             => 'required|string|max:25|regex:/^[A-Z0-9\-]+$/',
-            'chassis_no'           => 'required|string|max:25|regex:/^[A-Z0-9\-]+$/',
+            'motor_no'             => 'required|string|max:30|regex:/^[A-Za-z0-9\-\s]+$/',
+            'chassis_no'           => 'required|string|max:30|regex:/^[A-Za-z0-9\-\s]+$/',
             'unit_type'            => 'sometimes|required|in:new,old,rented',
             'coding_day'           => 'nullable|string',
             'driver_id'            => 'nullable|integer',
@@ -325,8 +325,8 @@ class UnitController extends Controller
             'plate_number.regex'              => 'Plate number must be alphanumeric and can contain at most one space.',
             'make.regex'                      => 'Vehicle make cannot be pure numbers, spaces, or symbols.',
             'model.regex'                     => 'Vehicle model cannot be pure numbers, spaces, or symbols.',
-            'motor_no.regex'                  => 'Motor number must be alphanumeric (hyphens allowed) with no spaces or other symbols.',
-            'chassis_no.regex'                => 'Chassis number must be alphanumeric (hyphens allowed) with no spaces or other symbols.',
+            'motor_no.regex'                  => 'Motor number must only contain letters, numbers, hyphens, or spaces.',
+            'chassis_no.regex'                => 'Chassis number must only contain letters, numbers, hyphens, or spaces.',
             'imei.regex'                      => 'IMEI must be alphanumeric (hyphens allowed) with no spaces or symbols.',
             'purchase_date.before_or_equal'   => 'Purchase date cannot be in the future.',
             'year.max'                        => 'Year cannot exceed '.$maxYear.'.',
@@ -871,7 +871,7 @@ class UnitController extends Controller
             }
 
             // Calculate days missing
-            $missingSince = $request->missing_since ? Carbon::parse($request->missing_since) : now();
+            $missingSince = $request->missing_since ? \Carbon\Carbon::parse($request->missing_since) : now();
             $daysMissing = max(0, $missingSince->diffInDays(now()));
 
             DB::table('driver_behavior')->insert([
@@ -889,8 +889,25 @@ class UnitController extends Controller
                 'updated_at' => now()
             ]);
 
+            $successMessage = 'Unit successfully flagged as Missing/Stolen.';
+
+            // If user checked "Ban driver"
+            if ($request->has('ban_driver') && $request->suspect_driver_id) {
+                DB::table('drivers')->where('id', $request->suspect_driver_id)->update([
+                    'driver_status' => 'banned',
+                    'updated_at' => now()
+                ]);
+
+                // Unassign driver from units
+                DB::table('units')->where('driver_id', $request->suspect_driver_id)->update(['driver_id' => null, 'updated_at' => now()]);
+                DB::table('units')->where('secondary_driver_id', $request->suspect_driver_id)->update(['secondary_driver_id' => null, 'updated_at' => now()]);
+
+                \App\Http\Controllers\ActivityLogController::log('Banned Driver', "Driver {$suspectName} has been banned for suspected theft of unit {$unit->plate_number}.");
+                $successMessage .= ' The suspect driver has also been permanently banned.';
+            }
+
             DB::commit();
-            return redirect()->back()->with('success', 'Unit successfully flagged as Missing/Stolen.');
+            return redirect()->back()->with('success', $successMessage);
 
         } catch (\Exception $e) {
             DB::rollBack();
@@ -1071,7 +1088,7 @@ class UnitController extends Controller
         $availableUnits = DB::table('units')
             ->whereNull('deleted_at')
             ->where('status', '!=', 'missing')
-            ->select('id', 'plate_number', 'make', 'model')
+            ->select('id', 'plate_number', 'make', 'model', 'driver_id', 'secondary_driver_id')
             ->orderBy('plate_number')
             ->get();
             
@@ -1277,6 +1294,31 @@ class UnitController extends Controller
                 return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
             }
             return back()->with('error', 'Recovery failed: ' . $e->getMessage());
+        }
+    }
+
+    public function ignoreFlag(Request $request, $id)
+    {
+        try {
+            $unit = DB::table('units')->where('id', $id)->first();
+            if (!$unit) {
+                return response()->json(['success' => false, 'message' => 'Unit not found.'], 404);
+            }
+
+            // Extend shift_deadline_at by 24 hours so it won't be flagged today
+            // But it will reappear tomorrow if no boundary is paid.
+            $newDeadline = \Carbon\Carbon::parse($unit->shift_deadline_at)->addHours(24);
+            
+            DB::table('units')->where('id', $id)->update([
+                'shift_deadline_at' => $newDeadline,
+                'updated_at' => now(),
+            ]);
+
+            ActivityLogController::log('Ignored Auto-Flag', "Unit: {$unit->plate_number} auto-detect flag was ignored for today.");
+
+            return response()->json(['success' => true, 'message' => "Unit {$unit->plate_number} ignored for today. It will reappear tomorrow if still missing."]);
+        } catch (\Exception $e) {
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
         }
     }
 

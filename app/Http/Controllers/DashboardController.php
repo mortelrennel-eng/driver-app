@@ -1110,8 +1110,8 @@ class DashboardController extends Controller
                     'title' => "Today's Unit Coding",
                     'message' => "There are {$codingUnitsCount} units on coding today ({$todayDay}).",
                     'is_resolved' => false,
-                    'created_at' => now(),
-                    'updated_at' => now()
+                    'created_at' => now()->startOfDay()->addHour(),
+                    'updated_at' => now()->startOfDay()->addHour()
                 ]);
             }
         }

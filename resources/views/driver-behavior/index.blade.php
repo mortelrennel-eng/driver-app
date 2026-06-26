@@ -182,6 +182,13 @@
         class="tab-btn {{ ($tab ?? '') === 'profiles' ? 'active' : '' }}">
         <i data-lucide="user-circle" class="w-3.5 h-3.5 inline mr-1"></i> Driver Profiles
     </button>
+    <button onclick="switchTab('accidents')" id="tab-btn-accidents"
+        class="tab-btn {{ ($tab ?? '') === 'accidents' ? 'active' : '' }}">
+        <i data-lucide="triangle-alert" class="w-3.5 h-3.5 inline mr-1 text-red-500"></i> Accident Reports
+        @if(isset($accident_reports) && $accident_reports->where('status', 'pending')->count() > 0)
+            <span class="ml-1 px-1.5 py-0.5 bg-red-500 text-white text-[9px] rounded-full animate-pulse">{{ $accident_reports->where('status', 'pending')->count() }}</span>
+        @endif
+    </button>
     <div class="flex-1"></div>
     <button onclick="openIncidentModal()" class="px-5 py-2.5 bg-red-600 text-white font-black text-xs uppercase tracking-widest rounded-xl hover:bg-red-700 hover:scale-105 hover:shadow-xl hover:shadow-red-200 transition-all active:scale-95 flex items-center gap-2 shadow-sm">
         <i data-lucide="plus" class="w-4 h-4"></i> Record Incident
@@ -549,7 +556,99 @@
 </div>
 
 {{-- ════════════════════════════════════════
-     TAB 3: DRIVER PROFILES
+     TAB 3: ACCIDENT REPORTS
+     ════════════════════════════════════════ --}}
+<div id="tab-accidents" class="tab-content {{ ($tab ?? '') === 'accidents' ? '' : 'hidden' }}">
+    <div class="bg-white rounded-2xl shadow-sm border border-red-100 overflow-hidden">
+        <div class="overflow-x-auto min-h-[400px]">
+            <table class="w-full text-left border-collapse">
+                <thead>
+                    <tr class="bg-gradient-to-r from-red-50 to-white text-[10px] font-black text-red-800 uppercase tracking-widest border-b border-red-100">
+                        <th class="px-5 py-4 w-40">Date & Time</th>
+                        <th class="px-5 py-4 w-48">Driver & Unit</th>
+                        <th class="px-5 py-4 w-64">Report Notes / Photo</th>
+                        <th class="px-5 py-4 w-48">GPS Location</th>
+                        <th class="px-5 py-4 w-32">Status</th>
+                        <th class="px-5 py-4 w-32 text-right">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100/60 bg-white" id="accidentTableBody">
+                    @forelse($accident_reports ?? [] as $report)
+                    <tr class="hover:bg-red-50/30 transition-colors {{ $report->status === 'pending' ? 'bg-red-50' : '' }}" id="sos-row-{{ $report->id }}">
+                        <td class="px-5 py-4">
+                            <p class="text-xs font-bold text-gray-900">{{ \Carbon\Carbon::parse($report->created_at)->format('M d, Y') }}</p>
+                            <p class="text-[10px] text-gray-500 font-medium">{{ \Carbon\Carbon::parse($report->created_at)->format('h:i A') }}</p>
+                        </td>
+                        <td class="px-5 py-4">
+                            <p class="text-sm font-bold text-gray-900 truncate">{{ $report->driver->first_name ?? '' }} {{ $report->driver->last_name ?? '' }}</p>
+                            <p class="text-[10px] font-black text-gray-400 tracking-wider uppercase mt-0.5">{{ $report->unit->plate_number ?? 'N/A' }}</p>
+                        </td>
+                        <td class="px-5 py-4">
+                            <div class="text-xs text-gray-600 line-clamp-3 whitespace-pre-wrap">{{ $report->notes ?? 'No additional notes provided.' }}</div>
+                            @if($report->photo_path)
+                                <a href="{{ asset($report->photo_path) }}" target="_blank" class="mt-2 inline-flex items-center gap-1 text-[10px] font-bold text-blue-600 hover:text-blue-800 bg-blue-50 px-2 py-1 rounded-md transition-colors">
+                                    <i data-lucide="image" class="w-3 h-3"></i> View Photo
+                                </a>
+                            @endif
+                        </td>
+                        <td class="px-5 py-4">
+                            @if($report->latitude && $report->longitude)
+                                <div class="flex flex-col gap-1">
+                                    <span class="text-xs font-medium text-gray-800 address-resolver flex items-center gap-1" data-lat="{{ $report->latitude }}" data-lng="{{ $report->longitude }}">
+                                        <i data-lucide="loader-2" class="w-3 h-3 animate-spin text-blue-500"></i> Resolving address...
+                                    </span>
+                                    <a href="https://maps.google.com/?q={{ $report->latitude }},{{ $report->longitude }}" target="_blank" class="flex items-center gap-1 text-[10px] font-bold text-blue-600 hover:text-blue-800 uppercase tracking-widest transition-colors group w-max">
+                                        <i data-lucide="map" class="w-3 h-3"></i> View on Map
+                                    </a>
+                                </div>
+                            @else
+                                <span class="text-xs text-gray-400 italic">No GPS Data</span>
+                            @endif
+                        </td>
+                        <td class="px-5 py-4">
+                            @if($report->status === 'pending')
+                                <span class="px-2 py-1 bg-red-100 text-red-700 border border-red-200 text-[10px] font-black uppercase tracking-wider rounded-full flex items-center gap-1 w-max">
+                                    <i data-lucide="circle-alert" class="w-3 h-3"></i> Unacknowledged
+                                </span>
+                            @else
+                                <span class="px-2 py-1 bg-blue-100 text-blue-700 border border-blue-200 text-[10px] font-black uppercase tracking-wider rounded-full flex items-center gap-1 w-max">
+                                    <i data-lucide="check-circle" class="w-3 h-3"></i> Responding
+                                </span>
+                                @if($report->acknowledged_by)
+                                    <p class="text-[9px] text-gray-400 mt-1">Ack. by {{ \App\Models\User::find($report->acknowledged_by)?->first_name ?? 'Admin' }}</p>
+                                @endif
+                            @endif
+                        </td>
+                        <td class="px-5 py-4 text-right">
+                            <div class="flex items-center justify-end gap-2">
+                                <button onclick="viewSosDetails({{ $report->id }})" class="p-2 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded-lg transition-colors" title="View Details">
+                                    <i data-lucide="eye" class="w-4 h-4"></i>
+                                </button>
+                                <button onclick="archiveSos({{ $report->id }})" class="p-2 bg-gray-50 text-gray-500 hover:bg-gray-200 hover:text-gray-800 rounded-lg transition-colors" title="Archive">
+                                    <i data-lucide="archive" class="w-4 h-4"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                    @empty
+                    <tr>
+                        <td colspan="5" class="px-5 py-12 text-center">
+                            <div class="flex flex-col items-center justify-center text-gray-400">
+                                <i data-lucide="shield-check" class="w-12 h-12 mb-3 text-gray-300"></i>
+                                <p class="text-sm font-medium">No accident reports found.</p>
+                                <p class="text-xs mt-1 text-gray-400">Safe driving environment.</p>
+                            </div>
+                        </td>
+                    </tr>
+                    @endforelse
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+{{-- ════════════════════════════════════════
+     TAB 4: DRIVER PROFILES
      ════════════════════════════════════════ --}}
 <div id="tab-profiles" class="tab-content {{ ($tab ?? '') === 'profiles' ? '' : 'hidden' }}">
     <div class="mb-4">
@@ -962,7 +1061,7 @@
                 <div class="space-y-4">
                     <label class="flex items-center gap-4 cursor-pointer p-6 bg-white rounded-[2rem] border border-red-100 hover:bg-red-50 hover:border-red-200 transition-all group select-none shadow-sm">
                         <div class="relative flex items-center justify-center">
-                            <input type="checkbox" name="is_driver_fault" id="faultCheck" value="1" onchange="typeof computeTotal === 'function' ? computeTotal() : null"
+                            <input type="checkbox" name="is_driver_fault" id="faultCheck" value="1" onchange="window.toggleAllCharges(this.checked)"
                                 class="w-7 h-7 accent-red-600 rounded-2xl cursor-pointer transition-transform group-hover:scale-110 border-2 border-red-200">
                         </div>
                         <div>
@@ -1291,17 +1390,17 @@
                         <textarea id="quickClsSubOptions" rows="5" placeholder="e.g.&#10;Contracting&#10;Discourtesy&#10;Overcharging"
                             class="w-full px-4 py-3 bg-white border border-gray-100 rounded-2xl text-sm font-medium focus:ring-4 focus:ring-yellow-500/10 focus:border-yellow-500 focus:outline-none resize-none"></textarea>
                     </div>
-                    <div id="clsBanRow" class="hidden space-y-3">
+                    <div id="clsBanRow" class="space-y-3 mt-4">
                         <label class="flex items-center gap-3 p-4 bg-red-50 rounded-2xl border border-red-100 cursor-pointer">
                             <input type="checkbox" id="quickClsAutoBan" class="w-5 h-5 accent-red-600" onchange="toggleBanValueField()">
                             <div>
                                 <p class="text-[10px] font-black text-red-700 uppercase tracking-widest">Enable Auto-Ban Trigger</p>
-                                <p class="text-[9px] text-red-400 font-bold mt-0.5">Selecting a specific sub-option will automatically ban the driver</p>
+                                <p class="text-[9px] text-red-400 font-bold mt-0.5">Automatically ban driver for this classification</p>
                             </div>
                         </label>
                         <div id="clsBanValueRow" class="hidden">
-                            <label class="block text-[10px] font-black text-gray-500 uppercase mb-2 ml-1">Ban Trigger Sub-Option</label>
-                            <input type="text" id="quickClsBanValue" placeholder="e.g. Contracting"
+                            <label class="block text-[10px] font-black text-gray-500 uppercase mb-2 ml-1">Ban Trigger Sub-Option (Optional)</label>
+                            <input type="text" id="quickClsBanValue" placeholder="Leave blank to trigger on ANY sub-option"
                                 class="w-full px-4 py-3 bg-white border border-red-200 rounded-2xl text-sm font-black text-red-700 focus:ring-4 focus:ring-red-500/10 focus:border-red-500 focus:outline-none">
                         </div>
                     </div>
@@ -1525,10 +1624,8 @@ window.switchTab = function(name) {
 
       if (['complaint','traffic'].includes(mode)) {
           subRow.classList.remove('hidden');
-          banRow.classList.toggle('hidden', mode !== 'complaint');
       } else {
           subRow.classList.add('hidden');
-          banRow.classList.add('hidden');
       }
 
       if (mode === 'security') {
@@ -1588,6 +1685,29 @@ window.switchTab = function(name) {
          const result = await res.json();
          if (res.ok && result.success) {
              toast('✔ ' + result.message);
+             // Sync the Javascript state so changes apply instantly without a hard refresh
+             classificationsMeta[name] = {
+                 mode: mode,
+                 subOptions: subOptions,
+                 autoBan: autoBan,
+                 banValue: banValue || ''
+             };
+             classificationsMap[name] = severity;
+             
+             // Update or add option in dropdowns
+             ['incidentTypeSelect', 'edit_incident_type'].forEach(selectId => {
+                 const select = document.getElementById(selectId);
+                 if (select) {
+                     let option = Array.from(select.options).find(o => o.value === name);
+                     if (!option) {
+                         option = document.createElement('option');
+                         option.value = name;
+                         option.text = name;
+                         select.add(option);
+                     }
+                 }
+             });
+
              resetClsForm();
              window.refreshClassificationsList();
              if (typeof closeClassificationSettings === 'function') closeClassificationSettings();
@@ -1786,7 +1906,7 @@ window.handleTypeChange = function(val, context = '') {
         const sec = document.getElementById(prefix + 'section-traffic');
         if (sec) sec.classList.remove('hidden');
         _renderSubOptions(prefix + 'trafficSubOptionsContainer', meta.subOptions, prefix + 'trafficSubClassificationInput', false, '', 'orange');
-    } else if (mode === 'damage' || val === 'Vehicle Damage') {
+    } else if (mode === 'damage') {
         const sec = document.getElementById(prefix + 'section-damage');
         if (sec) sec.classList.remove('hidden');
     } else if (mode === 'security') {
@@ -1887,12 +2007,19 @@ window._checkAutoBanState = function() {
     let shouldBan = false;
     let reason = '';
 
-    if (sevVal === 'critical') {
+    if (meta.mode === 'security') {
         shouldBan = true;
-        reason = "Critical severity triggers an automatic driver ban.";
-    } else if (meta.autoBan && meta.banValue && activeSubValue.trim() === meta.banValue.trim()) {
-        shouldBan = true;
-        reason = `Selecting "${meta.banValue}" triggers an automatic driver ban.`;
+        reason = "Security Lockdown triggers an automatic permanent ban and flags unit.";
+    } else if (meta.autoBan) {
+        if (meta.banValue) {
+            if (activeSubValue.trim() === meta.banValue.trim()) {
+                shouldBan = true;
+                reason = `Selecting "${meta.banValue}" triggers an automatic driver ban.`;
+            }
+        } else {
+            shouldBan = true;
+            reason = "This incident classification triggers an automatic driver ban.";
+        }
     }
 
     if (shouldBan) {
@@ -2207,6 +2334,14 @@ function computeTotal() {
 }
 window.computeTotal = computeTotal;
 
+window.toggleAllCharges = function(isFault) {
+    incidentPartsCart.forEach(p => p.isCharged = isFault);
+    incidentServices.forEach(s => s.isCharged = isFault);
+    refreshPartsCart();
+    refreshServices();
+    computeTotal();
+};
+
 // ─── Incident Manager (Edit/Archive Actions) ───
 window.IncidentManager = {
     openEdit: async function(id) {
@@ -2298,6 +2433,78 @@ window.IncidentManager = {
     }
 };
 
+window.archiveSos = async function(id) {
+    if (!confirm('Are you sure you want to move this accident report to Archive?')) return;
+    try {
+        const res = await fetch(`/api/accidents/${id}/archive`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        });
+        const result = await res.json();
+        if (result.success) {
+            window.location.reload();
+        } else {
+            alert(result.message || 'Failed to archive record.');
+        }
+    } catch (e) {
+        console.error(e);
+        alert('Error connecting to server.');
+    }
+};
+
+window.viewSosDetails = async function(id) {
+    try {
+        const res = await fetch(`/api/accidents/${id}/details`);
+        const result = await res.json();
+        if (result.success) {
+            const data = result.data;
+            const driverName = data.driver ? `${data.driver.first_name} ${data.driver.last_name}` : 'Unknown';
+            const unit = data.unit ? data.unit.plate_number : 'N/A';
+            const date = new Date(data.created_at).toLocaleString('en-US', { timeZone: 'Asia/Manila' });
+            let photoHtml = '';
+            if (data.photo_path) {
+                photoHtml = `<div style="margin-top:15px;text-align:center;"><img src="/${data.photo_path}" style="max-width:100%;border-radius:10px;box-shadow:0 4px 6px rgba(0,0,0,0.1);"></div>`;
+            }
+            
+            const modalHtml = `
+            <div id="sosViewModalOverlay" style="position:fixed;inset:0;background:rgba(0,0,0,0.5);backdrop-filter:blur(4px);z-index:99999;display:flex;align-items:center;justify-content:center;padding:20px;">
+                <div style="background:#fff;border-radius:20px;max-width:500px;width:100%;box-shadow:0 20px 40px rgba(0,0,0,0.2);overflow:hidden;animation:modal-in 0.2s ease;">
+                    <div style="padding:15px 20px;background:#fef2f2;border-bottom:1px solid #fee2e2;display:flex;justify-content:space-between;align-items:center;">
+                        <h3 style="margin:0;font-weight:900;color:#991b1b;display:flex;align-items:center;gap:8px;">
+                            <i data-lucide="alert-triangle" style="width:20px;height:20px;"></i> Emergency Details
+                        </h3>
+                        <button onclick="document.getElementById('sosViewModalOverlay').remove()" style="background:transparent;border:none;cursor:pointer;color:#991b1b;">
+                            <i data-lucide="x" style="width:20px;height:20px;"></i>
+                        </button>
+                    </div>
+                    <div style="padding:20px;max-height:70vh;overflow-y:auto;font-size:14px;color:#333;">
+                        <p style="margin-bottom:10px;"><strong>Reported At:</strong> <br>${date}</p>
+                        <p style="margin-bottom:10px;"><strong>Driver:</strong> <br>${driverName}</p>
+                        <p style="margin-bottom:10px;"><strong>Unit:</strong> <br>${unit}</p>
+                        <p style="margin-bottom:10px;"><strong>Notes/Description:</strong> <br><span style="white-space:pre-wrap;">${data.notes || 'No description provided.'}</span></p>
+                        ${photoHtml}
+                    </div>
+                </div>
+            </div>`;
+            
+            const div = document.createElement('div');
+            div.innerHTML = modalHtml;
+            document.body.appendChild(div);
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+            
+        } else {
+            alert('Could not fetch details.');
+        }
+    } catch (e) {
+        console.error(e);
+        alert('Error connecting to server.');
+    }
+};
+
 window.closeEditIncidentModal = function() {
     const modal = document.getElementById('editIncidentModal');
     if (modal) {
@@ -2340,6 +2547,26 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         };
     }
+
+    // Resolve Addresses for Accident Table
+    document.querySelectorAll('.address-resolver').forEach(async (el) => {
+        const lat = el.getAttribute('data-lat');
+        const lng = el.getAttribute('data-lng');
+        if (lat && lng) {
+            try {
+                const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`);
+                const data = await res.json();
+                if (data && data.display_name) {
+                    el.innerHTML = `<i data-lucide="map-pin" class="w-3.5 h-3.5 text-blue-500 inline mr-1"></i> <span class="leading-snug">${data.display_name}</span>`;
+                } else {
+                    el.innerHTML = `<i data-lucide="map-pin" class="w-3.5 h-3.5 text-gray-400 inline mr-1"></i> Lat: ${lat}, Lng: ${lng}`;
+                }
+                if (typeof lucide !== 'undefined') lucide.createIcons();
+            } catch (e) {
+                el.innerHTML = `<i data-lucide="map-pin" class="w-3.5 h-3.5 text-gray-400 inline mr-1"></i> Lat: ${lat}, Lng: ${lng}`;
+            }
+        }
+    });
 });
 </script>
 @endsection

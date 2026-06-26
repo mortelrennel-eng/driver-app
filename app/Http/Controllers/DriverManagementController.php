@@ -14,6 +14,59 @@ class DriverManagementController extends Controller
 {
     use CalculatesBoundary, CalculatesDriverPerformance;
 
+    public function terms()
+    {
+        $directory = public_path('uploads/terms');
+        if (!file_exists($directory)) {
+            mkdir($directory, 0755, true);
+        }
+
+        $files = array_diff(scandir($directory), ['.', '..']);
+        $termsImages = [];
+        foreach ($files as $file) {
+            $termsImages[] = $file;
+        }
+
+        return view('driver-management.terms', compact('termsImages'));
+    }
+
+    public function uploadTerm(Request $request)
+    {
+        $request->validate([
+            'term_image' => 'required|image|mimes:jpeg,png,jpg,gif|max:5120',
+        ]);
+
+        $directory = public_path('uploads/terms');
+        if (!file_exists($directory)) {
+            mkdir($directory, 0755, true);
+        }
+
+        if ($request->hasFile('term_image')) {
+            $file = $request->file('term_image');
+            $filename = time() . '_' . $file->getClientOriginalName();
+            $file->move($directory, $filename);
+            return back()->with('success', 'Image uploaded successfully.');
+        }
+
+        return back()->with('error', 'Failed to upload image.');
+    }
+
+    public function deleteTerm($filename)
+    {
+        $path = public_path('uploads/terms/' . $filename);
+        if (file_exists($path)) {
+            unlink($path);
+            return back()->with('success', 'Image deleted successfully.');
+        }
+
+        return back()->with('error', 'File not found.');
+    }
+
+    public function debtsPage()
+    {
+        return view('driver-management.pending-debts');
+    }
+
     public function index(Request $request)
     {
         $search        = $request->input('search', '');
@@ -614,9 +667,10 @@ class DriverManagementController extends Controller
     public function uploadDocuments(Request $request, $id)
     {
         $request->validate([
-            'license_scan'        => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:2048',
-            'nbi_clearance'       => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:2048',
-            'medical_certificate' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:2048',
+            'license_photo'       => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:2048',
+            'nbi_clearance_photo' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:2048',
+            'pnp_clearance_photo' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:2048',
+            'profile_photo'       => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:2048',
         ]);
 
         $driver = DB::table('drivers')->where('id', $id)->first();
@@ -624,12 +678,22 @@ class DriverManagementController extends Controller
             return back()->with('error', 'Driver not found.');
         }
 
-        foreach (['license_scan', 'nbi_clearance', 'medical_certificate'] as $field) {
+        $updates = [];
+        foreach (['license_photo', 'nbi_clearance_photo', 'pnp_clearance_photo', 'profile_photo'] as $field) {
             if ($request->hasFile($field)) {
                 $file     = $request->file($field);
                 $filename = time() . '_' . $field . '.' . $file->getClientOriginalExtension();
-                $file->move(public_path('uploads/drivers'), $filename);
+                $destinationPath = public_path('uploads/driver_docs');
+                if (!file_exists($destinationPath)) {
+                    mkdir($destinationPath, 0755, true);
+                }
+                $file->move($destinationPath, $filename);
+                $updates[$field] = 'uploads/driver_docs/' . $filename;
             }
+        }
+
+        if (!empty($updates)) {
+            DB::table('drivers')->where('id', $id)->update($updates);
         }
 
         return back()->with('success', 'Documents uploaded successfully!');
@@ -761,6 +825,40 @@ class DriverManagementController extends Controller
 
         ActivityLogController::log('Debt Payment', "Processed ₱" . number_format($amount, 2) . " cash payment from {$driverName} for accident debt.");
 
+        // Notify driver that payment was received and balance updated
+        try {
+            $remaining = $debt->remaining_balance;
+            $notifTitle = '💳 Payment Received';
+            $notifBody  = $remaining <= 0
+                ? "Your payment of ₱" . number_format($amount, 2) . " has been received. Your charge for this incident is now fully SETTLED! ✅"
+                : "Your payment of ₱" . number_format($amount, 2) . " has been received. Remaining balance: ₱" . number_format($remaining, 2) . ".";
+
+            app(\App\Services\NotificationService::class)->notifyDriver(
+                $debt->driver_id,
+                $notifTitle,
+                $notifBody,
+                'notice'
+            );
+
+            // Persist in system_alerts for in-app Notifications feed
+            $driverUserId = DB::table('drivers')->where('id', $debt->driver_id)->value('user_id');
+            if ($driverUserId) {
+                DB::table('system_alerts')->insert([
+                    'type'        => 'notice',
+                    'title'       => $notifTitle,
+                    'message'     => $notifBody,
+                    'user_id'     => $driverUserId,
+                    'is_resolved' => false,
+                    'created_at'  => now(),
+                    'updated_at'  => now(),
+                ]);
+            }
+        } catch (\Exception $e) {}
+
+        if ($request->ajax()) {
+            return response()->json(['success' => true, 'message' => 'Cash payment processed successfully.']);
+        }
+
         return back()->with('success', 'Cash payment processed successfully. The balance has been updated and the revenue has been recorded.');
     }
 
@@ -841,16 +939,28 @@ class DriverManagementController extends Controller
             return response()->json(['success' => false, 'message' => 'Driver is not banned or suspended.'], 422);
         }
 
+        // Restore the soft-deleted User account if it exists (permanent ban case)
+        if ($driver->user_id) {
+            $user = \App\Models\User::withTrashed()->find($driver->user_id);
+            if ($user && $user->trashed()) {
+                $user->restore();
+                $user->update([
+                    'is_disabled'    => false,
+                    'disable_reason' => null,
+                ]);
+            }
+        }
+
         $driver->update([
-            'driver_status' => 'available',
-            'suspended_until' => null,
-            'suspension_reason' => null
+            'driver_status'    => 'available',
+            'suspended_until'  => null,
+            'suspension_reason'=> null
         ]);
 
         $name = trim($driver->first_name . ' ' . $driver->last_name);
         ActivityLogController::log('Unbanned Driver', "Driver: {$name} has been unbanned and status set to Available.");
 
-        return response()->json(['success' => true, 'message' => "{$name} has been successfully unbanned."]);
+        return response()->json(['success' => true, 'message' => "{$name} has been successfully unbanned. Their account has been restored."]);
     }
 
     public function suspendOrBan(Request $request, $id)
@@ -880,13 +990,18 @@ class DriverManagementController extends Controller
             'suspension_reason' => $reason,
         ]);
 
-        // Auto-deactivate mobile app account if it exists
-        if ($driver->user_id) {
-            $user = \App\Models\User::find($driver->user_id);
-            if ($user) {
-                $user->is_active = false;
-                $user->save();
-                $user->tokens()->delete(); // Revoke API tokens
+        // Auto-logout driver app by revoking Sanctum tokens, and soft-delete user on permanent ban
+        $user = $driver->user;
+        if ($user) {
+            $user->tokens()->delete();
+            if ($status === 'banned') {
+                // Keep user_id on driver so we can restore the account later via unban()
+                // Soft delete — preserved in archive, login blocked with ban message
+                $user->update([
+                    'is_disabled'    => true,
+                    'disable_reason' => '🚫 Your account has been permanently banned. Please contact the admin to settle.',
+                ]);
+                $user->delete();
             }
         }
 

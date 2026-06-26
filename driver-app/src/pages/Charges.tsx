@@ -15,7 +15,9 @@ interface ChargeRecord {
   incident_date: string;
   incident_type: string;
   description: string;
+  total_charge_to_driver: number;
   remaining_balance: number;
+  charge_status: string;
   severity: string;
 }
 interface IncentiveRecord {
@@ -170,9 +172,9 @@ const Charges: React.FC = () => {
           {/* Summary Banner */}
           {tab === 'charges' && filteredCharges.length > 0 && (
             <div style={{ margin: '0 20px 16px', padding: '20px', background: t.card, ...t.glass, border: t.border, borderRadius: '16px' }}>
-              <div style={{ fontSize: '10px', fontWeight: '800', color: t.textMuted, textTransform: 'uppercase', letterSpacing: '2px', marginBottom: '4px' }}>Total Charges</div>
+              <div style={{ fontSize: '10px', fontWeight: '800', color: t.textMuted, textTransform: 'uppercase', letterSpacing: '2px', marginBottom: '4px' }}>Charges Balance</div>
               <div style={{ fontSize: '32px', fontWeight: '900', color: '#ef4444' }}>₱{totalCharges.toLocaleString()}</div>
-              <div style={{ fontSize: '12px', color: t.textMuted, marginTop: '2px' }}>{filteredCharges.length} charge(s)</div>
+              <div style={{ fontSize: '12px', color: t.textMuted, marginTop: '2px' }}>{filteredCharges.length} charge(s) remaining</div>
             </div>
           )}
 
@@ -224,8 +226,13 @@ const Charges: React.FC = () => {
                               <div style={{ fontSize: '12px', color: sc.color, fontWeight: '600', marginTop: '2px' }}>{charge.incident_type}</div>
                             </div>
                           </div>
-                          <div style={{ fontSize: '18px', fontWeight: '900', color: '#ef4444', flexShrink: 0 }}>
-                            -₱{Number(charge.remaining_balance).toLocaleString()}
+                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', flexShrink: 0 }}>
+                            <div style={{ fontSize: '18px', fontWeight: '900', color: charge.charge_status === 'paid' ? '#22c55e' : '#ef4444' }}>
+                              ₱{Number(charge.total_charge_to_driver).toLocaleString()}
+                            </div>
+                            <div style={{ fontSize: '11px', fontWeight: '800', padding: '3px 8px', borderRadius: '6px', background: charge.charge_status === 'paid' ? 'rgba(34,197,94,0.12)' : 'rgba(239,68,68,0.12)', color: charge.charge_status === 'paid' ? '#22c55e' : '#ef4444', marginTop: '6px', letterSpacing: '0.5px' }}>
+                              {charge.charge_status === 'paid' ? 'PAID' : `BAL: ₱${Number(charge.remaining_balance).toLocaleString()}`}
+                            </div>
                           </div>
                         </div>
                       </div>

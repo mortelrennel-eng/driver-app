@@ -64,7 +64,7 @@ class FirebasePushService
                 $jwt = $base64UrlHeader . "." . $base64UrlPayload . "." . $base64UrlSignature;
 
                 // Request OAuth2 Token
-                $response = Http::asForm()->post('https://oauth2.googleapis.com/token', [
+                $response = Http::timeout(5)->asForm()->post('https://oauth2.googleapis.com/token', [
                     'grant_type' => 'urn:ietf:params:oauth:grant-type:jwt-bearer',
                     'assertion' => $jwt
                 ]);
@@ -151,7 +151,7 @@ class FirebasePushService
         ];
 
         try {
-            $response = Http::withHeaders([
+            $response = Http::timeout(5)->withHeaders([
                 'Authorization' => 'Bearer ' . $accessToken,
                 'Content-Type' => 'application/json',
             ])->post($url, $payload);

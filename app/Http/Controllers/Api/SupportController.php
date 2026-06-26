@@ -127,6 +127,7 @@ class SupportController extends Controller
             $file = $request->file('image');
             $filename = time() . '_' . $file->getClientOriginalName();
             
+            // Use the standard public_path which Apache's .htaccess correctly maps to via its rewrite rules.
             $destPath = public_path('uploads/support_attachments');
             
             if (!file_exists($destPath)) {

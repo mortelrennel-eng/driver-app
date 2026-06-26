@@ -75,6 +75,40 @@ class BoundaryController extends Controller
             ->pluck('driver_id')
             ->toArray();
 
+        // --- Fleet Utilization Tracking ---
+        $deployable_units = DB::table('units')
+            ->whereNull('deleted_at')
+            ->whereNotIn('status', ['retired', 'missing', 'maintenance'])
+            ->orderBy('plate_number')
+            ->get(['id', 'plate_number']);
+
+        $remitted_unit_ids = DB::table('boundaries')
+            ->whereNull('deleted_at')
+            ->whereDate('date', $date_filter)
+            ->pluck('unit_id')
+            ->toArray();
+
+        $vacant_units = [];
+        $remitted_plates = [];
+        $total_remitted = 0;
+        
+        foreach($deployable_units as $unit) {
+            if(in_array($unit->id, $remitted_unit_ids)) {
+                $total_remitted++;
+                $remitted_plates[] = $unit->plate_number;
+            } else {
+                $vacant_units[] = $unit->plate_number;
+            }
+        }
+        
+        $fleet_stats = [
+            'total_deployable' => $deployable_units->count(),
+            'total_remitted'   => $total_remitted,
+            'total_vacant'     => count($vacant_units),
+            'vacant_plates'    => $vacant_units,
+            'remitted_plates'  => $remitted_plates,
+        ];
+
         // Get units for dropdowns
         $units = DB::table('units')
             ->whereNull('deleted_at')
@@ -222,7 +256,8 @@ class BoundaryController extends Controller
                 'success' => true,
                 'html'    => $html,
                 'boundaries' => $boundariesArray,
-                'pagination' => $pagination
+                'pagination' => $pagination,
+                'fleet_stats' => $fleet_stats
             ]);
         }
 
@@ -238,7 +273,8 @@ class BoundaryController extends Controller
             'assigned_drivers',
             'unit_drivers',
             'boundary_rules',
-            'boundariesArray'
+            'boundariesArray',
+            'fleet_stats'
         ));
     }
 

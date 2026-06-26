@@ -1517,5 +1517,22 @@ async function fetchPage(url) {
         tableWrapper.style.opacity = '1';
     }
 }
+
+document.addEventListener('DOMContentLoaded', function() {
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('action') === 'renew_franchise') {
+        const caseId = urlParams.get('case_id');
+        const caseNo = urlParams.get('case_no');
+        const applicant = urlParams.get('applicant');
+        
+        openAddExpenseModal();
+        setTimeout(() => {
+            selectCategory('Franchise Renewal');
+            if (caseId && caseNo) {
+                selectFranchise(caseId, caseNo, applicant || '');
+            }
+        }, 300);
+    }
+});
 </script>
 @endpush
