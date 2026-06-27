@@ -495,6 +495,10 @@ const Tracking: React.FC = () => {
     if (saved) setClientDistKm(parseFloat(saved));
   }, [user]);
 
+  // ── Native GPS watchPosition REMOVED ───────────
+  // We strictly rely on the server's tracking data (endpoints.driverPerformance)
+  // so the map follows the UNIT's location, not the driver's phone location when offline.
+
   // ── Poll every 5 seconds & instantly on resume ───────────────────
   useEffect(() => {
     fetchTracking();
@@ -516,71 +520,22 @@ const Tracking: React.FC = () => {
     };
   }, [fetchTracking]);
 
-  // ── Native GPS watchPosition: builds path continuously ───────────
-  // This runs while the app is in the FOREGROUND and stores breadcrumbs
-  // so the blue line grows in real-time from actual device GPS.
-  useEffect(() => {
-    const startWatch = async () => {
-      try {
-        const perm = await Geolocation.requestPermissions();
-        if (perm.location !== 'granted' && perm.coarseLocation !== 'granted') return;
 
-        const watchId = await Geolocation.watchPosition(
-          { enableHighAccuracy: true, timeout: 10000 },
-          (pos, err) => {
-            if (err || !pos) return;
-            const lat = pos.coords.latitude;
-            const lng = pos.coords.longitude;
-            const acc = pos.coords.accuracy || 999;
-            // Ignore low-accuracy readings (GPS noise / indoor)
-            if (acc > 80) return;
-
-            const userId = user?.id || 'guest';
-            const newPt: [number, number] = [lat, lng];
-
-            setRawPath(prev => {
-              // Skip if same or too close (\u003c 5m)
-              if (prev.length > 0) {
-                const last = prev[prev.length - 1];
-                const d = haversineKm(last[0], last[1], lat, lng) * 1000; // metres
-                if (d < 5) return prev;
-              }
-              const today = new Date().toLocaleDateString('en-PH', { timeZone: 'Asia/Manila' });
-              let newPath = prev.length === 0 ? [newPt] : [...prev, newPt];
-              if (newPath.length > 800) newPath = newPath.slice(-800);
-              localStorage.setItem(`tracking_path_history_${userId}`, JSON.stringify({ date: today, path: newPath }));
-              return newPath;
-            });
-
-            setPosition(newPt);
-            localStorage.setItem(`last_known_pos_${user?.id || 'guest'}`, JSON.stringify(newPt));
-          }
-        );
-        watchIdRef.current = watchId;
-      } catch (e) {
-        // Geolocation not available (web preview), silently skip
-      }
-    };
-    startWatch();
-    return () => {
-      if (watchIdRef.current) {
-        Geolocation.clearWatch({ id: watchIdRef.current }).catch(() => {});
-        watchIdRef.current = null;
-      }
-    };
-  }, [user]);
 
   // ── Locate me button handler (re-center + enable auto-follow) ───
   const handleLocateMe = () => {
     if (mapRef.current) {
       const targetPos = snappedPath.length > 0 ? snappedPath[snappedPath.length - 1] : position;
-      if (isZoomedIn && autoFollow) {
+      const currentZoom = mapRef.current.getZoom();
+      
+      if (currentZoom >= 17 && autoFollow) {
         // Already following + zoomed in => zoom out
-        mapRef.current.setView(targetPos, 14, { animate: true });
+        mapRef.current.setView(targetPos, 14, { animate: true, duration: 0.5 });
         setIsZoomedIn(false);
+        setAutoFollow(false);
       } else {
         // Re-center, zoom in, and enable auto-follow
-        mapRef.current.setView(targetPos, 18, { animate: true });
+        mapRef.current.setView(targetPos, 18, { animate: true, duration: 0.5 });
         setIsZoomedIn(true);
         setAutoFollow(true);
       }
