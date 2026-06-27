@@ -165,8 +165,8 @@ const Incidents: React.FC = () => {
   const accidentTotalPages = Math.ceil(filteredAccidents.length / ITEMS_PER_PAGE);
   const paginatedAccidents = filteredAccidents.slice((accidentPage - 1) * ITEMS_PER_PAGE, accidentPage * ITEMS_PER_PAGE);
 
-  // ── Incident Stats (only Critical + Total Charges remain) ──
-  const totalCharge    = monthFilteredIncidents.reduce((s, i) => s + Number(i.total_charge_to_driver || 0), 0);
+  // ── Incident Stats (only Critical + Charges Balance remain) ──
+  const totalCharge    = monthFilteredIncidents.reduce((s, i) => s + Number(i.remaining_balance || 0), 0);
   const criticalCount  = monthFilteredIncidents.filter(i => i.severity.toLowerCase() === 'critical').length;
 
   const gold   = '#eab308';
@@ -433,7 +433,7 @@ const Incidents: React.FC = () => {
                       )}
                     </div>
 
-                    {/* Total Charges */}
+                    {/* Charges Balance */}
                     <div style={{ padding: '14px 16px', background: t.card, ...t.glass, border: t.border, borderRadius: '18px', boxShadow: t.cardShadow }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
                         <div style={{ width: '32px', height: '32px', borderRadius: '10px', background: 'rgba(234,179,8,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -441,7 +441,7 @@ const Incidents: React.FC = () => {
                         </div>
                       </div>
                       <div style={{ fontSize: '18px', fontWeight: '900', color: t.textPrimary, lineHeight: 1 }}>₱{totalCharge.toLocaleString()}</div>
-                      <div style={{ fontSize: '10px', color: t.textMuted, fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.5px', marginTop: '4px' }}>Total Charges</div>
+                      <div style={{ fontSize: '10px', color: t.textMuted, fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.5px', marginTop: '4px' }}>Charges Balance</div>
                     </div>
                   </div>
 
