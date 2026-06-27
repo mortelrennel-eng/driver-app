@@ -1,6 +1,5 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { App } from '@capacitor/app';
-import { Geolocation } from '@capacitor/geolocation';
 import {
   IonContent,
   IonPage,
@@ -231,9 +230,9 @@ const Tracking: React.FC = () => {
   const [snappedPath, setSnappedPath] = useState<[number, number][]>([]);
   const [displayAddress, setDisplayAddress] = useState('Detecting location...');
   const lastGeocodeRef = useRef<[number, number] | null>(null);
-  // Client-computed distance (haversine from rawPath), updated live
   const [clientDistKm, setClientDistKm] = useState<number>(0);
-  const watchIdRef = useRef<string | null>(null);
+  
+  const initialCenterDone = useRef(false);
 
   // ── Load user-specific tracking history on mount or user change ───
   useEffect(() => {
