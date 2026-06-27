@@ -26,7 +26,9 @@ import {
   arrowBackOutline,
   chevronForwardOutline,
   sunnyOutline,
-  moonOutline
+  moonOutline,
+  eyeOutline,
+  eyeOffOutline
 } from 'ionicons/icons';
 import React, { useState } from 'react';
 import type { FC } from 'react';
@@ -143,6 +145,7 @@ const Settings: FC = () => {
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPasswords, setShowPasswords] = useState<Record<string, boolean>>({});
 
   React.useEffect(() => {
     const fetchProfile = async () => {
@@ -347,13 +350,18 @@ const Settings: FC = () => {
     placeholder: string,
     error?: string,
     type: string = 'text'
-  ) => (
+  ) => {
+    const isPassword = type === 'password';
+    const show = isPassword && showPasswords[label];
+    const inputType = isPassword ? (show ? 'text' : 'password') : (type === 'date' ? 'date' : 'text');
+
+    return (
     <div style={{ marginBottom: '16px' }}>
       <label style={styles.label}>{label}</label>
-      <div style={{ ...styles.inputWrap, border: error ? '1px solid #ef4444' : styles.inputWrap.border, marginBottom: '4px' }}>
+      <div style={{ ...styles.inputWrap, border: error ? '1px solid #ef4444' : styles.inputWrap.border, marginBottom: '4px', position: 'relative' }}>
         <IonIcon icon={icon} style={{ ...styles.inputIcon, color: error ? '#ef4444' : styles.inputIcon.color }} />
         <input
-          type={type === 'password' ? 'password' : (type === 'date' ? 'date' : 'text')}
+          type={inputType}
           value={value}
           maxLength={
             label.includes('Phone') ? 11 : 
@@ -377,12 +385,19 @@ const Settings: FC = () => {
             setter(sanitized); // React state update
           }}
           placeholder={placeholder}
-          style={inputStyle}
+          style={{ ...inputStyle, paddingRight: isPassword ? '40px' : '0px' }}
         />
+        {isPassword && (
+          <IonIcon 
+            icon={show ? eyeOffOutline : eyeOutline} 
+            style={{ position: 'absolute', right: '16px', top: '50%', transform: 'translateY(-50%)', color: t.textMuted, fontSize: '20px', cursor: 'pointer' }}
+            onClick={() => setShowPasswords(prev => ({ ...prev, [label]: !prev[label] }))}
+          />
+        )}
       </div>
       {error && <div style={{ fontSize: '10px', color: '#ef4444', fontWeight: '800', paddingLeft: '4px' }}>{error}</div>}
     </div>
-  );
+  )};
 
   return (
     <IonPage>
