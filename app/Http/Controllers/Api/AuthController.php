@@ -64,12 +64,17 @@ class AuthController extends Controller
 
         // Block archived/soft-deleted accounts
         if ($user->trashed()) {
-            $msg = ($user->is_disabled && !empty($user->disable_reason))
-                ? $user->disable_reason
-                : 'Your account has been disabled. Please contact the admin.';
+            // Check if this is a permanently banned driver
+            $driverRecord = \DB::table('drivers')->where('user_id', $user->id)->first();
+            if ($driverRecord && $driverRecord->driver_status === 'banned') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Your account has been permanently banned. Please contact the admin to resolve this.',
+                ], 403);
+            }
             return response()->json([
                 'success' => false,
-                'message' => $msg,
+                'message' => 'Your account has been disabled. Please contact the admin.',
             ], 403);
         }
 
@@ -101,37 +106,18 @@ class AuthController extends Controller
             ], 403);
         }
 
-        // Block suspended or banned drivers
+        // Block suspended or banned drivers (check BEFORE password so driver sees status immediately)
         if ($user->role === 'driver' && $user->driver) {
             $driver = $user->driver;
             if ($driver->driver_status === 'suspended') {
-                if ($driver->suspended_until) {
-                    $now = \Carbon\Carbon::now()->timezone('Asia/Manila');
-                    $until = \Carbon\Carbon::parse($driver->suspended_until)->timezone('Asia/Manila');
-                    if ($now->gt($until)) {
-                        // Suspension has ended!
-                        $driver->update([
-                            'driver_status' => 'available',
-                            'suspended_until' => null,
-                            'suspension_reason' => null
-                        ]);
-                    } else {
-                        $daysLeft = ceil($now->diffInSeconds($until, false) / 86400);
-                        return response()->json([
-                            'success' => false,
-                            'message' => "Your account is suspended. Remaining days: {$daysLeft} day(s)."
-                        ], 403);
-                    }
-                } else {
-                    return response()->json([
-                        'success' => false,
-                        'message' => "Your account is suspended. Please contact admin."
-                    ], 403);
-                }
+                return response()->json([
+                    'success' => false,
+                    'message' => "Your account has been temporarily suspended. Please contact the admin to settle this matter.",
+                ], 403);
             } else if ($driver->driver_status === 'banned') {
                 return response()->json([
                     'success' => false,
-                    'message' => "Your account is permanently banned."
+                    'message' => "Your account has been permanently banned. Please contact the admin to resolve this.",
                 ], 403);
             }
         }
@@ -168,6 +154,11 @@ class AuthController extends Controller
         $isRecognized = $user->verifiedBrowsers()
             ->where('browser_token', $deviceToken)
             ->exists();
+
+        // Bypass MFA for test accounts (e.g., Google Play Reviewers)
+        if ($user->email === 'google_reviewer@eurotaxi.com' || str_starts_with($user->email, 'test')) {
+            $isRecognized = true;
+        }
 
         // If not recognized, trigger MFA
         if (!$isRecognized) {
@@ -297,7 +288,7 @@ class AuthController extends Controller
             } else if ($driver->driver_status === 'banned') {
                 return response()->json([
                     'success' => false,
-                    'message' => "Your account is permanently banned."
+                    'message' => "Your account has been permanently banned. Please contact the admin to settle this matter."
                 ], 403);
             }
         }
