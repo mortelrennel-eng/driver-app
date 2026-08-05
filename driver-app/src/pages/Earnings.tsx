@@ -19,8 +19,9 @@ import {
 import { cashOutline } from 'ionicons/icons';
 import { useState, useEffect } from 'react';
 import type { FC } from 'react';
-import axios from 'axios';
+
 import { endpoints } from '../config/api';
+import { cachedGet } from '../utils/cachedGet';
 
 interface EarningRecord {
   id: number;
@@ -40,7 +41,7 @@ const Earnings: FC = () => {
 
   const fetchEarnings = async () => {
     try {
-      const response = await axios.get(endpoints.driverEarnings);
+      const response = await cachedGet(endpoints.driverEarnings);
       if (response.data.success) {
         setEarnings(response.data.data);
       }

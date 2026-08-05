@@ -78,7 +78,7 @@ class DriverBehaviorController extends Controller
             })
             ->whereNull('d.deleted_at')
             ->where('d.driver_status', '!=', 'banned')
-            ->select('d.id', 
+            ->select('d.id', 'd.uuid', 
                 DB::raw("TRIM(CONCAT(COALESCE(d.first_name,''), ' ', COALESCE(d.last_name,''))) as full_name"),
                 'u.plate_number as current_plate'
             )
@@ -193,7 +193,7 @@ class DriverBehaviorController extends Controller
                 $j->on('u.driver_id', '=', 'd.id')->orOn('u.secondary_driver_id', '=', 'd.id');
             })
             ->whereNull('u.deleted_at')
-            ->select('d.id', 'd.first_name', 'd.last_name', 'u.plate_number', 'u.driver_id', 'u.secondary_driver_id', 'u.id as unit_id')
+            ->select('d.id', 'd.uuid', 'd.first_name', 'd.last_name', 'u.plate_number', 'u.driver_id', 'u.secondary_driver_id', 'u.id as unit_id')
             ->distinct('d.id')->get();
 
         $eligible   = [];
@@ -278,7 +278,7 @@ class DriverBehaviorController extends Controller
                 $j->on('u.driver_id', '=', 'd.id')->orOn('u.secondary_driver_id', '=', 'd.id');
             })
             ->whereNull('u.deleted_at')
-            ->select('d.id', 'd.first_name', 'd.last_name', 'd.driver_status', 'u.plate_number')
+            ->select('d.id', 'd.uuid', 'd.first_name', 'd.last_name', 'd.driver_status', 'u.plate_number')
             ->distinct('d.id')->get();
 
         $profiles = [];
@@ -424,7 +424,7 @@ class DriverBehaviorController extends Controller
 
     public function update(Request $request, $id)
     {
-        $incident = DriverBehavior::findOrFail($id);
+        $incident = DriverBehavior::where('id', $id)->firstOrFail();
         
         $data = $request->validate([
             'incident_type'          => 'required|string',
@@ -463,7 +463,7 @@ class DriverBehaviorController extends Controller
 
     public function destroy($id)
     {
-        $incident = DriverBehavior::findOrFail($id);
+        $incident = DriverBehavior::where('id', $id)->firstOrFail();
         $incident->delete();
 
         return response()->json([
@@ -472,3 +472,5 @@ class DriverBehaviorController extends Controller
         ]);
     }
 }
+
+

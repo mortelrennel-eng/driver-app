@@ -92,6 +92,17 @@
 /* Hide the tip arrow — it points nowhere when popup is to the side */
 .pro-popup .leaflet-popup-tip-container { display: none !important; }
 
+/* ── Remove Leaflet's default inner content margin/padding ─────────
+   This is the PRIMARY cause of right-side clipping:
+   Leaflet adds margin: 13px 24px to .leaflet-popup-content by default,
+   which makes the content wider than the wrapper's reported maxWidth.
+   Setting it to 0 lets us fully control layout from the inner div.     */
+.pro-popup .leaflet-popup-content {
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 310px !important;   /* Force exact width to prevent inner cut-off */
+}
+
 /* Wrapper styling */
 .pro-popup .leaflet-popup-content-wrapper {
     border-radius: 16px;
@@ -99,6 +110,8 @@
     border: 1px solid rgba(0,0,0,0.06);
     padding: 0;
     overflow: hidden;
+    width: 310px;           /* fixed stable width — matches inner min-w */
+    max-width: 310px;
     /* Always fit within the visible map viewport */
     max-height: calc(100vh - 180px);
     overflow-y: auto;
@@ -109,8 +122,8 @@
 .pro-popup .leaflet-popup-content-wrapper::-webkit-scrollbar { width: 4px; }
 .pro-popup .leaflet-popup-content-wrapper::-webkit-scrollbar-thumb { background:#d1d5db; border-radius:4px; }
 
-/* Slide-in from left animation */
-.pro-popup .leaflet-popup-content-wrapper {
+/* Slide-in from left animation — only once, no re-trigger on live update */
+.pro-popup.popup-just-opened .leaflet-popup-content-wrapper {
     animation: popupSlideIn 0.22s cubic-bezier(0.34, 1.56, 0.64, 1) both;
 }
 @keyframes popupSlideIn {
@@ -381,6 +394,16 @@
 .leaflet-popup-content-wrapper { border-radius: 12px; padding: 4px; }
 .status-dot { width:8px;height:8px;border-radius:50%;display:inline-block; }
 
+/* ── Custom Popup Positioning: Card Center, Car Left ────────────── */
+/* Shift the wrapper to the right by 200px and down by 50% so it's vertically centered to the car with a gap */
+.pro-popup .leaflet-popup-content-wrapper {
+    transform: translate(200px, 50%);
+}
+/* Hide the tip because it doesn't align nicely on the side */
+.pro-popup .leaflet-popup-tip-container {
+    display: none;
+}
+
 /* ── Mobile ─────────────────────────────────────────────────────── */
 @media (max-width: 768px) {
     #unitExplorerPanel {
@@ -391,6 +414,18 @@
         z-index: 500;
     }
     #mapHeaderBar { padding-left: 58px; }
+
+    /* Move buttons to the right of the panel to avoid overlapping and blocking clicks */
+    #unitExplorerPanel:not(.panel-collapsed) ~ #mapArea #navMenuBtn,
+    #unitExplorerPanel:not(.panel-collapsed) ~ #mapArea #mapToggleBtn {
+        left: 266px;
+    }
+}
+
+/* ── Shift buttons on mobile when the main App Sidebar is open ── */
+body:has(#appSidebar.show) #navMenuBtn,
+body:has(#appSidebar.show) #mapToggleBtn {
+    left: 290px !important;
 }
 </style>
 <div id="liveTrackingRoot">
@@ -429,9 +464,9 @@
                     id="unitSearchDisplay"
                     contenteditable="true"
                     role="searchbox"
-                    aria-label="Search plate number"
+                    aria-label="Search plate or driver"
                     class="block w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:outline-none transition-all cursor-text bg-white min-h-[38px] leading-[22px]"
-                    data-placeholder="Search plate..."
+                    data-placeholder="Search plate or driver..."
                     spellcheck="false"
                     autocorrect="off"
                     autocapitalize="off"
@@ -691,6 +726,8 @@
 
     </div>{{-- /mapArea --}}
 
+
+
 </div>{{-- /liveTrackingRoot --}}
 
 <script src="{{ asset('assets/leaflet/leaflet.js') }}"></script>
@@ -788,6 +825,13 @@
         // Simply un-collapse the sidebar — flex layout pushes content right
         appSidebar.classList.remove('tracking-collapsed');
         if (navMenuBtn) navMenuBtn.classList.add('nav-open');
+        
+        // On mobile, the sidebar needs the 'show' class to be visible
+        if (window.innerWidth <= 768) {
+            appSidebar.classList.add('show');
+            const backdrop = document.getElementById('sidebarBackdrop');
+            if (backdrop) backdrop.classList.add('show');
+        }
     }
 
     window.closeNavOverlay = function () {
@@ -795,6 +839,22 @@
         navOpen = false;
         appSidebar.classList.add('tracking-collapsed');
         if (navMenuBtn) navMenuBtn.classList.remove('nav-open');
+        
+        // On mobile, remove 'show' class to hide sidebar
+        appSidebar.classList.remove('show');
+        const backdrop = document.getElementById('sidebarBackdrop');
+        if (backdrop) backdrop.classList.remove('show');
+    };
+
+    // Hook into global toggleMobileSidebar to sync state if sidebar is closed via backdrop
+    const origToggle = window.toggleMobileSidebar;
+    window.toggleMobileSidebar = function() {
+        if (origToggle) origToggle();
+        if (appSidebar && !appSidebar.classList.contains('show')) {
+            navOpen = false;
+            if (navMenuBtn) navMenuBtn.classList.remove('nav-open');
+            appSidebar.classList.add('tracking-collapsed');
+        }
     };
 
     /* ── Restore nav when user navigates away ───────────────────── */

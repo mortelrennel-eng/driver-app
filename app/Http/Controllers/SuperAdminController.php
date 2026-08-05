@@ -56,9 +56,15 @@ class SuperAdminController extends Controller
         $tab = $request->get('tab', 'overview');
 
         // Stats
-        $totalUsers = User::whereNotIn('role', ['super_admin'])->count();
-        $activeUsers = User::whereNotIn('role', ['super_admin'])->where('is_active', true)->where('approval_status', 'approved')->count();
-        $rejectedUsers = User::whereNotIn('role', ['super_admin'])->where('approval_status', 'rejected')->count();
+        $totalUsers = User::whereNotIn('role', ['super_admin', 'driver'])->count();
+        $activeUsers = User::whereNotIn('role', ['super_admin', 'driver'])
+            ->where('is_active', true)
+            ->where('approval_status', 'approved')
+            ->whereDate('last_login', today())
+            ->count();
+        $rejectedUsers = LoginAudit::whereIn('action', ['failed_login', 'rejected'])
+            ->whereDate('created_at', today())
+            ->count();
 
         // Recent login audit (for overview) - Filter for only login-related activity
         $recentAudit = LoginAudit::whereIn('action', ['login', 'failed_login', 'logout'])
@@ -67,14 +73,14 @@ class SuperAdminController extends Controller
             ->get();
 
         // Users
-        $allUsers = User::whereNotIn('role', ['super_admin'])
+        $allUsers = User::whereNotIn('role', ['super_admin', 'driver'])
             ->withTrashed()
             ->orderByRaw("FIELD(approval_status, 'pending', 'approved', 'rejected')")
             ->orderByDesc('created_at')
             ->get();
 
         // Paginated audit log - Filter for login-related activity for this tab
-        $auditLog = LoginAudit::whereIn('action', ['login', 'failed_login', 'logout', 'approved', 'rejected', 'password_changed', 'created'])
+        $auditLog = LoginAudit::whereIn('action', ['login', 'logout'])
             ->orderByDesc('created_at')
             ->paginate(25);
         // Classifications
@@ -106,16 +112,22 @@ class SuperAdminController extends Controller
             return response()->json(['success' => false, 'message' => 'Unauthorized'], 403);
         }
 
-        $totalUsers = User::whereNotIn('role', ['super_admin'])->count();
-        $activeUsers = User::whereNotIn('role', ['super_admin'])->where('is_active', true)->where('approval_status', 'approved')->count();
-        $rejectedUsers = User::whereNotIn('role', ['super_admin'])->where('approval_status', 'rejected')->count();
+        $totalUsers = User::whereNotIn('role', ['super_admin', 'driver'])->count();
+        $activeUsers = User::whereNotIn('role', ['super_admin', 'driver'])
+            ->where('is_active', true)
+            ->where('approval_status', 'approved')
+            ->whereDate('last_login', today())
+            ->count();
+        $rejectedUsers = LoginAudit::whereIn('action', ['failed_login', 'rejected'])
+            ->whereDate('created_at', today())
+            ->count();
 
         $recentAudit = LoginAudit::whereIn('action', ['login', 'failed_login', 'logout'])
             ->orderByDesc('created_at')
             ->limit(10)
             ->get();
 
-        $allUsers = User::whereNotIn('role', ['super_admin'])
+        $allUsers = User::whereNotIn('role', ['super_admin', 'driver'])
             ->orderByRaw("FIELD(approval_status, 'pending', 'approved', 'rejected')")
             ->orderByDesc('created_at')
             ->get();
@@ -129,7 +141,7 @@ class SuperAdminController extends Controller
             ],
             'recentAudit' => $recentAudit,
             'allUsers' => $allUsers,
-            'archivedUsers' => User::onlyTrashed()->orderBy('deleted_at', 'desc')->get(),
+            'archivedUsers' => User::onlyTrashed()->whereNotIn('role', ['super_admin', 'driver'])->orderBy('deleted_at', 'desc')->get(),
             'roles' => Role::orderBy('label')->get(),
             'archivedRoles' => Role::onlyTrashed()->orderBy('label')->get()
         ]);
@@ -139,7 +151,7 @@ class SuperAdminController extends Controller
 
     public function approveUser(Request $request, $id)
     {
-        $user = User::findOrFail($id);
+        $user = User::where('id', $id)->firstOrFail();
 
         $user->update([
             'approval_status' => 'approved',
@@ -161,7 +173,7 @@ class SuperAdminController extends Controller
 
     public function rejectUser(Request $request, $id)
     {
-        $user = User::findOrFail($id);
+        $user = User::where('id', $id)->firstOrFail();
 
         $user->update([
             'approval_status' => 'rejected',
@@ -181,7 +193,7 @@ class SuperAdminController extends Controller
 
     public function toggleDisable(Request $request, $id)
     {
-        $user = User::findOrFail($id);
+        $user = User::where('id', $id)->firstOrFail();
 
         if ($user->role === 'super_admin') {
             return response()->json(['success' => false, 'message' => 'Cannot disable the Super Admin account.'], 403);
@@ -209,7 +221,7 @@ class SuperAdminController extends Controller
 
     public function updatePageAccess(Request $request, $id)
     {
-        $user = User::findOrFail($id);
+        $user = User::where('id', $id)->firstOrFail();
 
         if ($user->role === 'super_admin') {
             return response()->json(['success' => false, 'message' => 'Cannot restrict Super Admin pages.'], 403);
@@ -230,7 +242,7 @@ class SuperAdminController extends Controller
 
     public function loginHistory(Request $request)
     {
-        $query = LoginAudit::whereIn('action', ['login', 'failed_login', 'logout', 'approved', 'rejected', 'password_changed', 'created'])
+        $query = LoginAudit::whereIn('action', ['login', 'logout'])
             ->orderByDesc('created_at');
 
         if ($request->filled('search')) {
@@ -260,7 +272,7 @@ class SuperAdminController extends Controller
 
     public function archiveUser(Request $request, $id)
     {
-        $user = User::findOrFail($id);
+        $user = User::where('id', $id)->firstOrFail();
 
         if ($user->role === 'super_admin') {
             return response()->json(['success' => false, 'message' => 'Cannot archive the Super Admin account.'], 403);
@@ -274,7 +286,7 @@ class SuperAdminController extends Controller
 
     public function restoreUser(Request $request, $id)
     {
-        $user = User::withTrashed()->findOrFail($id);
+        $user = User::withTrashed()->where('id', $id)->firstOrFail();
         $user->restore();
 
         LoginAudit::log('approved', $user, 'Account restored by ' . Auth::user()->full_name);
@@ -284,23 +296,34 @@ class SuperAdminController extends Controller
 
     public function updateUser(Request $request, $id)
     {
-        $user = User::withTrashed()->findOrFail($id);
+        $user = User::withTrashed()->where('id', $id)->firstOrFail();
 
         if ($user->role === 'super_admin' && Auth::user()->id != $user->id) {
             return response()->json(['success' => false, 'message' => 'Unauthorized.'], 403);
         }
 
         $data = $request->validate([
-            'first_name' => 'required|string|max:50',
-            'last_name' => 'required|string|max:50',
-            'email' => 'required|email|unique:users,email,' . $id,
-            'role' => 'required|string',
-            'phone_number' => 'nullable|string|max:20',
-            'address' => 'nullable|string|max:255',
+            'first_name' => ['required', 'string', 'min:3', 'max:50', 'regex:/^[A-Za-z]+(?:\s[A-Za-z]+)*$/'],
+            'middle_name' => ['nullable', 'string', 'min:3', 'max:50', 'regex:/^[A-Za-z]+(?:\s[A-Za-z]+)*$/'],
+            'last_name' => ['required', 'string', 'min:3', 'max:50', 'regex:/^[A-Za-z]+(?:\s[A-Za-z]+)*$/'],
+            'suffix' => ['nullable', 'string', 'max:10'],
+            'email' => ['required', 'email', 'unique:users,email,' . $id],
+            'role' => ['required', 'string'],
+            'phone_number' => ['nullable', 'string', 'regex:/^09\d{9}$/'],
+            'address' => ['nullable', 'string', 'max:255'],
         ]);
 
-        $data['full_name'] = $data['first_name'] . ' ' . $data['last_name'];
-        $data['name'] = $data['full_name'];
+        $fullNameParts = array_filter([
+            $data['first_name'],
+            $data['middle_name'] ?? null,
+            $data['last_name']
+        ]);
+        $fullName = implode(' ', $fullNameParts);
+        if (!empty($data['suffix'])) {
+            $fullName .= ' ' . $data['suffix'];
+        }
+        $data['full_name'] = $fullName;
+        $data['name'] = $fullName;
 
         $user->update($data);
 
@@ -313,14 +336,22 @@ class SuperAdminController extends Controller
 
     public function getUserDetails(Request $request, $id)
     {
-        $user = User::withTrashed()->findOrFail($id);
+        $user = User::withTrashed()->where('id', $id)->firstOrFail();
         $history = LoginAudit::where('user_id', $user->id)
             ->orderByDesc('created_at')
             ->limit(50)
             ->get();
 
         // Append profile image url for easier frontend handling
-        $profileUrl = $user->profile_image ? asset('storage/' . $user->profile_image) : null;
+        $profileUrl = null;
+        if ($user->profile_image) {
+            $isIcon = str_starts_with($user->profile_image, 'image/') || str_contains($user->profile_image, 'resources/assets/');
+            if ($isIcon) {
+                $profileUrl = asset(str_replace('resources/', '', $user->profile_image));
+            } else {
+                $profileUrl = asset('storage/' . $user->profile_image);
+            }
+        }
 
         return response()->json([
             'success' => true,
@@ -350,7 +381,7 @@ class SuperAdminController extends Controller
     {
         $request->validate(['password' => 'required|string|min:6']);
 
-        $user = User::findOrFail($id);
+        $user = User::where('id', $id)->firstOrFail();
 
         if ($user->role === 'super_admin' && Auth::user()->role !== 'super_admin') {
             return response()->json(['success' => false, 'message' => 'Unauthorized.'], 403);
@@ -368,7 +399,7 @@ class SuperAdminController extends Controller
     {
         $request->validate(['role' => 'required|string|in:manager,dispatcher,secretary,staff']);
 
-        $user = User::findOrFail($id);
+        $user = User::where('id', $id)->firstOrFail();
 
         if ($user->role === 'super_admin') {
             return response()->json(['success' => false, 'message' => 'Cannot change the Super Admin role.'], 403);
@@ -389,12 +420,14 @@ class SuperAdminController extends Controller
         $roleIn = implode(',', $validRoles);
 
         $request->validate([
-            'first_name' => 'required|string|max:50',
-            'last_name' => 'required|string|max:50',
-            'email' => 'required|email|unique:users,email',
-            'role' => 'required|in:' . $roleIn,
-            'phone_number' => 'nullable|string|max:20',
-            'address' => 'nullable|string|max:255',
+            'first_name' => ['required', 'string', 'min:3', 'max:50', 'regex:/^[A-Za-z]+(?:\s[A-Za-z]+)*$/'],
+            'middle_name' => ['nullable', 'string', 'min:3', 'max:50', 'regex:/^[A-Za-z]+(?:\s[A-Za-z]+)*$/'],
+            'last_name' => ['required', 'string', 'min:3', 'max:50', 'regex:/^[A-Za-z]+(?:\s[A-Za-z]+)*$/'],
+            'suffix' => ['nullable', 'string', 'max:10'],
+            'email' => ['required', 'email', 'unique:users,email'],
+            'role' => ['required', 'in:' . $roleIn],
+            'phone_number' => ['nullable', 'string', 'regex:/^09\d{9}$/'],
+            'address' => ['nullable', 'string', 'max:255'],
         ]);
 
         // Auto-generate a secure temp password
@@ -402,11 +435,23 @@ class SuperAdminController extends Controller
             . rand(100, 999)
             . str_shuffle('!@#$%')[0];
 
+        $fullNameParts = array_filter([
+            $request->first_name,
+            $request->middle_name,
+            $request->last_name
+        ]);
+        $fullName = implode(' ', $fullNameParts);
+        if ($request->suffix) {
+            $fullName .= ' ' . $request->suffix;
+        }
+
         $user = User::create([
             'first_name' => $request->first_name,
+            'middle_name' => $request->middle_name,
             'last_name' => $request->last_name,
-            'full_name' => $request->first_name . ' ' . $request->last_name,
-            'name' => $request->first_name . ' ' . $request->last_name,
+            'suffix' => $request->suffix,
+            'full_name' => $fullName,
+            'name' => $fullName,
             'username' => strtolower(preg_replace('/[^a-zA-Z0-9]/', '', $request->first_name . $request->last_name)) . rand(100, 999),
             'email' => $request->email,
             'phone_number' => $request->phone_number,
@@ -474,14 +519,14 @@ class SuperAdminController extends Controller
 
     public function getClassificationDetails($id)
     {
-        $item = IncidentClassification::withTrashed()->findOrFail($id);
+        $item = IncidentClassification::withTrashed()->where('id', $id)->firstOrFail();
         return response()->json(['success' => true, 'data' => $item]);
     }
 
     public function updateClassification(Request $request, $id)
     {
         Log::info("Updating Classification ID: {$id}", $request->all());
-        $item = IncidentClassification::findOrFail($id);
+        $item = IncidentClassification::where('id', $id)->firstOrFail();
 
         $data = $request->validate([
             'name' => 'required|string|unique:incident_classifications,name,' . $id,
@@ -509,7 +554,7 @@ class SuperAdminController extends Controller
     public function archiveClassification($id, Request $request)
     {
         try {
-            $item = IncidentClassification::findOrFail($id);
+            $item = IncidentClassification::where('id', $id)->firstOrFail();
             $item->delete();
             return response()->json(['success' => true, 'message' => 'Classification moved to Archive.']);
         } catch (\Exception $e) {
@@ -520,7 +565,7 @@ class SuperAdminController extends Controller
 
     public function restoreClassification($id)
     {
-        $item = IncidentClassification::withTrashed()->findOrFail($id);
+        $item = IncidentClassification::withTrashed()->where('id', $id)->firstOrFail();
         $item->restore();
 
         return response()->json(['success' => true, 'message' => 'Classification restored.']);
@@ -544,7 +589,7 @@ class SuperAdminController extends Controller
 
     public function updateRoleDetail(Request $request, $id)
     {
-        $role = Role::findOrFail($id);
+        $role = Role::where('id', $id)->firstOrFail();
 
         $data = $request->validate([
             'name' => 'required|string|unique:roles,name,' . $id,
@@ -559,7 +604,7 @@ class SuperAdminController extends Controller
 
     public function archiveRole($id)
     {
-        $role = Role::findOrFail($id);
+        $role = Role::where('id', $id)->firstOrFail();
         $role->delete();
 
         return response()->json(['success' => true, 'message' => 'Role moved to archive.']);
@@ -567,7 +612,7 @@ class SuperAdminController extends Controller
 
     public function restoreRole($id)
     {
-        $role = Role::withTrashed()->findOrFail($id);
+        $role = Role::withTrashed()->where('id', $id)->firstOrFail();
         $role->restore();
 
         return response()->json(['success' => true, 'message' => 'Role restored.']);
@@ -577,7 +622,7 @@ class SuperAdminController extends Controller
     {
         try {
             $this->verifyArchivePassword($request);
-            $role = Role::withTrashed()->findOrFail($id);
+            $role = Role::withTrashed()->where('id', $id)->firstOrFail();
             $role->forceDelete();
             return response()->json(['success' => true, 'message' => 'Role permanently deleted.']);
         } catch (\Exception $e) {
@@ -590,7 +635,7 @@ class SuperAdminController extends Controller
     {
         $this->verifyArchivePassword($request);
 
-        $user = User::withTrashed()->findOrFail($id);
+        $user = User::withTrashed()->where('id', $id)->firstOrFail();
 
         if ($user->role === 'super_admin') {
             return response()->json(['success' => false, 'message' => 'Cannot delete the Super Admin.'], 403);
@@ -624,7 +669,7 @@ class SuperAdminController extends Controller
         try {
             $this->verifyArchivePassword($request);
 
-            $item = IncidentClassification::withTrashed()->findOrFail($id);
+            $item = IncidentClassification::withTrashed()->where('id', $id)->firstOrFail();
             $item->forceDelete();
 
             return response()->json(['success' => true, 'message' => 'Classification permanently deleted.']);

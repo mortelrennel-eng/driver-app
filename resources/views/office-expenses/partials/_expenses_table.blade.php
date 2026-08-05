@@ -8,7 +8,6 @@
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Details</th>
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Reference</th>
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Amount</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
                 </tr>
             </thead>
             <tbody class="bg-white divide-y divide-gray-200">
@@ -76,24 +75,10 @@
                         <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-red-600">
                             {{ formatCurrency($expense->amount) }}
                         </td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                            <div class="flex items-center gap-2">
-                                <button type="button" onclick="openEditExpenseModal({{ $expense->id }})" class="text-blue-600 hover:text-blue-900">
-                                    <i data-lucide="edit" class="w-4 h-4"></i>
-                                </button>
-                                <form method="POST" action="{{ route('office-expenses.destroy', $expense->id) }}" class="inline"
-                                    onsubmit="return confirm('Archive this expense?')">
-                                    @csrf @method('DELETE')
-                                    <button type="submit" class="text-rose-500 hover:text-rose-700 transition-colors">
-                                        <i data-lucide="archive" class="w-4 h-4"></i>
-                                    </button>
-                                </form>
-                            </div>
-                        </td>
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="6" class="px-6 py-12 text-center text-gray-500">
+                        <td colspan="5" class="px-6 py-12 text-center text-gray-500">
                             <i data-lucide="philippine-peso" class="w-12 h-12 mx-auto mb-4 text-gray-300"></i>
                             <p>No expenses recorded yet.</p>
                         </td>
@@ -108,3 +93,4 @@
     </div>
     @endif
 </div>
+

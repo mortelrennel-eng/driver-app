@@ -40,7 +40,7 @@
 
                 <!-- Admin Response Form -->
                 <div class="p-6 bg-white">
-                    <form action="{{ route('support.update', $ticket->id) }}" method="POST">
+                    <form action="{{ route('support.update', $ticket->uuid) }}" method="POST">
                         @csrf
                         @method('PUT')
                         
@@ -84,7 +84,15 @@
                 <div class="flex items-center gap-3 mb-6">
                     <div class="w-14 h-14 rounded-full bg-gray-100 border-4 border-gray-50 flex items-center justify-center overflow-hidden">
                         @if($ticket->driver->profile_image)
-                            <img src="{{ asset('storage/' . $ticket->driver->profile_image) }}" class="w-full h-full object-cover">
+                            @php
+                                $imagePath = str_replace('resources/', '', $ticket->driver->profile_image);
+                                $isIcon = str_starts_with($imagePath, 'image/') || str_contains($imagePath, 'resources/assets/');
+                            @endphp
+                            @if($isIcon)
+                                <img src="{{ asset($imagePath) }}" class="w-full h-full object-cover">
+                            @else
+                                <img src="{{ asset('storage/' . $ticket->driver->profile_image) }}" class="w-full h-full object-cover">
+                            @endif
                         @else
                             <i data-lucide="user" class="w-6 h-6 text-gray-300"></i>
                         @endif
@@ -124,7 +132,7 @@
                 <div class="space-y-4">
                     <div>
                         <p class="text-[9px] text-gray-400 font-bold uppercase mb-1">Ticket ID</p>
-                        <p class="text-xs font-mono">#TK-{{ str_pad($ticket->id, 6, '0', STR_PAD_LEFT) }}</p>
+                        <p class="text-xs font-mono">#TK-{{ str_pad($ticket->uuid, 6, '0', STR_PAD_LEFT) }}</p>
                     </div>
                     <div>
                         <p class="text-[9px] text-gray-400 font-bold uppercase mb-1">Last Updated</p>
@@ -136,3 +144,4 @@
     </div>
 </div>
 @endsection
+

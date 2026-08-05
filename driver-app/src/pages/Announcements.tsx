@@ -23,8 +23,9 @@ import {
 } from 'ionicons/icons';
 import { useHistory } from 'react-router-dom';
 import { useTheme } from '../context/ThemeContext';
-import axios from 'axios';
+
 import { endpoints } from '../config/api';
+import { cachedGet } from '../utils/cachedGet';
 
 
 interface Announcement {
@@ -55,7 +56,7 @@ const Announcements: FC = () => {
 
   const fetchAnnouncements = async () => {
     try {
-      const response = await axios.get(endpoints.announcements);
+      const response = await cachedGet(endpoints.announcements);
       if (response.data.success) {
         const clearedAt = localStorage.getItem('announcements_cleared_at');
         let filtered: Announcement[] = response.data.announcements;

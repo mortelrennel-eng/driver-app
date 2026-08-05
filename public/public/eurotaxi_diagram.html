@@ -1,0 +1,1001 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Euro Taxi System – Conceptual Framework</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Inter', sans-serif;
+    background: #0a0e1a;
+    color: #e2e8f0;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ── HEADER ── */
+  .header {
+    text-align: center;
+    padding: 36px 20px 20px;
+    background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 50%, #0f172a 100%);
+    border-bottom: 1px solid rgba(99,102,241,0.3);
+    position: relative;
+    overflow: hidden;
+  }
+  .header::before {
+    content: '';
+    position: absolute; inset: 0;
+    background: radial-gradient(ellipse 60% 80% at 50% -10%, rgba(99,102,241,0.25) 0%, transparent 70%);
+  }
+  .header h1 {
+    font-size: clamp(1.4rem, 4vw, 2.4rem);
+    font-weight: 800;
+    background: linear-gradient(135deg, #818cf8, #c084fc, #38bdf8);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    position: relative;
+    letter-spacing: -0.5px;
+  }
+  .header p {
+    margin-top: 6px;
+    font-size: 0.85rem;
+    color: #94a3b8;
+    position: relative;
+  }
+  .badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    margin-top: 12px;
+    background: rgba(99,102,241,0.15);
+    border: 1px solid rgba(99,102,241,0.4);
+    border-radius: 20px;
+    padding: 4px 14px;
+    font-size: 0.75rem;
+    color: #a5b4fc;
+    position: relative;
+  }
+  .badge span { width: 6px; height: 6px; background: #4ade80; border-radius: 50%; animation: pulse 2s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.5;transform:scale(1.4)} }
+
+  /* ── DIAGRAM CANVAS ── */
+  .diagram {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 32px 20px 60px;
+  }
+
+  /* ── LEGEND ── */
+  .legend {
+    display: flex; flex-wrap: wrap; gap: 10px;
+    justify-content: center;
+    margin-bottom: 28px;
+  }
+  .legend-item {
+    display: flex; align-items: center; gap: 7px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 8px;
+    padding: 5px 12px;
+    font-size: 0.73rem;
+    color: #94a3b8;
+  }
+  .legend-dot { width: 12px; height: 12px; border-radius: 3px; flex-shrink: 0; }
+
+  /* ── SECTION LABELS ── */
+  .section-label {
+    text-align: center;
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: #475569;
+    margin-bottom: 12px;
+    margin-top: 28px;
+  }
+
+  /* ── ROW ── */
+  .row {
+    display: flex;
+    justify-content: center;
+    align-items: stretch;
+    gap: 16px;
+    margin-bottom: 0;
+    position: relative;
+    flex-wrap: wrap;
+  }
+
+  /* ── CONNECTOR ARROWS (SVG overlay) ── */
+  .connector-row {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 48px;
+    position: relative;
+  }
+  .connector-row svg {
+    width: 100%;
+    max-width: 1200px;
+    height: 48px;
+    overflow: visible;
+  }
+
+  /* ── NODE CARD ── */
+  .node {
+    border-radius: 14px;
+    padding: 14px 16px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    text-align: center;
+    cursor: pointer;
+    transition: transform .25s ease, box-shadow .25s ease, border-color .25s ease;
+    border: 1.5px solid transparent;
+    position: relative;
+    overflow: hidden;
+    min-width: 120px;
+  }
+  .node::before {
+    content: '';
+    position: absolute; inset: 0;
+    background: linear-gradient(135deg, rgba(255,255,255,0.06) 0%, transparent 60%);
+    pointer-events: none;
+  }
+  .node:hover {
+    transform: translateY(-4px) scale(1.03);
+  }
+  .node .icon {
+    font-size: 2rem;
+    line-height: 1;
+    filter: drop-shadow(0 2px 8px rgba(0,0,0,0.4));
+  }
+  .node .title {
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+    line-height: 1.3;
+  }
+  .node .subtitle {
+    font-size: 0.62rem;
+    opacity: 0.7;
+    line-height: 1.4;
+  }
+
+  /* ── NODE COLORS ── */
+  /* Actors */
+  .node-actor {
+    background: linear-gradient(135deg, #1e3a5f 0%, #1a2b4a 100%);
+    border-color: #3b82f6;
+    box-shadow: 0 4px 20px rgba(59,130,246,0.2);
+  }
+  .node-actor:hover { box-shadow: 0 8px 32px rgba(59,130,246,0.4); border-color:#60a5fa; }
+
+  /* Auth */
+  .node-auth {
+    background: linear-gradient(135deg, #2d1b69 0%, #1e1340 100%);
+    border-color: #7c3aed;
+    box-shadow: 0 4px 20px rgba(124,58,237,0.2);
+  }
+  .node-auth:hover { box-shadow: 0 8px 32px rgba(124,58,237,0.4); border-color:#a78bfa; }
+
+  /* Core/Dashboard */
+  .node-core {
+    background: linear-gradient(135deg, #1a3a2a 0%, #0f2a1e 100%);
+    border-color: #10b981;
+    box-shadow: 0 4px 20px rgba(16,185,129,0.2);
+  }
+  .node-core:hover { box-shadow: 0 8px 32px rgba(16,185,129,0.4); border-color:#34d399; }
+
+  /* Fleet */
+  .node-fleet {
+    background: linear-gradient(135deg, #1e2b3a 0%, #131e2b 100%);
+    border-color: #38bdf8;
+    box-shadow: 0 4px 20px rgba(56,189,248,0.2);
+  }
+  .node-fleet:hover { box-shadow: 0 8px 32px rgba(56,189,248,0.4); border-color:#7dd3fc; }
+
+  /* Financial */
+  .node-financial {
+    background: linear-gradient(135deg, #3a2b1a 0%, #2a1e0f 100%);
+    border-color: #f59e0b;
+    box-shadow: 0 4px 20px rgba(245,158,11,0.2);
+  }
+  .node-financial:hover { box-shadow: 0 8px 32px rgba(245,158,11,0.4); border-color:#fbbf24; }
+
+  /* Driver */
+  .node-driver {
+    background: linear-gradient(135deg, #3a1a2b 0%, #2a0f1e 100%);
+    border-color: #ec4899;
+    box-shadow: 0 4px 20px rgba(236,72,153,0.2);
+  }
+  .node-driver:hover { box-shadow: 0 8px 32px rgba(236,72,153,0.4); border-color:#f472b6; }
+
+  /* Safety */
+  .node-safety {
+    background: linear-gradient(135deg, #3a1a1a 0%, #2a0f0f 100%);
+    border-color: #ef4444;
+    box-shadow: 0 4px 20px rgba(239,68,68,0.2);
+  }
+  .node-safety:hover { box-shadow: 0 8px 32px rgba(239,68,68,0.4); border-color:#f87171; }
+
+  /* Database */
+  .node-db {
+    background: linear-gradient(135deg, #1a1a3a 0%, #0f0f2a 100%);
+    border-color: #6366f1;
+    box-shadow: 0 4px 20px rgba(99,102,241,0.25);
+  }
+  .node-db:hover { box-shadow: 0 8px 32px rgba(99,102,241,0.5); border-color:#818cf8; }
+
+  /* External */
+  .node-external {
+    background: linear-gradient(135deg, #1a3a2a 0%, #0f2a1e 100%);
+    border-color: #14b8a6;
+    box-shadow: 0 4px 20px rgba(20,184,166,0.2);
+  }
+  .node-external:hover { box-shadow: 0 8px 32px rgba(20,184,166,0.4); border-color:#2dd4bf; }
+
+  /* System */
+  .node-system {
+    background: linear-gradient(135deg, #2a2a1a 0%, #1a1a0f 100%);
+    border-color: #84cc16;
+    box-shadow: 0 4px 20px rgba(132,204,22,0.2);
+  }
+  .node-system:hover { box-shadow: 0 8px 32px rgba(132,204,22,0.4); border-color:#a3e635; }
+
+  /* ── MAIN CENTER BOX ── */
+  .node-center {
+    min-width: 180px;
+    padding: 18px 22px;
+    background: linear-gradient(135deg, #0f1729 0%, #1a1040 100%);
+    border: 2px solid #6366f1;
+    border-radius: 16px;
+    box-shadow: 0 0 40px rgba(99,102,241,0.3), 0 0 80px rgba(99,102,241,0.1);
+    text-align: center;
+    position: relative;
+  }
+  .node-center::after {
+    content: '';
+    position: absolute; inset: -2px;
+    border-radius: 18px;
+    background: linear-gradient(135deg, #6366f1, #8b5cf6, #3b82f6);
+    z-index: -1;
+    animation: glow 3s ease-in-out infinite;
+  }
+  @keyframes glow { 0%,100%{opacity:.3} 50%{opacity:.7} }
+  .node-center .icon { font-size: 2.4rem; }
+  .node-center .title { font-size: 0.9rem; font-weight: 800; color: #c7d2fe; }
+  .node-center .subtitle { font-size: 0.7rem; color: #6366f1; margin-top: 2px; }
+
+  /* ── DATABASE SECTION ── */
+  .db-section {
+    background: linear-gradient(135deg, rgba(99,102,241,0.08) 0%, rgba(139,92,246,0.05) 100%);
+    border: 1px solid rgba(99,102,241,0.2);
+    border-radius: 16px;
+    padding: 20px;
+    margin: 12px 0;
+  }
+  .db-title {
+    text-align: center;
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: #6366f1;
+    margin-bottom: 14px;
+  }
+  .db-tables {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: center;
+  }
+  .db-table {
+    background: rgba(99,102,241,0.1);
+    border: 1px solid rgba(99,102,241,0.25);
+    border-radius: 8px;
+    padding: 6px 12px;
+    font-size: 0.67rem;
+    color: #a5b4fc;
+    font-weight: 600;
+    cursor: default;
+    transition: background .2s, border-color .2s;
+  }
+  .db-table:hover { background: rgba(99,102,241,0.25); border-color: rgba(99,102,241,0.6); }
+
+  /* ── ARROW PATH ── */
+  path.arrow { stroke-width: 1.5; fill: none; marker-end: url(#arrowhead); opacity: 0.6; transition: opacity .2s; }
+  path.arrow:hover { opacity: 1; }
+  .arrow-blue  { stroke: #60a5fa; }
+  .arrow-green { stroke: #34d399; }
+  .arrow-amber { stroke: #fbbf24; }
+  .arrow-purple{ stroke: #a78bfa; }
+  .arrow-pink  { stroke: #f472b6; }
+  .arrow-teal  { stroke: #2dd4bf; }
+  .arrow-red   { stroke: #f87171; }
+  .arrow-cyan  { stroke: #38bdf8; }
+
+  /* ── FLOW LAYOUT ── */
+  .flow-grid {
+    display: grid;
+    grid-template-columns: 200px 1fr 200px;
+    grid-template-rows: auto auto auto auto auto;
+    gap: 0;
+    align-items: center;
+    position: relative;
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+
+  .col-left { display: flex; flex-direction: column; gap: 14px; align-items: flex-end; padding-right: 10px; }
+  .col-center { display: flex; flex-direction: column; align-items: center; gap: 0; padding: 0 10px; }
+  .col-right { display: flex; flex-direction: column; gap: 14px; align-items: flex-start; padding-left: 10px; }
+
+  /* center column inner rows */
+  .center-row { display: flex; justify-content: center; align-items: center; gap: 14px; width: 100%; margin: 8px 0; }
+
+  /* ── ARROWS SVG CANVAS (absolute overlay) ── */
+  .canvas-wrapper {
+    position: relative;
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+  .canvas-wrapper svg.overlay {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    pointer-events: none;
+    overflow: visible;
+  }
+
+  /* ── TOOLTIP ── */
+  .tooltip {
+    position: fixed;
+    background: rgba(15,17,32,0.95);
+    border: 1px solid rgba(99,102,241,0.4);
+    border-radius: 10px;
+    padding: 10px 14px;
+    font-size: 0.72rem;
+    color: #e2e8f0;
+    max-width: 240px;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity .2s;
+    z-index: 9999;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+  }
+  .tooltip.visible { opacity: 1; }
+  .tooltip strong { color: #818cf8; display: block; margin-bottom: 4px; font-size: 0.78rem; }
+
+  /* ── FLOW DESCRIPTION TABLE ── */
+  .flow-table {
+    max-width: 1200px;
+    margin: 40px auto 0;
+    border-radius: 14px;
+    overflow: hidden;
+    border: 1px solid rgba(99,102,241,0.2);
+  }
+  .flow-table table { width: 100%; border-collapse: collapse; }
+  .flow-table th {
+    background: rgba(99,102,241,0.2);
+    padding: 10px 16px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: #a5b4fc;
+    text-align: left;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+  .flow-table td {
+    padding: 9px 16px;
+    font-size: 0.73rem;
+    color: #94a3b8;
+    border-top: 1px solid rgba(255,255,255,0.04);
+  }
+  .flow-table tr:hover td { background: rgba(99,102,241,0.05); }
+  .flow-table .tag {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 99px;
+    font-size: 0.65rem;
+    font-weight: 700;
+    margin-right: 4px;
+  }
+  .tag-input   { background: rgba(59,130,246,0.2);  color: #93c5fd; }
+  .tag-process { background: rgba(16,185,129,0.2); color: #6ee7b7; }
+  .tag-output  { background: rgba(245,158,11,0.2); color: #fcd34d; }
+  .tag-store   { background: rgba(99,102,241,0.2); color: #a5b4fc; }
+
+  /* ── RESPONSIVE ── */
+  @media (max-width: 900px) {
+    .flow-grid { grid-template-columns: 1fr; }
+    .col-left, .col-right { flex-direction: row; flex-wrap: wrap; justify-content: center; align-items: center; padding: 0; }
+    .col-left { padding-bottom: 8px; }
+    .col-right { padding-top: 8px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- TOOLTIP -->
+<div class="tooltip" id="tooltip"></div>
+
+<!-- HEADER -->
+<div class="header">
+  <h1>🚖 Euro Taxi Management System</h1>
+  <p>Conceptual Framework – Complete System Flow Diagram</p>
+  <div class="badge"><span></span> Laravel 10 + MySQL · XAMPP · Hostinger Production</div>
+</div>
+
+<div class="diagram">
+
+  <!-- LEGEND -->
+  <div class="legend">
+    <div class="legend-item"><div class="legend-dot" style="background:#3b82f6"></div> Actors / Users</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#7c3aed"></div> Authentication</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#10b981"></div> Core Dashboard</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#38bdf8"></div> Fleet Operations</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#f59e0b"></div> Financial</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#ec4899"></div> Driver Management</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#ef4444"></div> Safety & Compliance</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#14b8a6"></div> External APIs</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#84cc16"></div> System & Settings</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#6366f1"></div> Database Layer</div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════ -->
+  <!--               ROW 1 – ACTORS                    -->
+  <!-- ═══════════════════════════════════════════════ -->
+  <div class="section-label">👥 System Actors (Inputs)</div>
+  <div class="row" id="row-actors">
+    <div class="node node-actor" id="n-admin"
+         data-title="Admin / Business Owner"
+         data-desc="Nagma-manage ng buong sistema. May access sa lahat ng modules: dashboard, financial reports, settings, analytics, at user management.">
+      <div class="icon">👔</div>
+      <div class="title">Admin /<br>Business Owner</div>
+      <div class="subtitle">Full System Access</div>
+    </div>
+    <div class="node node-actor" id="n-staff"
+         data-title="Staff / Encoder"
+         data-desc="Nag-eencode ng daily boundary collections, expenses, at maintenance records. May limitadong access sa ilang modules.">
+      <div class="icon">👩‍💼</div>
+      <div class="title">Staff / Encoder</div>
+      <div class="subtitle">Data Entry Access</div>
+    </div>
+    <div class="node node-actor" id="n-driver"
+         data-title="Driver"
+         data-desc="Ang pangunahing subject ng sistema. May sariling driver account para makita ang kanilang performance, boundary records, at behavior history.">
+      <div class="icon">🧑‍✈️</div>
+      <div class="title">Driver</div>
+      <div class="subtitle">Driver Account Portal</div>
+    </div>
+    <div class="node node-actor" id="n-mechanic"
+         data-title="Mechanic / Service"
+         data-desc="Nagse-service ng mga taxi units. Ang maintenance records ay naka-link sa mechanic name at parts used.">
+      <div class="icon">🔧</div>
+      <div class="title">Mechanic</div>
+      <div class="subtitle">Service Technician</div>
+    </div>
+  </div>
+
+  <!-- Arrow Down -->
+  <div style="text-align:center;margin:12px 0;font-size:1.6rem;opacity:.5;animation:bounce 2s infinite">⬇️</div>
+
+  <!-- ═══════════════════════════════════════════════ -->
+  <!--           ROW 2 – AUTHENTICATION                -->
+  <!-- ═══════════════════════════════════════════════ -->
+  <div class="section-label">🔐 Authentication Layer</div>
+  <div class="row" id="row-auth">
+    <div class="node node-auth" id="n-login"
+         data-title="Login / Register"
+         data-desc="Username + Password authentication. Walang required email para sa drivers. Naka-check ang role-based access control.">
+      <div class="icon">🔑</div>
+      <div class="title">Login / Register</div>
+      <div class="subtitle">UserPass Auth</div>
+    </div>
+    <div class="node node-auth" id="n-mfa"
+         data-title="MFA / OTP Verification"
+         data-desc="Multi-Factor Authentication. Na-send ang OTP sa phone number. May verified device system para maiwasan ang paulit-ulit na OTP.">
+      <div class="icon">📱</div>
+      <div class="title">MFA / OTP</div>
+      <div class="subtitle">Device Verification</div>
+    </div>
+    <div class="node node-auth" id="n-github-auth"
+         data-title="GitHub OAuth"
+         data-desc="Alternative login via GitHub account. Naka-link sa GitHub OAuth integration para sa developer access.">
+      <div class="icon">🐙</div>
+      <div class="title">GitHub OAuth</div>
+      <div class="subtitle">Developer Login</div>
+    </div>
+    <div class="node node-auth" id="n-forgot"
+         data-title="Forgot Password / Reset"
+         data-desc="OTP-based password reset via SMS. May send-OTP at verify-OTP flow bago ma-reset ang password.">
+      <div class="icon">🔄</div>
+      <div class="title">Forgot Password</div>
+      <div class="subtitle">OTP SMS Reset</div>
+    </div>
+  </div>
+
+  <!-- Arrow Down -->
+  <div style="text-align:center;margin:12px 0;font-size:1.6rem;opacity:.5;animation:bounce 2s infinite">⬇️</div>
+
+  <!-- ═══════════════════════════════════════════════ -->
+  <!--         ROW 3 – LARAVEL APPLICATION             -->
+  <!-- ═══════════════════════════════════════════════ -->
+  <div class="section-label">⚙️ Laravel Application Server (Processes)</div>
+
+  <!-- Center: Dashboard Hub -->
+  <div class="row" style="margin-bottom:16px">
+    <div class="node-center" id="n-dashboard"
+         data-title="Real-Time Dashboard"
+         data-desc="Central hub ng sistema. Nagpapakita ng: Total Units, ROI Units, Coding Units, Maintenance Units, Today's Boundary, Net Income, Daily Target, Active Drivers, Revenue Trend charts, Unit Status Distribution, Top Drivers, at Expense Breakdown. Auto-refreshes every 30 seconds.">
+      <div class="icon">📊</div>
+      <div class="title">Real-Time Dashboard</div>
+      <div class="subtitle">Central Control Hub</div>
+    </div>
+  </div>
+
+  <!-- Modules Grid: 3 columns -->
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px;margin-bottom:16px;max-width:1200px;margin-left:auto;margin-right:auto">
+
+    <!-- FLEET OPERATIONS GROUP -->
+    <div style="background:rgba(56,189,248,0.05);border:1px solid rgba(56,189,248,0.15);border-radius:14px;padding:14px">
+      <div style="font-size:0.68rem;font-weight:700;letter-spacing:2px;color:#38bdf8;text-transform:uppercase;text-align:center;margin-bottom:12px">🚖 Fleet Operations</div>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <div class="node node-fleet" id="n-units"
+             data-title="Unit Management"
+             data-desc="CRUD ng lahat ng taxi units. Fields: Plate Number, Make, Model, Year, Status (Active/Maintenance/Retired/Vacant/Coding), Boundary Rate, Purchase Cost, Motor Number, Chassis Number, GPS Link/IMEI, Driver Assignment (Primary + Secondary), Shift Deadline, Coding Day. May toggle-status at PDF print.">
+          <div class="icon">🚗</div>
+          <div class="title">Unit Management</div>
+          <div class="subtitle">Plate · Status · Driver Assignment · GPS · ROI Tracking</div>
+        </div>
+        <div class="node node-fleet" id="n-boundary"
+             data-title="Boundary Collection"
+             data-desc="Pangunahing income source. Fields: Unit, Driver, Date, Expected Boundary Amount, Actual Boundary, Shortage/Excess, Status (paid/shortage/excess/absent/no_trip). May incentive tracking at vehicle damage flag. Driver swapping supported.">
+          <div class="icon">💰</div>
+          <div class="title">Boundary Collection</div>
+          <div class="subtitle">Daily Income · Shortage/Excess · Incentives</div>
+        </div>
+        <div class="node node-fleet" id="n-livetrack"
+             data-title="Live GPS Tracking"
+             data-desc="Real-time GPS location ng mga units via Tracksolid Pro API. Nagpapakita ng: current location, speed, mileage, daily stats. May time-drift compensation para sa Tracksolid timestamp issues.">
+          <div class="icon">🗺️</div>
+          <div class="title">Live GPS Tracking</div>
+          <div class="subtitle">Tracksolid Pro API · Real-time Location</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- FINANCIAL MANAGEMENT GROUP -->
+    <div style="background:rgba(245,158,11,0.05);border:1px solid rgba(245,158,11,0.15);border-radius:14px;padding:14px">
+      <div style="font-size:0.68rem;font-weight:700;letter-spacing:2px;color:#f59e0b;text-transform:uppercase;text-align:center;margin-bottom:12px">💳 Financial Management</div>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <div class="node node-financial" id="n-expense"
+             data-title="Office Expenses"
+             data-desc="Tracks lahat ng office at operational expenses. May approval/rejection workflow. Categories: Maintenance, Repairs, Salaries, Parts, Others. Nagco-contribute sa Net Income calculation.">
+          <div class="icon">🧾</div>
+          <div class="title">Office Expenses</div>
+          <div class="subtitle">Approval Workflow · Categories</div>
+        </div>
+        <div class="node node-financial" id="n-salary"
+             data-title="Salary Management"
+             data-desc="Pag-manage ng salary ng staff at drivers. May monthly report generation. Naka-link sa staff records.">
+          <div class="icon">💵</div>
+          <div class="title">Salary Management</div>
+          <div class="subtitle">Monthly Reports · Staff Pay</div>
+        </div>
+        <div class="node node-financial" id="n-analytics"
+             data-title="Analytics & Profitability"
+             data-desc="Advanced analytics: Unit Profitability Report, Revenue Trends (7/30/90 days), Expense Breakdown by Category, Top Performing Units, ROI Achieved tracking, Net Income projections.">
+          <div class="icon">📈</div>
+          <div class="title">Analytics & Reports</div>
+          <div class="subtitle">Unit Profitability · Revenue Trends · ROI</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- DRIVER & SAFETY GROUP -->
+    <div style="background:rgba(236,72,153,0.05);border:1px solid rgba(236,72,153,0.15);border-radius:14px;padding:14px">
+      <div style="font-size:0.68rem;font-weight:700;letter-spacing:2px;color:#ec4899;text-transform:uppercase;text-align:center;margin-bottom:12px">👨‍✈️ Driver & Safety</div>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <div class="node node-driver" id="n-drivermgmt"
+             data-title="Driver Management"
+             data-desc="Complete driver profiles: First/Last Name, Nickname, License Number, Contact, Address, Emergency Contact, Driver Type (Regular/Extra), Status (Available/Assigned). May document upload support.">
+          <div class="icon">👤</div>
+          <div class="title">Driver Management</div>
+          <div class="subtitle">Profiles · License · Status · Docs</div>
+        </div>
+        <div class="node node-safety" id="n-behavior"
+             data-title="Driver Behavior / Incidents"
+             data-desc="Tracks driver performance at incidents. Fields: Incident Type, Accident details, Debt tracking, Incentive system, Performance score. May release-incentive feature. Naka-link sa boundaries at driver records.">
+          <div class="icon">⚠️</div>
+          <div class="title">Driver Behavior</div>
+          <div class="subtitle">Incidents · Debt · Incentives · Score</div>
+        </div>
+        <div class="node node-safety" id="n-coding"
+             data-title="Coding Management"
+             data-desc="Automated number coding tracking based on plate number's last digit. Auto-detects coding day every Monday-Saturday. Manual override supported. Tracks coding violations at costs.">
+          <div class="icon">🚦</div>
+          <div class="title">Coding Management</div>
+          <div class="subtitle">Auto-detect · Violations · Schedule</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- 2nd grid row for remaining modules -->
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;margin-bottom:16px;max-width:1200px;margin-left:auto;margin-right:auto">
+
+    <!-- MAINTENANCE -->
+    <div style="background:rgba(245,158,11,0.04);border:1px solid rgba(245,158,11,0.12);border-radius:14px;padding:14px">
+      <div style="font-size:0.68rem;font-weight:700;letter-spacing:2px;color:#f59e0b;text-transform:uppercase;text-align:center;margin-bottom:12px">🔩 Maintenance</div>
+      <div class="node node-financial" id="n-maint"
+           data-title="Maintenance Management"
+           data-desc="Tracks vehicle maintenance. Fields: Unit, Driver, Type, Description, Labor Cost, Odometer, Date Started/Completed, Status (pending/in_progress/completed/cancelled), Mechanic Name, Parts List, Total Cost. May toggle-complete at toggle-in-progress. Naka-link sa Spare Parts inventory.">
+        <div class="icon">🔩</div>
+        <div class="title">Maintenance Records</div>
+        <div class="subtitle">Parts · Cost · Status · Mechanic · Toggle Complete</div>
+      </div>
+    </div>
+
+    <!-- SPARE PARTS -->
+    <div style="background:rgba(245,158,11,0.04);border:1px solid rgba(245,158,11,0.12);border-radius:14px;padding:14px">
+      <div style="font-size:0.68rem;font-weight:700;letter-spacing:2px;color:#f59e0b;text-transform:uppercase;text-align:center;margin-bottom:12px">🛠️ Spare Parts</div>
+      <div class="node node-financial" id="n-spareparts"
+           data-title="Spare Parts Inventory"
+           data-desc="Manages spare parts catalog. Part Name, Description. Naka-link sa maintenance parts list. Nagse-serve bilang reference sa pag-record ng maintenance.">
+        <div class="icon">⚙️</div>
+        <div class="title">Spare Parts</div>
+        <div class="subtitle">Parts Catalog · Inventory Reference</div>
+      </div>
+    </div>
+
+    <!-- DECISION MANAGEMENT -->
+    <div style="background:rgba(132,204,22,0.04);border:1px solid rgba(132,204,22,0.12);border-radius:14px;padding:14px">
+      <div style="font-size:0.68rem;font-weight:700;letter-spacing:2px;color:#84cc16;text-transform:uppercase;text-align:center;margin-bottom:12px">⚖️ Decision Mgmt</div>
+      <div class="node node-system" id="n-decision"
+           data-title="Decision Management"
+           data-desc="Approval workflow para sa mga desisyon sa sistema. May approve/reject functionality. Tracks pending at resolved decisions.">
+        <div class="icon">⚖️</div>
+        <div class="title">Decision Management</div>
+        <div class="subtitle">Approve / Reject · Workflow</div>
+      </div>
+    </div>
+
+    <!-- ARCHIVE -->
+    <div style="background:rgba(132,204,22,0.04);border:1px solid rgba(132,204,22,0.12);border-radius:14px;padding:14px">
+      <div style="font-size:0.68rem;font-weight:700;letter-spacing:2px;color:#84cc16;text-transform:uppercase;text-align:center;margin-bottom:12px">📦 Archive</div>
+      <div class="node node-system" id="n-archive"
+           data-title="Archive System"
+           data-desc="Soft-delete archive system. Lahat ng deleted records ay naka-archive dito. May Restore at Force Delete options for: Units, Drivers, Boundaries, Expenses, Maintenance, Staff.">
+        <div class="icon">📦</div>
+        <div class="title">Archive System</div>
+        <div class="subtitle">Soft-Delete · Restore · Force Delete</div>
+      </div>
+    </div>
+
+    <!-- STAFF -->
+    <div style="background:rgba(132,204,22,0.04);border:1px solid rgba(132,204,22,0.12);border-radius:14px;padding:14px">
+      <div style="font-size:0.68rem;font-weight:700;letter-spacing:2px;color:#84cc16;text-transform:uppercase;text-align:center;margin-bottom:12px">👥 Staff</div>
+      <div class="node node-system" id="n-staff-mod"
+           data-title="Staff Management"
+           data-desc="Manages office staff records. Fields: Name, Role, Contact, Hire Date. Naka-link sa Salary module para sa payroll processing.">
+        <div class="icon">🏢</div>
+        <div class="title">Staff Management</div>
+        <div class="subtitle">Roles · Records · Payroll Link</div>
+      </div>
+    </div>
+
+    <!-- BOUNDARY SETTINGS -->
+    <div style="background:rgba(132,204,22,0.04);border:1px solid rgba(132,204,22,0.12);border-radius:14px;padding:14px">
+      <div style="font-size:0.68rem;font-weight:700;letter-spacing:2px;color:#84cc16;text-transform:uppercase;text-align:center;margin-bottom:12px">⚙️ Settings</div>
+      <div class="node node-system" id="n-bsettings"
+           data-title="Boundary Rules Settings"
+           data-desc="Configures boundary rate rules based on vehicle year model. Example: 2010-2015 → ₱500/day, 2016-2020 → ₱600/day. Auto-applies when a unit's year is set/updated.">
+        <div class="icon">📋</div>
+        <div class="title">Boundary Rules</div>
+        <div class="subtitle">Year-based Rate Rules · Auto-apply</div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Arrow Down -->
+  <div style="text-align:center;margin:12px 0;font-size:1.6rem;opacity:.5;animation:bounce 2s infinite">⬇️</div>
+
+  <!-- ═══════════════════════════════════════════════ -->
+  <!--           ROW 4 – EXTERNAL SERVICES             -->
+  <!-- ═══════════════════════════════════════════════ -->
+  <div class="section-label">🌐 External Services & APIs</div>
+  <div class="row" style="margin-bottom:16px">
+    <div class="node node-external" id="n-tracksolid"
+         data-title="Tracksolid Pro GPS API"
+         data-desc="External GPS tracking provider. Nagbibigay ng real-time location data ng mga taxi units via IMEI/device ID. May time-drift compensation para sa timestamp issues. Returns: latitude, longitude, speed, mileage, daily stats.">
+      <div class="icon">📡</div>
+      <div class="title">Tracksolid Pro</div>
+      <div class="subtitle">GPS Tracking API</div>
+    </div>
+    <div class="node node-external" id="n-sms"
+         data-title="SMS / OTP Service"
+         data-desc="SMS gateway para sa OTP delivery. Ginagamit sa: MFA device verification, forgot password reset, registration OTP. Hindi hinihingian ng email ang drivers.">
+      <div class="icon">💬</div>
+      <div class="title">SMS Gateway</div>
+      <div class="subtitle">OTP Delivery · MFA</div>
+    </div>
+    <div class="node node-external" id="n-github"
+         data-title="GitHub Integration"
+         data-desc="GitHub API integration para sa: Deploy workflow status, Commit history, Pull Requests, Issues management, Contributors list. May automated CI/CD deployment sa Hostinger via GitHub Actions.">
+      <div class="icon">🐙</div>
+      <div class="title">GitHub API</div>
+      <div class="subtitle">CI/CD · Commits · Issues · Deploy</div>
+    </div>
+    <div class="node node-external" id="n-hostinger"
+         data-title="Hostinger Production"
+         data-desc="Production hosting environment. Naka-deploy ang sistema via GitHub Actions workflow. May force-sync migration route para sa emergency database updates.">
+      <div class="icon">🌍</div>
+      <div class="title">Hostinger</div>
+      <div class="subtitle">Production Hosting · Auto-Deploy</div>
+    </div>
+  </div>
+
+  <!-- Arrow Down -->
+  <div style="text-align:center;margin:12px 0;font-size:1.6rem;opacity:.5;animation:bounce 2s infinite">⬇️</div>
+
+  <!-- ═══════════════════════════════════════════════ -->
+  <!--           ROW 5 – DATABASE LAYER               -->
+  <!-- ═══════════════════════════════════════════════ -->
+  <div class="section-label">🗄️ Database Layer (MySQL + Laravel Eloquent)</div>
+  <div class="db-section" style="max-width:1200px;margin:0 auto">
+    <div class="db-title">📋 Database Tables</div>
+    <div class="db-tables">
+      <div class="db-table" title="Vehicle fleet data">units</div>
+      <div class="db-table" title="Driver profiles">drivers</div>
+      <div class="db-table" title="Daily boundary collections">boundaries</div>
+      <div class="db-table" title="Vehicle maintenance records">maintenance</div>
+      <div class="db-table" title="Parts used in maintenance">maintenance_parts</div>
+      <div class="db-table" title="Spare parts catalog">spare_parts</div>
+      <div class="db-table" title="Office/operational expenses">expenses</div>
+      <div class="db-table" title="NC coding records">coding_records</div>
+      <div class="db-table" title="Coding violations">coding_violations</div>
+      <div class="db-table" title="Driver incident/behavior log">driver_behavior</div>
+      <div class="db-table" title="Driver debt records">driver_debts</div>
+      <div class="db-table" title="Debt installment payments">driver_debt_installments</div>
+      <div class="db-table" title="Driver wallet/balance">driver_balances</div>
+      <div class="db-table" title="GPS location data">gps_tracking</div>
+      <div class="db-table" title="System notification alerts">system_alerts</div>
+      <div class="db-table" title="User accounts & roles">users</div>
+      <div class="db-table" title="Staff employee records">staff</div>
+      <div class="db-table" title="Franchise/case penalties">franchise_cases</div>
+      <div class="db-table" title="Unit-case linking">franchise_case_units</div>
+      <div class="db-table" title="Boundary rate rules by year">boundary_rules</div>
+      <div class="db-table" title="Decision workflow">decision_management</div>
+      <div class="db-table" title="Browser device verification">verified_browsers</div>
+      <div class="db-table" title="Auth sessions">sessions</div>
+      <div class="db-table" title="Incident damage details">incident_damages</div>
+      <div class="db-table" title="Parties involved in incidents">incident_involved_parties</div>
+      <div class="db-table" title="Parts estimate for incidents">incident_parts_estimates</div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════ -->
+  <!--       NET INCOME CALCULATION FLOW             -->
+  <!-- ═══════════════════════════════════════════════ -->
+  <div class="section-label" style="margin-top:36px">💰 Net Income Calculation Flow</div>
+  <div style="max-width:900px;margin:0 auto;background:rgba(16,185,129,0.06);border:1px solid rgba(16,185,129,0.2);border-radius:14px;padding:20px">
+    <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:center;font-size:0.8rem;font-weight:600">
+      <div style="background:rgba(56,189,248,0.15);border:1px solid rgba(56,189,248,0.3);border-radius:8px;padding:8px 14px;color:#38bdf8;text-align:center">
+        💰 Actual Boundary<br><small style="font-weight:400;color:#64748b">SUM(boundaries.actual_boundary)</small>
+      </div>
+      <div style="color:#64748b;font-size:1.2rem">−</div>
+      <div style="background:rgba(245,158,11,0.15);border:1px solid rgba(245,158,11,0.3);border-radius:8px;padding:8px 14px;color:#f59e0b;text-align:center">
+        🧾 Office Expenses<br><small style="font-weight:400;color:#64748b">SUM(expenses.amount)</small>
+      </div>
+      <div style="color:#64748b;font-size:1.2rem">−</div>
+      <div style="background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.3);border-radius:8px;padding:8px 14px;color:#ef4444;text-align:center">
+        🔩 Maintenance Cost<br><small style="font-weight:400;color:#64748b">SUM(maintenance.cost)</small>
+      </div>
+      <div style="color:#64748b;font-size:1.2rem">=</div>
+      <div style="background:rgba(16,185,129,0.2);border:2px solid rgba(16,185,129,0.5);border-radius:8px;padding:10px 18px;color:#10b981;font-size:0.9rem;text-align:center">
+        ✅ NET INCOME<br><small style="font-weight:400;color:#64748b">Today's Profit</small>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════ -->
+  <!--       UNIT STATUS FLOW                         -->
+  <!-- ═══════════════════════════════════════════════ -->
+  <div class="section-label" style="margin-top:36px">🚗 Unit Status Flow</div>
+  <div style="max-width:900px;margin:0 auto">
+    <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:center">
+      <div style="background:rgba(99,102,241,0.15);border:1px solid rgba(99,102,241,0.3);border-radius:8px;padding:8px 16px;text-align:center;color:#818cf8;font-size:0.78rem;font-weight:600">
+        📝 New Unit<br><small style="color:#475569">Register</small>
+      </div>
+      <div style="color:#475569">→</div>
+      <div style="background:rgba(16,185,129,0.15);border:1px solid rgba(16,185,129,0.3);border-radius:8px;padding:8px 16px;text-align:center;color:#10b981;font-size:0.78rem;font-weight:600">
+        ✅ Active<br><small style="color:#475569">Earning Boundary</small>
+      </div>
+      <div style="color:#475569">→</div>
+      <div style="background:rgba(245,158,11,0.15);border:1px solid rgba(245,158,11,0.3);border-radius:8px;padding:8px 16px;text-align:center;color:#f59e0b;font-size:0.78rem;font-weight:600">
+        🔩 Maintenance<br><small style="color:#475569">Under Repair</small>
+      </div>
+      <div style="color:#475569">→</div>
+      <div style="background:rgba(16,185,129,0.15);border:1px solid rgba(16,185,129,0.3);border-radius:8px;padding:8px 16px;text-align:center;color:#10b981;font-size:0.78rem;font-weight:600">
+        ✅ Active Again<br><small style="color:#475569">After Repair</small>
+      </div>
+      <div style="color:#475569">→</div>
+      <div style="background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.3);border-radius:8px;padding:8px 16px;text-align:center;color:#ef4444;font-size:0.78rem;font-weight:600">
+        🚫 Retired<br><small style="color:#475569">End of Life</small>
+      </div>
+    </div>
+    <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:center;margin-top:10px">
+      <div style="background:rgba(56,189,248,0.1);border:1px solid rgba(56,189,248,0.25);border-radius:8px;padding:6px 14px;text-align:center;color:#38bdf8;font-size:0.74rem">
+        🚦 Coding (Auto)<br><small style="color:#475569">Based on Plate Ending · Auto per Day</small>
+      </div>
+      <div style="background:rgba(107,114,128,0.1);border:1px solid rgba(107,114,128,0.25);border-radius:8px;padding:6px 14px;text-align:center;color:#9ca3af;font-size:0.74rem">
+        🅿️ Vacant<br><small style="color:#475569">No Driver Assigned</small>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════ -->
+  <!--       SYSTEM FLOW TABLE                        -->
+  <!-- ═══════════════════════════════════════════════ -->
+  <div class="section-label" style="margin-top:36px">📋 Complete Input → Process → Output Flow</div>
+  <div class="flow-table">
+    <table>
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Module</th>
+          <th>Input</th>
+          <th>Process</th>
+          <th>Output / Stored In</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>1</td>
+          <td>🔑 Authentication</td>
+          <td><span class="tag tag-input">IN</span>Username, Password / OTP</td>
+          <td><span class="tag tag-process">PROC</span>Validate credentials, check MFA, verify device</td>
+          <td><span class="tag tag-output">OUT</span>Session token → <span class="tag tag-store">DB</span>sessions, verified_browsers</td>
+        </tr>
+        <tr>
+          <td>2</td>
+          <td>🚗 Unit Management</td>
+          <td><span class="tag tag-input">IN</span>Plate No., Make, Model, Year, Cost, GPS IMEI</td>
+          <td><span class="tag tag-process">PROC</span>Auto-assign boundary rate via BoundaryRule, status management</td>
+          <td><span class="tag tag-output">OUT</span>Unit record → <span class="tag tag-store">DB</span>units</td>
+        </tr>
+        <tr>
+          <td>3</td>
+          <td>💰 Boundary Collection</td>
+          <td><span class="tag tag-input">IN</span>Unit, Driver, Date, Actual Amount Collected</td>
+          <td><span class="tag tag-process">PROC</span>Calculate shortage/excess vs expected, record status, flag incentive</td>
+          <td><span class="tag tag-output">OUT</span>Daily income record → <span class="tag tag-store">DB</span>boundaries</td>
+        </tr>
+        <tr>
+          <td>4</td>
+          <td>🔩 Maintenance</td>
+          <td><span class="tag tag-input">IN</span>Unit, Type, Description, Labor Cost, Parts, Mechanic</td>
+          <td><span class="tag tag-process">PROC</span>Link parts, update unit status to maintenance, toggle complete/in-progress</td>
+          <td><span class="tag tag-output">OUT</span>Maintenance record → <span class="tag tag-store">DB</span>maintenance, maintenance_parts</td>
+        </tr>
+        <tr>
+          <td>5</td>
+          <td>🚦 Coding</td>
+          <td><span class="tag tag-input">IN</span>Plate number last digit / Manual override</td>
+          <td><span class="tag tag-process">PROC</span>Auto-detect coding day (M-Sa), flag units, generate system alert</td>
+          <td><span class="tag tag-output">OUT</span>Coding status → <span class="tag tag-store">DB</span>coding_records, system_alerts</td>
+        </tr>
+        <tr>
+          <td>6</td>
+          <td>👤 Driver Management</td>
+          <td><span class="tag tag-input">IN</span>Name, License, Contact, Type, Status, Documents</td>
+          <td><span class="tag tag-process">PROC</span>Link to user account, assign to unit (primary/secondary), track status</td>
+          <td><span class="tag tag-output">OUT</span>Driver profile → <span class="tag tag-store">DB</span>drivers, users</td>
+        </tr>
+        <tr>
+          <td>7</td>
+          <td>⚠️ Driver Behavior</td>
+          <td><span class="tag tag-input">IN</span>Incident type, Accident details, Debt amount</td>
+          <td><span class="tag tag-process">PROC</span>Record incident, calculate debt installments, track incentive eligibility</td>
+          <td><span class="tag tag-output">OUT</span>Behavior log → <span class="tag tag-store">DB</span>driver_behavior, driver_debts</td>
+        </tr>
+        <tr>
+          <td>8</td>
+          <td>🧾 Office Expenses</td>
+          <td><span class="tag tag-input">IN</span>Category, Amount, Date, Description</td>
+          <td><span class="tag tag-process">PROC</span>Submit → Approval workflow → Approved/Rejected</td>
+          <td><span class="tag tag-output">OUT</span>Expense record → <span class="tag tag-store">DB</span>expenses</td>
+        </tr>
+        <tr>
+          <td>9</td>
+          <td>📡 GPS Tracking</td>
+          <td><span class="tag tag-input">IN</span>IMEI number request to Tracksolid API</td>
+          <td><span class="tag tag-process">PROC</span>API call with time-drift fix, parse coordinates, update location</td>
+          <td><span class="tag tag-output">OUT</span>Location data → <span class="tag tag-store">DB</span>gps_tracking, units.latitude/longitude</td>
+        </tr>
+        <tr>
+          <td>10</td>
+          <td>📊 Dashboard</td>
+          <td><span class="tag tag-input">IN</span>HTTP request (auto-refresh 30s)</td>
+          <td><span class="tag tag-process">PROC</span>Aggregate DB queries: boundaries, expenses, maintenance, units, drivers</td>
+          <td><span class="tag tag-output">OUT</span>KPI Cards, Charts, Alerts → Real-time JSON API</td>
+        </tr>
+        <tr>
+          <td>11</td>
+          <td>📈 Analytics</td>
+          <td><span class="tag tag-input">IN</span>Date range filter</td>
+          <td><span class="tag tag-process">PROC</span>Compute revenue trends, ROI per unit, expense breakdown, top drivers</td>
+          <td><span class="tag tag-output">OUT</span>Charts & Reports → Browser render</td>
+        </tr>
+        <tr>
+          <td>12</td>
+          <td>📦 Archive System</td>
+          <td><span class="tag tag-input">IN</span>Delete action on any record</td>
+          <td><span class="tag tag-process">PROC</span>Soft-delete (set deleted_at), remove from active views</td>
+          <td><span class="tag tag-output">OUT</span>Archived record (restorable) → <span class="tag tag-store">DB</span>deleted_at column</td>
+        </tr>
+        <tr>
+          <td>13</td>
+          <td>💵 Salary</td>
+          <td><span class="tag tag-input">IN</span>Staff/Driver, Amount, Period</td>
+          <td><span class="tag tag-process">PROC</span>Record salary, compute monthly totals</td>
+          <td><span class="tag tag-output">OUT</span>Payroll records + Monthly Report</td>
+        </tr>
+        <tr>
+          <td>14</td>
+          <td>⚙️ Boundary Rules</td>
+          <td><span class="tag tag-input">IN</span>Year range + Rate amount</td>
+          <td><span class="tag tag-process">PROC</span>Store rule, auto-apply when unit year is set</td>
+          <td><span class="tag tag-output">OUT</span>Rate config → <span class="tag tag-store">DB</span>boundary_rules → auto-sets units.boundary_rate</td>
+        </tr>
+        <tr>
+          <td>15</td>
+          <td>🐙 GitHub CI/CD</td>
+          <td><span class="tag tag-input">IN</span>Git push to main branch</td>
+          <td><span class="tag tag-process">PROC</span>GitHub Actions triggers workflow, SSH deploy to Hostinger</td>
+          <td><span class="tag tag-output">OUT</span>Live production update at eurotaxi.hostinger.com</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Footer -->
+  <div style="text-align:center;margin-top:40px;padding:20px;color:#334155;font-size:0.72rem;border-top:1px solid rgba(255,255,255,0.05)">
+    Euro Taxi Management System · Laravel 10 · MySQL · PHP 8.x · XAMPP Local + Hostinger Production<br>
+    Built by Bert L. · System Flow Diagram generated 2026-04-19
+  </div>
+
+</div><!-- /diagram -->
+
+<style>
+  @keyframes bounce {
+    0%,100%{transform:translateY(0)} 50%{transform:translateY(6px)}
+  }
+</style>
+
+<script>
+  // Tooltip on hover
+  const tooltip = document.getElementById('tooltip');
+  document.querySelectorAll('[data-title]').forEach(el => {
+    el.addEventListener('mouseenter', e => {
+      tooltip.innerHTML = `<strong>${el.dataset.title}</strong>${el.dataset.desc || ''}`;
+      tooltip.classList.add('visible');
+    });
+    el.addEventListener('mousemove', e => {
+      const x = e.clientX + 14;
+      const y = e.clientY + 14;
+      tooltip.style.left = Math.min(x, window.innerWidth - 260) + 'px';
+      tooltip.style.top = Math.min(y, window.innerHeight - 120) + 'px';
+    });
+    el.addEventListener('mouseleave', () => tooltip.classList.remove('visible'));
+  });
+</script>
+</body>
+</html>

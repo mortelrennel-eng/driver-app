@@ -27,7 +27,7 @@ class SupplierController extends Controller
         ]);
 
         if (isset($data['id'])) {
-            $supplier = Supplier::find($data['id']);
+            $supplier = Supplier::where('id', $data['id'])->first();
             $supplier->update($data);
         } else {
             $supplier = Supplier::create($data);
@@ -44,7 +44,7 @@ class SupplierController extends Controller
 
     public function destroy($id)
     {
-        $supplier = Supplier::findOrFail($id);
+        $supplier = Supplier::where('id', $id)->firstOrFail();
         $name = $supplier->name;
         $supplier->delete();
 
@@ -56,3 +56,4 @@ class SupplierController extends Controller
         ]);
     }
 }
+

@@ -21,14 +21,13 @@ class DriverBehaviorController extends Controller
     }
 
     // ─── INDEX: Unified Incident + Driver Dashboard ─────────────────────
-    public function index(Request $request)
+    public function incidents(Request $request)
     {
         $search          = $request->input('search', '');
         $type_filter     = $request->input('type', '');
         $severity_filter = $request->input('severity', '');
         $date_from       = $request->input('date_from', now()->timezone('Asia/Manila')->startOfMonth()->toDateString());
         $date_to         = $request->input('date_to', now()->timezone('Asia/Manila')->toDateString());
-        $tab             = $request->input('tab', 'incidents');
         $page            = max(1, (int) $request->input('page', 1));
         $limit           = 10;
         $offset          = ($page - 1) * $limit;
@@ -63,15 +62,14 @@ class DriverBehaviorController extends Controller
         }
 
         if (!empty($date_from)) {
-            $query->whereDate('driver_behavior.timestamp', '>=', $date_from);
+            $query->whereDate('driver_behavior.incident_date', '>=', $date_from);
         }
         if (!empty($date_to)) {
-            $query->whereDate('driver_behavior.timestamp', '<=', $date_to);
+            $query->whereDate('driver_behavior.incident_date', '<=', $date_to);
         }
 
         $total     = $query->count();
         $incidents = $query->orderByDesc('driver_behavior.timestamp')->offset($offset)->limit($limit)->get();
-
 
         $pagination = [
             'page'        => $page,
@@ -86,16 +84,12 @@ class DriverBehaviorController extends Controller
         // ── Summary Stats ──────────────────────────────────────────────
         $stats = $this->getStats($date_from, $date_to);
 
-        // ── Driver Performance Profiles ────────────────────────────────
-        $driver_profiles = $this->getDriverProfiles($date_from, $date_to);
-
-        // ── Incentive Eligibility ─────────────────────────────────────
-        $incentive_summary = $this->getIncentiveSummary();
-
         // ── Dropdowns ─────────────────────────────────────────────────
         $drivers = DB::table('drivers as d')
             ->leftJoin('units as u', function($j) {
-                $j->on('d.id', '=', 'u.driver_id')->orOn('d.id', '=', 'u.secondary_driver_id');
+                $j->on(function($q) {
+                    $q->on('d.id', '=', 'u.driver_id')->orOn('d.id', '=', 'u.secondary_driver_id');
+                })->whereNull('u.deleted_at');
             })
             ->whereNull('d.deleted_at')
             ->where('d.driver_status', '!=', 'banned')
@@ -120,12 +114,54 @@ class DriverBehaviorController extends Controller
             ->orderByDesc('created_at')
             ->get();
 
-        return view('driver-behavior.index', compact(
+        // ── Incentive Summary (Header Stats) ─────────────────────────
+        $incentive_summary = $this->getIncentiveSummary();
+
+        if ($request->ajax()) {
+            return view('driver-behavior.partials._incidents_table', compact(
+                'incidents', 'pagination', 'search', 'classifications'
+            ))->render();
+        }
+
+        return view('driver-behavior.incidents', compact(
             'incidents', 'search', 'type_filter', 'severity_filter',
             'date_from', 'date_to', 'pagination', 'stats',
-            'driver_profiles', 'incentive_summary',
-            'drivers', 'units', 'tab', 'spare_parts', 'classifications', 'archivedClassifications', 'accident_reports'
+            'drivers', 'units', 'spare_parts', 'classifications', 'archivedClassifications', 'accident_reports',
+            'incentive_summary'
         ));
+    }
+
+    public function accidents(Request $request)
+    {
+        $accident_reports = \App\Models\RescueRequest::with(['driver', 'unit'])
+            ->where('type', 'accident')
+            ->orderByDesc('created_at')
+            ->get();
+
+        return view('driver-behavior.accidents', compact('accident_reports'));
+    }
+
+    public function incentives(Request $request)
+    {
+        $date_from = $request->input('date_from', now()->timezone('Asia/Manila')->startOfMonth()->toDateString());
+        $date_to   = $request->input('date_to', now()->timezone('Asia/Manila')->toDateString());
+        
+        $incentive_summary = $this->getIncentiveSummary();
+        $stats = $this->getStats($date_from, $date_to);
+
+        return view('driver-behavior.incentives', compact('incentive_summary', 'stats', 'date_from', 'date_to'));
+    }
+
+    public function performance(Request $request)
+    {
+        $date_from = $request->input('date_from', now()->timezone('Asia/Manila')->startOfMonth()->toDateString());
+        $date_to   = $request->input('date_to', now()->timezone('Asia/Manila')->toDateString());
+        
+        $driver_profiles = $this->getDriverProfiles($date_from, $date_to);
+        $stats = $this->getStats($date_from, $date_to);
+        $incentive_summary = $this->getIncentiveSummary();
+
+        return view('driver-behavior.performance', compact('driver_profiles', 'stats', 'date_from', 'date_to', 'incentive_summary'));
     }
 
     // ─── ACCIDENT SOS METHODS ──────────────────────────────────────────
@@ -159,7 +195,7 @@ class DriverBehaviorController extends Controller
     public function acknowledgeAlert(Request $request, $id)
     {
         try {
-            $alert = \App\Models\RescueRequest::findOrFail($id);
+            $alert = \App\Models\RescueRequest::where('id', $id)->firstOrFail();
             
             // Only check type if column exists
             if (\Illuminate\Support\Facades\Schema::hasColumn('rescue_requests', 'type')) {
@@ -491,7 +527,7 @@ class DriverBehaviorController extends Controller
             }
         } catch (\Exception $e) {}
 
-        return redirect()->route('driver-behavior.index', ['tab' => 'incidents'])
+        return back()
             ->with('success', 'Incident recorded successfully.' . ($shouldAutoBan ? ' Driver has been automatically BANNED due to contracting violation.' : ''));
     }
 
@@ -515,7 +551,7 @@ class DriverBehaviorController extends Controller
     // ─── UPDATE: Update Incident ────────────────────────────────────────
     public function update(Request $request, $id)
     {
-        $incident = \App\Models\DriverBehavior::findOrFail($id);
+        $incident = \App\Models\DriverBehavior::where('id', $id)->firstOrFail();
         
         $data = $request->validate([
             'incident_type'          => 'required|string',
@@ -548,6 +584,7 @@ class DriverBehaviorController extends Controller
             'traffic_fine_amount'    => $data['traffic_fine_amount'] ?? 0,
             'total_charge_to_driver' => $finalCharge,
             'remaining_balance'      => $finalCharge, // Reset for simplicity in this edit flow
+            'charge_status'          => $finalCharge > 0 ? 'pending' : 'none',
             'incident_date'          => $data['incident_date'] ?? $incident->incident_date,
         ]);
 
@@ -577,14 +614,14 @@ class DriverBehaviorController extends Controller
         $driverName = DB::table('drivers')->where('id', $incident->driver_id)->select(DB::raw("CONCAT(first_name, ' ', last_name) as name"))->value('name');
         ActivityLogController::log('Updated Incident', "Incident #{$id} ({$incident->incident_type})\nDriver: {$driverName}\nSeverity changed to: " . ucfirst($incident->severity));
 
-        return redirect()->route('driver-behavior.index', ['tab' => 'incidents'])
+        return back()
             ->with('success', 'Incident updated successfully.');
     }
 
     // ─── DELETE (SOFT DELETE TO ARCHIVE) ───────────────────────────────
     public function destroy($id)
     {
-        $behavior = \App\Models\DriverBehavior::findOrFail($id);
+        $behavior = \App\Models\DriverBehavior::where('id', $id)->firstOrFail();
         $type = $behavior->incident_type;
         $driverId = $behavior->driver_id;
         $behavior->delete();
@@ -596,7 +633,7 @@ class DriverBehaviorController extends Controller
             return response()->json(['success' => true, 'message' => 'Incident moved to Archive.']);
         }
         
-        return redirect()->route('driver-behavior.index', ['tab' => 'incidents'])
+        return back()
             ->with('success', 'Incident moved to Archive.');
     }
 
@@ -635,7 +672,7 @@ class DriverBehaviorController extends Controller
             );
         } catch (\Exception $e) {}
 
-        return redirect()->route('driver-behavior.index', ['tab' => 'incentives'])
+        return back()
             ->with('success', "Incentive released for {$name}. Counter reset.");
     }
 
@@ -799,15 +836,15 @@ class DriverBehaviorController extends Controller
     {
         $base  = DB::table('driver_behavior')
             ->whereNull('deleted_at')
-            ->whereDate('timestamp', '>=', $from)
-            ->whereDate('timestamp', '<=', $to);
+            ->whereDate('incident_date', '>=', $from)
+            ->whereDate('incident_date', '<=', $to);
         $bySev = (clone $base)->selectRaw('severity, COUNT(*) as count')->groupBy('severity')->get()->pluck('count', 'severity')->toArray();
         $byType = (clone $base)->selectRaw('incident_type, COUNT(*) as count')->groupBy('incident_type')->orderByDesc('count')->limit(8)->get();
 
         $totalViolators = DB::table('driver_behavior')
             ->whereNull('deleted_at')
-            ->whereDate('timestamp', '>=', $from)
-            ->whereDate('timestamp', '<=', $to)
+            ->whereDate('incident_date', '>=', $from)
+            ->whereDate('incident_date', '<=', $to)
             ->distinct('driver_id')
             ->count('driver_id');
 
@@ -819,9 +856,8 @@ class DriverBehaviorController extends Controller
             ->where('charge_status', 'pending')
             ->sum('total_charge_to_driver');
         
-        $violationsToday = DB::table('driver_behavior')
-            ->whereNull('deleted_at')
-            ->whereDate('timestamp', now()->format('Y-m-d'))
+        $violationsToday = \App\Models\DriverBehavior::violations()
+            ->whereDate('incident_date', now()->timezone('Asia/Manila')->toDateString())
             ->count();
 
         return [
@@ -842,9 +878,10 @@ class DriverBehaviorController extends Controller
             ->whereNull('d.deleted_at')
             ->where('d.driver_status', '!=', 'banned')
             ->leftJoin('units as u', function($j) {
-                $j->on('u.driver_id', '=', 'd.id')->orOn('u.secondary_driver_id', '=', 'd.id');
+                $j->on(function($q) {
+                    $q->on('u.driver_id', '=', 'd.id')->orOn('u.secondary_driver_id', '=', 'd.id');
+                })->whereNull('u.deleted_at');
             })
-            ->whereNull('u.deleted_at')
             ->select(
                 'd.id', 'd.first_name', 'd.last_name', 'd.driver_status',
                 'u.id as unit_id', 'u.plate_number', 'u.driver_id', 'u.secondary_driver_id'
@@ -852,11 +889,17 @@ class DriverBehaviorController extends Controller
             ->distinct('d.id')
             ->get();
 
-        // ── OPTIMIZATION: Bulk fetch statistics to avoid N+1 queries ──
         $incidentCounts = DB::table('driver_behavior')
             ->select('driver_id', DB::raw('count(*) as aggregate'))
             ->whereNull('deleted_at')
             ->whereNull('incentive_released_at')
+            ->groupBy('driver_id')
+            ->pluck('aggregate', 'driver_id');
+
+        $incidentCountsToday = DB::table('driver_behavior')
+            ->select('driver_id', DB::raw('count(*) as aggregate'))
+            ->whereNull('deleted_at')
+            ->whereDate('incident_date', \Carbon\Carbon::today('Asia/Manila'))
             ->groupBy('driver_id')
             ->pluck('aggregate', 'driver_id');
 
@@ -902,6 +945,7 @@ class DriverBehaviorController extends Controller
                 'unit'        => $d->plate_number,
                 'unit_id'     => $d->unit_id,
                 'incidents'   => $incidentCounts[$d->id] ?? 0,
+                'incidents_today' => $incidentCountsToday[$d->id] ?? 0,
                 'boundaries'  => $boundaryCounts[$d->id] ?? 0,
                 'shortages'   => $shortageSum[$d->id] ?? 0,
                 'charges'     => $chargeSum[$d->id] ?? 0,
@@ -920,9 +964,10 @@ class DriverBehaviorController extends Controller
             ->whereNull('d.deleted_at')
             ->where('d.driver_status', '!=', 'banned')
             ->leftJoin('units as u', function($j) {
-                $j->on('u.driver_id', '=', 'd.id')->orOn('u.secondary_driver_id', '=', 'd.id');
+                $j->on(function($q) {
+                    $q->on('u.driver_id', '=', 'd.id')->orOn('u.secondary_driver_id', '=', 'd.id');
+                })->whereNull('u.deleted_at');
             })
-            ->whereNull('u.deleted_at')
             ->select('d.id', 'd.first_name', 'd.last_name', 'u.plate_number', 'u.driver_id', 'u.secondary_driver_id')
             ->distinct('d.id')->get();
 
@@ -967,11 +1012,11 @@ class DriverBehaviorController extends Controller
     public function archiveAccident($id)
     {
         try {
-            $alert = \App\Models\RescueRequest::findOrFail($id);
+            $alert = \App\Models\RescueRequest::where('id', $id)->firstOrFail();
             $alert->delete();
-            return response()->json(['success' => true, 'message' => 'Accident report archived successfully.']);
+            return redirect()->back()->with('success', 'Accident report archived successfully.');
         } catch (\Exception $e) {
-            return response()->json(['success' => false, 'message' => 'Failed to archive: ' . $e->getMessage()], 500);
+            return redirect()->back()->with('error', 'Failed to archive: ' . $e->getMessage());
         }
     }
 
@@ -985,3 +1030,6 @@ class DriverBehaviorController extends Controller
         }
     }
 }
+
+
+

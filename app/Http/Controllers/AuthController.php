@@ -187,7 +187,7 @@ class AuthController extends Controller
                 $request->session()->regenerate();
 
                 // Track last login and log audit
-                $user->update(['last_login' => now()]);
+                $user->update(['last_login' => now(), 'is_online' => true, 'last_seen_at' => now()]);
                 LoginAudit::log('login', $user);
 
                 if ($request->ajax() || $request->wantsJson()) {
@@ -266,7 +266,7 @@ class AuthController extends Controller
         Auth::login($user, true);
         $request->session()->forget(['force_pwd_user_id', 'force_pwd_remember']);
         $request->session()->regenerate();
-        $user->update(['last_login' => now()]);
+        $user->update(['last_login' => now(), 'is_online' => true, 'last_seen_at' => now()]);
 
         LoginAudit::log('password_changed', $user, 'Staff forced password change completed.');
         LoginAudit::log('login', $user);
@@ -389,7 +389,7 @@ class AuthController extends Controller
 
         $request->session()->forget(['mfa_user_id', 'mfa_remember']);
         $request->session()->regenerate();
-        $user->update(['last_login' => now()]);
+        $user->update(['last_login' => now(), 'is_online' => true, 'last_seen_at' => now()]);
         LoginAudit::log('login', $user, 'Login via MFA device verification.');
 
         // 5. Return success with the cookie (expires in 1 year)
@@ -621,12 +621,29 @@ class AuthController extends Controller
     {
         $user = Auth::user();
         if ($user) {
+            $user->update(['is_online' => false]);
             LoginAudit::log('logout', $user);
         }
         Auth::logout();
         $request->session()->invalidate();
         $request->session()->regenerateToken();
         return redirect()->route('login');
+    }
+
+    /**
+     * Heartbeat tracker to keep user online status.
+     */
+    public function heartbeat(Request $request)
+    {
+        $user = Auth::user();
+        if ($user) {
+            $user->update([
+                'last_seen_at' => now(),
+                'is_online' => true
+            ]);
+            return response()->json(['success' => true]);
+        }
+        return response()->json(['success' => false], 401);
     }
 
     /**

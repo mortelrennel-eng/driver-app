@@ -55,11 +55,46 @@ class DriverManagementController extends Controller
     {
         $path = public_path('uploads/terms/' . $filename);
         if (file_exists($path)) {
-            unlink($path);
-            return back()->with('success', 'Image deleted successfully.');
+            $archiveDir = public_path('uploads/archives/terms');
+            if (!file_exists($archiveDir)) {
+                mkdir($archiveDir, 0755, true);
+            }
+            rename($path, $archiveDir . '/' . $filename);
+            
+            \App\Http\Controllers\ActivityLogController::log('Archived Driver Term', "Term Document: {$filename} moved to archive.");
+            
+            return back()->with('success', 'Document archived successfully.');
         }
 
         return back()->with('error', 'File not found.');
+    }
+
+    public function restoreTerm($filename)
+    {
+        $archivePath = public_path('uploads/archives/terms/' . $filename);
+        if (file_exists($archivePath)) {
+            $restoreDir = public_path('uploads/terms');
+            if (!file_exists($restoreDir)) {
+                mkdir($restoreDir, 0755, true);
+            }
+            rename($archivePath, $restoreDir . '/' . $filename);
+            
+            \App\Http\Controllers\ActivityLogController::log('Restored Driver Term', "Term Document: {$filename} restored from archive.");
+            
+            return response()->json(['success' => true, 'message' => 'Document restored successfully.']);
+        }
+        return response()->json(['success' => false, 'message' => 'Document not found in archive.']);
+    }
+
+    public function forceDeleteTerm($filename)
+    {
+        $archivePath = public_path('uploads/archives/terms/' . $filename);
+        if (file_exists($archivePath)) {
+            unlink($archivePath);
+            \App\Http\Controllers\ActivityLogController::log('Permanently Deleted Driver Term', "Term Document: {$filename} permanently deleted from archive.");
+            return response()->json(['success' => true, 'message' => 'Document permanently deleted.']);
+        }
+        return response()->json(['success' => false, 'message' => 'Document not found.']);
     }
 
     public function debtsPage()
@@ -108,9 +143,9 @@ class DriverManagementController extends Controller
                 
                 // is_active derived from driver_status
                 DB::raw("CASE WHEN d.driver_status IN ('available','assigned') THEN 1 ELSE 0 END as is_active"),
-                // Net unpaid shortage: sum of all shortages minus sum of all excess
-                DB::raw("(SELECT GREATEST(0, COALESCE(SUM(shortage),0) - COALESCE(SUM(excess),0)) FROM boundaries WHERE driver_id = d.id AND deleted_at IS NULL) as net_shortage"),
-                // Total Pending Accident/Incident Debt
+                // Net unpaid shortage: merged into total_pending_debt via driver_behavior
+                DB::raw("0 as net_shortage"),
+                // Total Pending Accident/Incident/Shortage Debt
                 DB::raw("(SELECT COALESCE(SUM(remaining_balance), 0) FROM driver_behavior WHERE driver_id = d.id AND deleted_at IS NULL AND charge_status = 'pending') as total_pending_debt")
             );
 
@@ -251,9 +286,16 @@ class DriverManagementController extends Controller
                 DB::raw("(SELECT COUNT(*) FROM boundaries WHERE driver_id = d.id AND status IN ('paid', 'excess') AND deleted_at IS NULL AND date >= DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY)) as paid_shifts_count"),
                 DB::raw("(SELECT COUNT(*) FROM driver_behavior WHERE driver_id = d.id AND deleted_at IS NULL AND created_at >= DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY) AND " . $this->getViolationQuerySnippet() . ") as incidents_count"),
                 DB::raw("(SELECT COUNT(*) FROM boundaries WHERE driver_id = d.id AND has_incentive = 0 AND deleted_at IS NULL AND date >= DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY)) as missed_incentive_count"),
-                DB::raw("(SELECT COUNT(*) FROM boundaries WHERE expected_driver_id = d.id AND driver_id != d.id AND deleted_at IS NULL AND date >= DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY)) as absent_count")
+                DB::raw("(SELECT COUNT(*) FROM boundaries WHERE expected_driver_id = d.id AND driver_id != d.id AND deleted_at IS NULL AND date >= DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY)) as absent_count"),
+                // Outstanding Liabilities (Shortages are now tracked in driver_behavior)
+                DB::raw("0 as net_shortage"),
+                DB::raw("(SELECT COALESCE(SUM(remaining_balance), 0) FROM driver_behavior WHERE driver_id = d.id AND deleted_at IS NULL AND charge_status = 'pending') as total_pending_debt")
             )
             ->first();
+
+        if (!$driver) {
+            return response()->json(['error' => 'Driver not found'], 404);
+        }
 
         if ($driver) {
             $driver->performance_rating = $this->calculatePerformanceRating($driver);
@@ -359,15 +401,24 @@ class DriverManagementController extends Controller
             ->whereNull('deleted_at')
             ->where('created_at', '>=', $periodStart)
             ->whereRaw($this->getViolationQuerySnippet())
-            ->pluck('created_at')->map(fn($d) => \Carbon\Carbon::parse($d))->toArray();
+            ->pluck('created_at')
+            ->filter()
+            ->map(fn($d) => \Carbon\Carbon::parse($d))
+            ->toArray();
 
         $bndDates = DB::table('boundaries')
             ->where('driver_id', $id)->where('has_incentive', 0)->whereNull('deleted_at')->where('date', '>=', $periodStart)
-            ->pluck('date')->map(fn($d) => \Carbon\Carbon::parse($d))->toArray();
+            ->pluck('date')
+            ->filter()
+            ->map(fn($d) => \Carbon\Carbon::parse($d))
+            ->toArray();
 
         $absDates = DB::table('boundaries')
             ->where('expected_driver_id', $id)->where('driver_id', '!=', $id)->whereNull('deleted_at')->where('date', '>=', $periodStart)
-            ->pluck('date')->map(fn($d) => \Carbon\Carbon::parse($d))->toArray();
+            ->pluck('date')
+            ->filter()
+            ->map(fn($d) => \Carbon\Carbon::parse($d))
+            ->toArray();
 
         $allViolationDates = array_merge($incDates, $bndDates, $absDates);
         usort($allViolationDates, fn($a, $b) => $a->timestamp <=> $b->timestamp);
@@ -544,12 +595,16 @@ class DriverManagementController extends Controller
             'emergency_phone'       => 'required|string|max:20',
             'hire_date'             => 'required|date',
             'daily_boundary_target' => 'nullable|numeric|min:0',
+            'driver_type'           => 'nullable|in:regular,senior,trainee',
+            'license_photo'         => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:5120',
+            'nbi_clearance_photo'   => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:5120',
+            'pnp_clearance_photo'   => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:5120',
+            'profile_photo'         => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:5120',
         ]);
 
-        Driver::create([
+        $driverData = [
             'first_name'            => $request->first_name,
             'last_name'             => $request->last_name,
-
             'license_number'        => $request->license_number,
             'license_expiry'        => $request->license_expiry,
             'contact_number'        => $request->contact_number,
@@ -560,17 +615,32 @@ class DriverManagementController extends Controller
             'daily_boundary_target' => $dailyBoundaryTarget,
             'driver_type'           => $request->driver_type ?? 'regular',
             'driver_status'         => 'available',
-        ]);
+        ];
+
+        foreach (['license_photo', 'nbi_clearance_photo', 'pnp_clearance_photo', 'profile_photo'] as $field) {
+            if ($request->hasFile($field)) {
+                $file     = $request->file($field);
+                $filename = time() . '_' . $field . '.' . $file->getClientOriginalExtension();
+                $destinationPath = public_path('uploads/driver_docs');
+                if (!file_exists($destinationPath)) {
+                    mkdir($destinationPath, 0755, true);
+                }
+                $file->move($destinationPath, $filename);
+                $driverData[$field] = 'uploads/driver_docs/' . $filename;
+            }
+        }
+
+        Driver::create($driverData);
 
         ActivityLogController::log('Created Driver Record', "Driver: {$request->first_name} {$request->last_name}\nLicense: {$request->license_number}\nStatus: Available");
 
-        return redirect()->route('driver-management.index')
+        return back()
             ->with('success', "Driver {$request->first_name} {$request->last_name} added successfully!");
     }
 
     public function update(Request $request, $id)
     {
-        $driver_instance = Driver::findOrFail($id);
+        $driver_instance = Driver::where('id', $id)->firstOrFail();
 
         // Normalize numeric inputs (avoid '' inserting into DECIMAL columns)
         // Also normalize request value so nullable|numeric validation behaves as expected.
@@ -588,7 +658,7 @@ class DriverManagementController extends Controller
             'last_name'             => 'required|string|max:100',
             'contact_number'        => 'required|string|max:20',
             'address'               => 'required|string',
-            'license_number'        => 'required|string|max:50',
+            'license_number'        => 'required|string|max:50|unique:drivers,license_number,' . $id,
             'license_expiry'        => 'required|date',
             'emergency_contact'     => 'required|string|max:100',
             'emergency_phone'       => 'required|string|max:20',
@@ -596,6 +666,10 @@ class DriverManagementController extends Controller
             'daily_boundary_target' => 'nullable|numeric|min:0',
             'driver_type'           => 'nullable|in:regular,senior,trainee',
             'is_active'             => 'required|in:0,1',
+            'license_photo'         => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:5120',
+            'nbi_clearance_photo'   => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:5120',
+            'pnp_clearance_photo'   => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:5120',
+            'profile_photo'         => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:5120',
         ]);
 
         $newStatus = $driver_instance->driver_status;
@@ -618,8 +692,13 @@ class DriverManagementController extends Controller
                 }
             }
         }
+        
+        // Check if status changed to suspended or banned
+        if ($newStatus !== $driver_instance->driver_status && in_array($newStatus, ['suspended', 'banned'])) {
+            \App\Services\NotificationService::sendDriverStatusNotification($driver_instance->id, $newStatus);
+        }
 
-        $driver_instance->update([
+        $driver_instance->fill([
             'first_name'            => $request->first_name,
             'last_name'             => $request->last_name,
             'license_number'        => $request->license_number,
@@ -630,11 +709,29 @@ class DriverManagementController extends Controller
             'emergency_phone'       => $request->emergency_phone,
             'hire_date'             => $request->hire_date,
             'daily_boundary_target' => $dailyBoundaryTarget,
-            'driver_type'           => $request->driver_type ?? 'regular',
             'driver_status'         => $newStatus,
             'suspended_until'       => $suspendedUntil,
             'suspension_reason'     => $suspensionReason,
         ]);
+
+        if ($request->has('driver_type')) {
+            $driver_instance->driver_type = $request->driver_type;
+        }
+
+        foreach (['license_photo', 'nbi_clearance_photo', 'pnp_clearance_photo', 'profile_photo'] as $field) {
+            if ($request->hasFile($field)) {
+                $file     = $request->file($field);
+                $filename = time() . '_' . $field . '.' . $file->getClientOriginalExtension();
+                $destinationPath = public_path('uploads/driver_docs');
+                if (!file_exists($destinationPath)) {
+                    mkdir($destinationPath, 0755, true);
+                }
+                $file->move($destinationPath, $filename);
+                $driver_instance->$field = 'uploads/driver_docs/' . $filename;
+            }
+        }
+
+        $driver_instance->save();
 
         // If status changed to inactive, ensure they are unassigned from units
         if (!in_array($newStatus, ['available', 'assigned'])) {
@@ -644,12 +741,12 @@ class DriverManagementController extends Controller
 
         ActivityLogController::log('Updated Driver Record', "Driver: {$driver_instance->first_name} {$driver_instance->last_name}\nUpdated details and status to " . ucfirst($driver_instance->driver_status));
 
-        return redirect()->route('driver-management.index')->with('success', 'Driver updated successfully');
+        return back()->with('success', 'Driver updated successfully');
     }
 
     public function destroy($id)
     {
-        $driver = Driver::find($id);
+        $driver = Driver::where('id', $id)->first();
         if ($driver) {
             // Unassign from units before soft-deleting
             DB::table('units')->where('driver_id', $driver->id)->update(['driver_id' => null]);
@@ -659,9 +756,9 @@ class DriverManagementController extends Controller
             
             ActivityLogController::log('Archived Driver', "Driver: {$name} moved to archive.");
 
-            return redirect()->route('driver-management.index')->with('success', 'Driver archived successfully');
+            return back()->with('success', 'Driver archived successfully');
         }
-        return redirect()->route('driver-management.index')->with('error', 'Driver not found.');
+        return back()->with('error', 'Driver not found.');
     }
 
     public function uploadDocuments(Request $request, $id)
@@ -675,6 +772,9 @@ class DriverManagementController extends Controller
 
         $driver = DB::table('drivers')->where('id', $id)->first();
         if (!$driver) {
+            if ($request->wantsJson() || $request->ajax()) {
+                return response()->json(['success' => false, 'message' => 'Driver not found.']);
+            }
             return back()->with('error', 'Driver not found.');
         }
 
@@ -696,6 +796,10 @@ class DriverManagementController extends Controller
             DB::table('drivers')->where('id', $id)->update($updates);
         }
 
+        if ($request->wantsJson() || $request->ajax()) {
+            return response()->json(['success' => true, 'message' => 'Documents uploaded successfully!']);
+        }
+
         return back()->with('success', 'Documents uploaded successfully!');
     }
 
@@ -711,6 +815,7 @@ class DriverManagementController extends Controller
             ->select(
                 'db.id', 'db.incident_date as date', 'db.description', 
                 'db.severity', 'db.total_charge_to_driver as total_charge', 
+                'db.incident_type',
                 DB::raw("CONCAT(COALESCE(d.first_name,''), ' ', COALESCE(d.last_name,'')) as driver_name"),
                 'u.plate_number as unit_plate'
             )
@@ -758,7 +863,7 @@ class DriverManagementController extends Controller
             ->select(
                 'db.id', 'db.driver_id', 'db.incident_date as date', 'db.timestamp', 'db.description', 
                 'db.severity', 'db.total_charge_to_driver as total_charge', 
-                'db.total_paid', 'db.remaining_balance',
+                'db.total_paid', 'db.remaining_balance', 'db.incident_type',
                 DB::raw("CONCAT(COALESCE(d.first_name,''), ' ', COALESCE(d.last_name,'')) as driver_name"),
                 'u.plate_number as unit_plate'
             )
@@ -814,7 +919,7 @@ class DriverManagementController extends Controller
         
         \App\Models\Expense::create([
             'category' => 'Damage Recovery',
-            'description' => "Direct cash payment from {$driverName} for accident debt (Incident Date: {$debt->incident_date})",
+            'description' => "Direct cash payment from {$driverName} for {$debt->incident_type} debt (Incident Date: {$debt->incident_date})",
             'amount' => -$amount, // Negative means revenue in an expense table
             'payment_method' => 'Cash',
             'date' => now()->toDateString(),
@@ -933,7 +1038,7 @@ class DriverManagementController extends Controller
 
     public function unban($id)
     {
-        $driver = Driver::findOrFail($id);
+        $driver = Driver::where('id', $id)->firstOrFail();
 
         if (!in_array($driver->driver_status, ['banned', 'suspended'])) {
             return response()->json(['success' => false, 'message' => 'Driver is not banned or suspended.'], 422);
@@ -971,7 +1076,7 @@ class DriverManagementController extends Controller
             'reason'        => 'required|string|min:3|max:500',
         ]);
 
-        $driver = Driver::findOrFail($id);
+        $driver = Driver::where('id', $id)->firstOrFail();
         $action = $request->action_type;
         $reason = $request->reason;
         
@@ -989,6 +1094,8 @@ class DriverManagementController extends Controller
             'suspended_until' => $suspendedUntil,
             'suspension_reason' => $reason,
         ]);
+
+        \App\Services\NotificationService::sendDriverStatusNotification($driver->id, $status);
 
         // Auto-logout driver app by revoking Sanctum tokens, and soft-delete user on permanent ban
         $user = $driver->user;
@@ -1070,3 +1177,6 @@ class DriverManagementController extends Controller
         ]);
     }
 }
+
+
+

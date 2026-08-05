@@ -166,6 +166,7 @@ class SupportManagementController extends Controller
      */
     public function show($id)
     {
-        return redirect()->route('support.index', ['driver_id' => $id]);
+        return back();
     }
 }
+

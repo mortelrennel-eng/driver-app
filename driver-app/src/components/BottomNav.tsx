@@ -63,6 +63,7 @@ const BottomNav: React.FC = () => {
         return (
           <div 
             key={tab.name}
+            id={`nav-tab-${tab.name.toLowerCase()}`}
             onClick={() => history.push(tab.path)}
             style={{
               display: 'flex',

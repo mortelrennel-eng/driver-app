@@ -10,6 +10,18 @@ use App\Http\Controllers\ActivityLogController;
 class SparePartController extends Controller
 {
     /**
+     * Dedicated UI for Manage Inventory
+     */
+    public function manage()
+    {
+        $totalParts = SparePart::count();
+        $totalStockValue = SparePart::select(DB::raw('SUM(price * stock_quantity) as total'))->value('total') ?? 0;
+        $outOfStock = SparePart::where('stock_quantity', '<=', 0)->count();
+
+        return view('inventory.index', compact('totalParts', 'totalStockValue', 'outOfStock'));
+    }
+
+    /**
      * Get all spare parts (API)
      */
     public function index()
@@ -61,7 +73,7 @@ class SparePartController extends Controller
 
         if (isset($data['id'])) {
             // ── UPDATE existing part ──────────────────────────────────────
-            $part = SparePart::findOrFail($data['id']);
+            $part = SparePart::where('id', $data['id'])->firstOrFail();
 
             // Enforce add-only: never let qty decrease via this form
             if ($qtyToAdd < 0) {
@@ -149,7 +161,7 @@ class SparePartController extends Controller
      */
     public function destroy($id)
     {
-        $part = SparePart::findOrFail($id);
+        $part = SparePart::where('id', $id)->firstOrFail();
         $name = $part->name;
         $part->delete();
 
@@ -166,7 +178,7 @@ class SparePartController extends Controller
      */
     public function restore($id)
     {
-        $part = SparePart::withTrashed()->findOrFail($id);
+        $part = SparePart::withTrashed()->where('id', $id)->firstOrFail();
         $part->restore();
 
         ActivityLogController::log('Restored Spare Part', "Part: {$part->name} restored from archive.");
@@ -190,7 +202,7 @@ class SparePartController extends Controller
             return response()->json(['success' => false, 'message' => $msg], 403);
         }
 
-        $part = SparePart::withTrashed()->findOrFail($id);
+        $part = SparePart::withTrashed()->where('id', $id)->firstOrFail();
         $name = $part->name;
         $part->forceDelete();
 
@@ -202,3 +214,4 @@ class SparePartController extends Controller
         ]);
     }
 }
+

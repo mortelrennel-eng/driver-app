@@ -77,7 +77,7 @@
             $progress_percent = min(100, ($kms_since / $odo_limit) * 100);
         @endphp
 
-        <div class="{{ $card_bg }} rounded-[2rem] shadow-sm border p-6 flex flex-col cursor-pointer transition-all hover:shadow-xl hover:-translate-y-1" 
+        <div class="{{ $card_bg }} rounded-[2rem] shadow-sm border p-6 flex flex-col cursor-pointer transition-all hover:shadow-xl hover:-translate-y-1 relative group" 
              onclick="viewUnitDetails({{ $unit->id }})">
             
             {{-- Top Row: Plate & Status --}}
@@ -91,7 +91,40 @@
                 </div>
             </div>
 
-            {{-- Middle Content: Image & Basic Info --}}
+            {{-- Hover Driver Tooltip Overlay --}}
+            <div class="absolute inset-0 rounded-[2rem] bg-slate-900/95 opacity-0 group-hover:opacity-100 transition-all duration-250 flex flex-col items-center justify-center gap-3 z-10 pointer-events-none">
+                <p class="text-white/60 text-[10px] font-black uppercase tracking-widest mb-1">Assigned Drivers</p>
+                @if(!empty(trim($unit->driver1_name ?? '')) || !empty(trim($unit->driver2_name ?? '')))
+                    @if(!empty(trim($unit->driver1_name ?? ''))  && trim($unit->driver1_name) !== ' ')
+                    <div class="flex items-center gap-3 bg-white/10 rounded-xl px-4 py-2.5 w-4/5">
+                        <div class="w-7 h-7 rounded-full bg-blue-500 flex items-center justify-center flex-shrink-0 shadow">
+                            <span class="text-white text-[10px] font-black">P1</span>
+                        </div>
+                        <div>
+                            <p class="text-[9px] text-blue-300 font-bold uppercase tracking-wider leading-none">Primary 1</p>
+                            <p class="text-white text-sm font-black leading-tight">{{ trim($unit->driver1_name) }}</p>
+                        </div>
+                    </div>
+                    @endif
+                    @if(!empty(trim($unit->driver2_name ?? '')) && trim($unit->driver2_name) !== ' ')
+                    <div class="flex items-center gap-3 bg-white/10 rounded-xl px-4 py-2.5 w-4/5">
+                        <div class="w-7 h-7 rounded-full bg-purple-500 flex items-center justify-center flex-shrink-0 shadow">
+                            <span class="text-white text-[10px] font-black">P2</span>
+                        </div>
+                        <div>
+                            <p class="text-[9px] text-purple-300 font-bold uppercase tracking-wider leading-none">Primary 2</p>
+                            <p class="text-white text-sm font-black leading-tight">{{ trim($unit->driver2_name) }}</p>
+                        </div>
+                    </div>
+                    @endif
+                @else
+                    <div class="flex flex-col items-center justify-center opacity-50 mt-2">
+                        <i data-lucide="user-x" class="w-8 h-8 text-white mb-2"></i>
+                        <span class="text-xs text-white font-bold uppercase tracking-widest text-center">No Driver<br>Assigned</span>
+                    </div>
+                @endif
+                <p class="text-white/30 text-[9px] italic mt-1">Click to view full details</p>
+            </div>
             <div class="flex items-center gap-5 mb-6">
                 {{-- Status-tinted Icon Box --}}
                 <div class="w-20 h-20 {{ $icon_bg }} rounded-2xl flex items-center justify-center flex-shrink-0 border">

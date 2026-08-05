@@ -90,7 +90,6 @@ class CodingController extends Controller
             'active_rules' => DB::table('coding_rules')->where('status', 'active')->count(),
             'today_coding' => $coding_today_count,
             'on_road' => $on_road_count,
-            'on_road' => $on_road_count,
             'active_coding_fleet' => $violations_count,
         ];
 
@@ -152,7 +151,7 @@ class CodingController extends Controller
             'updated_at' => now(),
         ]);
 
-        return redirect()->route('coding.index')->with('success', 'Coding rule added successfully');
+        return back()->with('success', 'Coding rule added successfully');
     }
 
     public function update(Request $request, $id)
@@ -183,13 +182,13 @@ class CodingController extends Controller
             'updated_at' => now(),
         ]);
 
-        return redirect()->route('coding.index')->with('success', 'Coding rule updated successfully');
+        return back()->with('success', 'Coding rule updated successfully');
     }
 
     public function destroy($id)
     {
         DB::table('coding_rules')->where('id', $id)->delete();
-        return redirect()->route('coding.index')->with('success', 'Coding rule deleted successfully');
+        return back()->with('success', 'Coding rule deleted successfully');
     }
 
     public function updateCodingDay(Request $request)
@@ -205,7 +204,7 @@ class CodingController extends Controller
             'updated_at' => now(),
         ]);
 
-        return redirect()->route('coding.index')->with('success', 'Coding day updated successfully');
+        return back()->with('success', 'Coding day updated successfully');
     }
 
 
@@ -215,9 +214,20 @@ class CodingController extends Controller
         $q = $request->input('q');
         if (empty($q)) return response()->json([]);
 
-        $units = DB::table('units')
-            ->where('plate_number', 'like', "%{$q}%")
-            ->select('plate_number', 'coding_day')
+        $units = DB::table('units as u')
+            ->leftJoin('drivers as drv1', 'u.driver_id', '=', 'drv1.id')
+            ->leftJoin('drivers as drv2', 'u.secondary_driver_id', '=', 'drv2.id')
+            ->where(function($query) use ($q) {
+                $query->where('u.plate_number', 'like', "%{$q}%")
+                      ->orWhere(DB::raw("CONCAT(COALESCE(drv1.first_name,''), ' ', COALESCE(drv1.last_name,''))"), 'like', "%{$q}%")
+                      ->orWhere(DB::raw("CONCAT(COALESCE(drv2.first_name,''), ' ', COALESCE(drv2.last_name,''))"), 'like', "%{$q}%");
+            })
+            ->select(
+                'u.plate_number', 
+                'u.coding_day',
+                DB::raw("CONCAT(COALESCE(drv1.first_name,''), ' ', COALESCE(drv1.last_name,'')) as driver1_name"),
+                DB::raw("CONCAT(COALESCE(drv2.first_name,''), ' ', COALESCE(drv2.last_name,'')) as driver2_name")
+            )
             ->limit(10)
             ->get();
 
@@ -242,3 +252,5 @@ class CodingController extends Controller
         return 'Unknown';
     }
 }
+
+

@@ -513,7 +513,7 @@
                                     ${parseFloat(roi.total_expenses || 0) > 0 ? `<span class="ml-2 px-2 py-0.5 bg-orange-50 text-orange-600 border border-orange-100 rounded text-[10px] font-black uppercase">Total: ₱${parseFloat(roi.total_expenses || 0).toLocaleString('en-PH', {minimumFractionDigits:2})}</span>` : ''}
                                 </h4>
                                 <div class="flex flex-col gap-6 max-w-3xl mx-auto">
-                                    ${maintHtml.replace(/border border-gray-200 bg-white/g, 'bg-gray-50 border border-gray-100 shadow-sm').replace(/p-4/g, 'p-6').replace(/rounded-lg/g, 'rounded-2xl')}
+                                    ${maintHtml.replace(/bg-white border border-gray-200/g, 'bg-gray-50 border border-gray-100 shadow-sm').replace(/p-4/g, 'p-6').replace(/rounded-lg/g, 'rounded-2xl')}
                                 </div>
                             </div>
                         </div>
@@ -521,25 +521,25 @@
                         <!-- ROI Tab -->
                         <div id="roi-tab" class="tab-content hidden animate-in fade-in duration-300">
                             <div class="space-y-6">
-                                <div class="bg-gradient-to-br from-indigo-600 to-purple-700 p-8 rounded-2xl text-white shadow-xl relative overflow-hidden">
-                                    <div class="absolute top-0 right-0 p-8 opacity-10">
+                                <div class="bg-gradient-to-br from-yellow-400 to-amber-500 p-8 rounded-2xl text-yellow-950 shadow-xl relative overflow-hidden">
+                                    <div class="absolute top-0 right-0 p-8 opacity-20 text-yellow-700">
                                         <i data-lucide="trending-up" class="w-32 h-32"></i>
                                     </div>
                                     <h4 class="text-xl font-black mb-6 uppercase tracking-widest flex items-center gap-3">
                                         <i data-lucide="bar-chart-3" class="w-6 h-6"></i> ROI Performance Analysis
                                     </h4>
-                                    <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
-                                        <div class="bg-white/10 backdrop-blur-md p-6 rounded-2xl border border-white/10">
-                                            <p class="text-indigo-100 text-[10px] font-black uppercase tracking-widest mb-1">Total Investment</p>
-                                            <p class="text-2xl font-black">₱${parseFloat(roi.total_investment || 0).toLocaleString('en-PH', {minimumFractionDigits:2})}</p>
+                                    <div class="grid grid-cols-1 md:grid-cols-3 gap-8 relative z-10">
+                                        <div class="bg-white/40 backdrop-blur-md p-6 rounded-2xl border border-white/50 shadow-sm hover:bg-white/50 transition-colors">
+                                            <p class="text-yellow-800 text-[10px] font-black uppercase tracking-widest mb-1">Total Investment</p>
+                                            <p class="text-2xl font-black text-gray-900">₱${parseFloat(roi.total_investment || 0).toLocaleString('en-PH', {minimumFractionDigits:2})}</p>
                                         </div>
-                                        <div class="bg-white/10 backdrop-blur-md p-6 rounded-2xl border border-white/10">
-                                            <p class="text-indigo-100 text-[10px] font-black uppercase tracking-widest mb-1">Total Net Revenue</p>
-                                            <p class="text-2xl font-black text-green-300">₱${parseFloat(roi.total_revenue || 0).toLocaleString('en-PH', {minimumFractionDigits:2})}</p>
+                                        <div class="bg-white/40 backdrop-blur-md p-6 rounded-2xl border border-white/50 shadow-sm hover:bg-white/50 transition-colors">
+                                            <p class="text-yellow-800 text-[10px] font-black uppercase tracking-widest mb-1">Total Net Revenue</p>
+                                            <p class="text-2xl font-black text-emerald-700">₱${parseFloat(roi.total_revenue || 0).toLocaleString('en-PH', {minimumFractionDigits:2})}</p>
                                         </div>
-                                        <div class="bg-white/10 backdrop-blur-md p-6 rounded-2xl border border-white/10">
-                                            <p class="text-indigo-100 text-[10px] font-black uppercase tracking-widest mb-1">Total Expenses</p>
-                                            <p class="text-2xl font-black text-red-300">₱${parseFloat(roi.total_expenses || 0).toLocaleString('en-PH', {minimumFractionDigits:2})}</p>
+                                        <div class="bg-white/40 backdrop-blur-md p-6 rounded-2xl border border-white/50 shadow-sm hover:bg-white/50 transition-colors">
+                                            <p class="text-yellow-800 text-[10px] font-black uppercase tracking-widest mb-1">Total Expenses</p>
+                                            <p class="text-2xl font-black text-red-700">₱${parseFloat(roi.total_expenses || 0).toLocaleString('en-PH', {minimumFractionDigits:2})}</p>
                                         </div>
                                     </div>
                                 </div>
@@ -612,17 +612,23 @@
                                             <i data-lucide="satellite" class="w-6 h-6 ${locInfo.gps_enabled ? 'text-green-500' : 'text-red-400'}"></i>
                                         </div>
                                     </div>
-                                    <div id="unitDetailMapContainer" class="relative rounded-2xl overflow-hidden border border-gray-100 bg-gray-50 flex flex-col items-center justify-center p-4 sm:p-12 text-center shadow-inner" style="height: 400px;">
-                                        <div class="mb-4 sm:mb-6 p-4 sm:p-6 bg-blue-100 rounded-full shadow-sm animate-pulse">
-                                            <i data-lucide="navigation" class="w-8 h-8 sm:w-12 sm:h-12 text-blue-600"></i>
+                                    <div id="unitDetailMapContainer" class="relative rounded-2xl overflow-hidden border border-gray-200 bg-gray-100 flex flex-col items-center justify-center p-4 text-center shadow-inner group" style="height: 400px;">
+                                        <!-- Leaflet Map Container -->
+                                        <div id="mini-map-${unit.id}" class="absolute inset-0 z-0"></div>
+
+                                        <!-- Floating Overlay (No Card Background) -->
+                                        <div class="relative z-10 p-5 sm:p-8 flex flex-col items-center max-w-sm sm:max-w-md w-full pointer-events-none">
+                                            <div class="mb-3 sm:mb-4 p-3 sm:p-4 bg-blue-600 rounded-full shadow-lg shadow-blue-500/50 text-white">
+                                                <i data-lucide="navigation" class="w-6 h-6 sm:w-8 sm:h-8"></i>
+                                            </div>
+                                            <h4 class="text-sm sm:text-base font-black text-gray-900 mb-1.5 sm:mb-2 uppercase tracking-tight drop-shadow-md" style="text-shadow: 0 2px 4px rgba(255,255,255,0.9), 0 -2px 4px rgba(255,255,255,0.9), 2px 0 4px rgba(255,255,255,0.9), -2px 0 4px rgba(255,255,255,0.9);">Tracksolid Pro</h4>
+                                            <p class="text-[10px] sm:text-xs text-gray-800 mb-5 sm:mb-6 leading-relaxed font-bold drop-shadow-md" style="text-shadow: 0 1px 3px rgba(255,255,255,1), 0 -1px 3px rgba(255,255,255,1), 1px 0 3px rgba(255,255,255,1), -1px 0 3px rgba(255,255,255,1);">This unit is tracked via real-time satellite identification. Access the full live map for movement history and geofencing.</p>
+                                            
+                                            <a href="/live-tracking?unit=${unit.id}" class="inline-flex items-center gap-2 px-5 sm:px-6 py-3 sm:py-3.5 bg-blue-600 hover:bg-blue-700 text-white text-[10px] sm:text-xs font-black rounded-xl transition-all shadow-lg shadow-blue-500/40 hover:shadow-xl hover:shadow-blue-500/50 hover:-translate-y-0.5 uppercase tracking-widest pointer-events-auto">
+                                                <i data-lucide="map" class="w-3.5 h-3.5 sm:w-4 sm:h-4"></i>
+                                                Open Live Tracking Map
+                                            </a>
                                         </div>
-                                        <h4 class="text-base sm:text-lg font-black text-gray-900 mb-1.5 sm:mb-2 uppercase tracking-tight">Tracksolid Pro Enterprise</h4>
-                                        <p class="text-xs sm:text-sm text-gray-500 mb-6 sm:mb-8 max-w-md mx-auto">This unit is tracked via real-time satellite identification. Access the full live map for movement history and geofencing.</p>
-                                        
-                                        <a href="/live-tracking?unit=${unit.id}" class="inline-flex items-center gap-2.5 sm:gap-3 px-6 sm:px-8 py-3.5 sm:py-4 bg-blue-600 hover:bg-blue-700 text-white text-xs sm:text-sm font-black rounded-2xl transition-all shadow-lg hover:shadow-blue-200 hover:-translate-y-1 uppercase tracking-widest">
-                                            <i data-lucide="map" class="w-4 h-4 sm:w-5 sm:h-5"></i>
-                                            Open Live Tracking Map
-                                        </a>
                                     </div>
                                 </div>
                             </div>
@@ -637,6 +643,99 @@
                 if (typeof lucide !== 'undefined') lucide.createIcons();
                 // Show overview tab by default
                 setTimeout(() => { showTab('overview'); }, 50);
+
+                // Initialize Map Preview
+                setTimeout(() => {
+                    if (locInfo.current_location && locInfo.current_location.includes(',')) {
+                        const coords = locInfo.current_location.split(',');
+                        const lat = parseFloat(coords[0].trim());
+                        const lon = parseFloat(coords[1].trim());
+
+                        if (!isNaN(lat) && !isNaN(lon)) {
+                            const initMap = () => {
+                                const mapId = `mini-map-${unit.id}`;
+                                const mapElement = document.getElementById(mapId);
+                                if (mapElement && !mapElement._leaflet_id) {
+                                    window._miniPreviewMap = L.map(mapId, {
+                                        zoomControl: false,
+                                        attributionControl: false,
+                                        scrollWheelZoom: false,
+                                        dragging: true
+                                    }).setView([lat, lon], 16);
+
+                                    // Google Maps Tiles
+                                    L.tileLayer('https://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', {
+                                        maxZoom: 20,
+                                        subdomains: ['mt0', 'mt1', 'mt2', 'mt3']
+                                    }).addTo(window._miniPreviewMap);
+
+                                    // Custom Taxi Marker (matching live-tracking.js)
+                                    const carBodyColor = '#EAB308'; // Default yellow
+                                    const roofColor = '#FDE047';
+                                    const isOffline = !locInfo.gps_enabled;
+                                    const dotColor = isOffline ? '#9CA3AF' : '#22c55e';
+                                    const angle = locInfo.heading || 0;
+                                    
+                                    const carIconValue = `
+                                        <div class="relative flex flex-col items-center justify-center marker-wrapper" style="width: 60px; height: 60px;">
+                                            <div class="absolute -top-5 px-2 py-0.5 bg-yellow-500 border-yellow-600 text-white font-black text-[10px] rounded shadow-md border whitespace-nowrap z-50 pointer-events-none drop-shadow-md">
+                                                ${unit.plate_number || 'TAXI'}
+                                                <div class="absolute -right-1.5 -top-1.5 w-3 h-3 rounded-full border-2 border-white shadow-sm" style="background-color: ${dotColor};"></div>
+                                            </div>
+
+                                            <div style="transform: rotate(${angle}deg);" class="drop-shadow-lg flex items-center justify-center">
+                                                <svg width="24" height="42" viewBox="0 0 24 42" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                                    <rect x="0" y="6" width="3" height="8" rx="1" fill="#1F2937"/>
+                                                    <rect x="21" y="6" width="3" height="8" rx="1" fill="#1F2937"/>
+                                                    <rect x="0" y="28" width="3" height="8" rx="1" fill="#1F2937"/>
+                                                    <rect x="21" y="28" width="3" height="8" rx="1" fill="#1F2937"/>
+                                                    <rect x="2" y="2" width="20" height="38" rx="6" fill="${carBodyColor}" stroke="#713F12" stroke-width="0.5"/>
+                                                    <path d="M4 12 L20 12 L18 8 L6 8 Z" fill="#111827" opacity="0.8"/>
+                                                    <path d="M5 30 L19 30 L18 34 L6 34 Z" fill="#111827" opacity="0.8"/>
+                                                    <rect x="4" y="14" width="16" height="14" rx="2" fill="${roofColor}"/>
+                                                    <rect x="8" y="18" width="8" height="4" rx="1" fill="white" stroke="#374151" stroke-width="0.5"/>
+                                                    <circle cx="5" cy="3" r="1.5" fill="${isOffline ? '#D1D5DB' : '#FEF08A'}"/>
+                                                    <circle cx="19" cy="3" r="1.5" fill="${isOffline ? '#D1D5DB' : '#FEF08A'}"/>
+                                                    <rect x="4" y="39" width="4" height="2" rx="0.5" fill="#EF4444"/>
+                                                    <rect x="16" y="39" width="4" height="2" rx="0.5" fill="#EF4444"/>
+                                                </svg>
+                                            </div>
+                                        </div>
+                                    `;
+
+                                    const carIcon = L.divIcon({
+                                        className: 'custom-div-icon bg-transparent border-0',
+                                        html: carIconValue,
+                                        iconSize: [60, 60],
+                                        iconAnchor: [30, 30]
+                                    });
+
+                                    L.marker([lat, lon], { icon: carIcon }).addTo(window._miniPreviewMap);
+                                }
+                            };
+
+                            if (typeof L === 'undefined') {
+                                const link = document.createElement('link');
+                                link.rel = 'stylesheet';
+                                link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
+                                document.head.appendChild(link);
+
+                                const script = document.createElement('script');
+                                script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
+                                script.onload = () => initMap();
+                                document.head.appendChild(script);
+                            } else {
+                                initMap();
+                            }
+                        }
+                    } else {
+                        const mapId = `mini-map-${unit.id}`;
+                        const mapElement = document.getElementById(mapId);
+                        if (mapElement) {
+                            mapElement.innerHTML = '<div class="w-full h-full flex items-center justify-center bg-gray-200"><span class="text-gray-400 font-bold uppercase text-xs tracking-widest">Map Preview Unavailable</span></div>';
+                        }
+                    }
+                }, 100);
             })
             .catch(err => {
                 document.getElementById('unitDetailsContent').innerHTML = `
@@ -647,6 +746,33 @@
                 `;
                 if (typeof lucide !== 'undefined') lucide.createIcons();
             });
+        }
+
+        function showTab(tabName) {
+            document.querySelectorAll('#unitDetailsModal .tab-content').forEach(tab => {
+                tab.classList.add('hidden');
+            });
+            document.querySelectorAll('#unitDetailsModal .tab-btn').forEach(btn => {
+                btn.classList.remove('border-blue-600', 'text-blue-600');
+                btn.classList.add('border-transparent', 'text-gray-400');
+            });
+            
+            const targetTab = document.getElementById(tabName + '-tab');
+            if(targetTab) {
+                targetTab.classList.remove('hidden');
+                // Fix Leaflet map rendering glitch when tab is shown
+                if (tabName === 'location' && window._miniPreviewMap) {
+                    setTimeout(() => {
+                        window._miniPreviewMap.invalidateSize();
+                    }, 50);
+                }
+            }
+            
+            const activeBtn = document.querySelector('#unitDetailsModal .tab-btn[data-tab="' + tabName + '"]');
+            if (activeBtn) {
+                activeBtn.classList.remove('border-transparent', 'text-gray-400');
+                activeBtn.classList.add('border-blue-600', 'text-blue-600');
+            }
         }
 
         function closeUnitDetailsModal() {

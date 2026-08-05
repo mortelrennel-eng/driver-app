@@ -207,7 +207,7 @@ class AdditionalModulesController extends Controller
 
     public function franchiseUpdate(Request $request, $id)
     {
-        $case = FranchiseCase::findOrFail($id);
+        $case = FranchiseCase::where('id', $id)->firstOrFail();
 
         $duplicateCase = DB::table('franchise_cases')
             ->where('case_no', $request->case_no)
@@ -286,7 +286,7 @@ class AdditionalModulesController extends Controller
 
     public function franchiseDestroy($id)
     {
-        $case = FranchiseCase::findOrFail($id);
+        $case = FranchiseCase::where('id', $id)->firstOrFail();
         $caseNo = $case->case_no;
         
         if (Schema::hasTable('franchise_case_units')) {
@@ -304,7 +304,7 @@ class AdditionalModulesController extends Controller
 
     public function franchiseApprove($id)
     {
-        $case = FranchiseCase::findOrFail($id);
+        $case = FranchiseCase::where('id', $id)->firstOrFail();
         $case->update(['status' => 'approved']);
 
         ActivityLogController::log('Approved Franchise Case via Mobile', "Case No: {$case->case_no} approved.");
@@ -317,7 +317,7 @@ class AdditionalModulesController extends Controller
 
     public function franchiseReject($id)
     {
-        $case = FranchiseCase::findOrFail($id);
+        $case = FranchiseCase::where('id', $id)->firstOrFail();
         $case->update(['status' => 'rejected']);
 
         ActivityLogController::log('Rejected Franchise Case via Mobile', "Case No: {$case->case_no} rejected.");
@@ -478,7 +478,7 @@ class AdditionalModulesController extends Controller
             'unit_id' => 'nullable|integer',
         ]);
 
-        $expense = Expense::findOrFail($id);
+        $expense = Expense::where('id', $id)->firstOrFail();
         
         // Reverse old stock
         if ($expense->category === 'Spare Parts Purchase' && $expense->spare_part_id && $expense->quantity > 0) {
@@ -518,7 +518,7 @@ class AdditionalModulesController extends Controller
 
     public function expenseDestroy($id)
     {
-        $expense = Expense::findOrFail($id);
+        $expense = Expense::where('id', $id)->firstOrFail();
         
         // Reverse stock
         if ($expense->category === 'Spare Parts Purchase' && $expense->spare_part_id && $expense->quantity > 0) {
@@ -801,7 +801,7 @@ class AdditionalModulesController extends Controller
 
     public function staffUpdate(Request $request, $id)
     {
-        $staff = Staff::findOrFail($id);
+        $staff = Staff::where('id', $id)->firstOrFail();
 
         $data = $request->validate([
             'name' => ['required', 'string', 'max:20', 'regex:/^[A-Za-z]+( [A-Za-z]+){0,5}$/'],
@@ -825,7 +825,7 @@ class AdditionalModulesController extends Controller
 
     public function staffDestroy($id)
     {
-        $staff = Staff::findOrFail($id);
+        $staff = Staff::where('id', $id)->firstOrFail();
         $name = $staff->name;
         $staff->delete();
 
@@ -1257,7 +1257,7 @@ class AdditionalModulesController extends Controller
 
     public function incidentUpdate(Request $request, $id)
     {
-        $incident = DriverBehavior::findOrFail($id);
+        $incident = DriverBehavior::where('id', $id)->firstOrFail();
         
         $data = $request->validate([
             'incident_type'          => 'required|string',
@@ -1292,7 +1292,7 @@ class AdditionalModulesController extends Controller
 
     public function incidentDestroy($id)
     {
-        $incident = DriverBehavior::findOrFail($id);
+        $incident = DriverBehavior::where('id', $id)->firstOrFail();
         $incident->delete();
 
         ActivityLogController::log('Archived Incident via Mobile', "Incident #{$id} moved to archive.");
@@ -1303,3 +1303,5 @@ class AdditionalModulesController extends Controller
         ]);
     }
 }
+
+

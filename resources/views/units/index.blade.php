@@ -158,7 +158,7 @@
                     <div class="relative group">
                         <input type="search" name="search" id="tableSearchInput" value="{{ $search }}"
                             class="block w-full pl-3 pr-10 py-2 lg:h-[38px] border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 focus:outline-none"
-                            placeholder="Search plate numbers..." autocomplete="new-password" spellcheck="false" autocorrect="off" autocapitalize="off" readonly onfocus="this.removeAttribute('readonly');">
+                            placeholder="Search plate or driver..." autocomplete="new-password" spellcheck="false" autocorrect="off" autocapitalize="off" readonly onfocus="this.removeAttribute('readonly');">
                         <button type="submit" class="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-yellow-600 transition-colors">
                             <i data-lucide="search" class="h-4 w-4"></i>
                         </button>
@@ -221,7 +221,7 @@
                     <input type="hidden" name="view" id="viewModeInput" value="table">
                 </div>
 
-                <button type="button" onclick="window.open('{{ route('units.print') }}', '_blank')"
+                <button type="button" onclick="printInHiddenIframe('{{ route('units.print') }}')"
                     class="px-3 py-1 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center justify-center gap-1.5 lg:gap-2 text-xs font-semibold shadow-sm h-[38px] flex-1 min-w-0 lg:flex-initial lg:w-[135px]">
                     <i data-lucide="printer" class="w-3.5 h-3.5"></i> Print to PDF
                 </button>
@@ -1014,7 +1014,7 @@
 <script>
     var currentViewMode = localStorage.getItem('unitViewMode') || 'table';
     
-    function setViewMode(mode) {
+    function setViewMode(mode, forceFetch = true) {
         currentViewMode = mode;
         localStorage.setItem('unitViewMode', mode);
         document.getElementById('viewModeInput').value = mode;
@@ -1039,7 +1039,9 @@
             btnTable.classList.add('text-gray-400');
         }
         
-        performSearch(1); // Re-fetch with new view mode
+        if (forceFetch) {
+            performSearch(1); // Re-fetch with new view mode
+        }
     }
 
     let searchTimer;
@@ -1684,7 +1686,10 @@ function resetAddUnitModal() {
 // Real-time table filtering
 function initUnits() {
     if (typeof lucide !== 'undefined') lucide.createIcons();
-    if (typeof setViewMode === 'function') setViewMode(currentViewMode);
+    const serverView = '{{ $view_mode ?? "table" }}';
+    if (typeof setViewMode === 'function') {
+        setViewMode(currentViewMode, currentViewMode !== serverView);
+    }
     
     const searchInput = document.getElementById('tableSearchInput');
     const tableBody = document.querySelector('tbody.bg-white.divide-y.divide-gray-200');
@@ -1751,3 +1756,4 @@ initUnits();
 </script>
 
 @endsection
+

@@ -9,7 +9,11 @@ if (!function_exists('formatCurrency')) {
         if ($amount === null || $amount === '') {
             return $symbol . '0.00';
         }
-        return $symbol . number_format((float) $amount, 2);
+        
+        $isNegative = (float) $amount < 0;
+        $formattedNumber = number_format(abs((float) $amount), 2);
+        
+        return ($isNegative ? '-' : '') . $symbol . $formattedNumber;
     }
 }
 

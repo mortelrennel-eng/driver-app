@@ -60,7 +60,7 @@
                     <i data-lucide="{{ $change < 0 ? 'trending-down' : 'trending-up' }}" class="h-4 w-4 {{ $change < 0 ? 'text-green-500' : 'text-rose-500' }}"></i>
                 </div>
                 <h3 class="text-base sm:text-lg font-black {{ $change < 0 ? 'text-green-600' : 'text-rose-600' }} truncate">
-                    {{ $change > 0 ? '+' : '' }}{{ $change }}%
+                    {{ $change > 0 ? '+' : '' }}{{ formatCurrency(abs($change)) }}
                 </h3>
                 <p class="text-[9px] text-gray-400 font-bold uppercase mt-1">{{ $change < 0 ? 'Saved' : 'Added' }}</p>
             </div>
@@ -800,94 +800,6 @@ function openAddExpenseModal() {
     if (window.lucide) lucide.createIcons();
 }
  
-function openEditExpenseModal(id) {
-    fetch('{{ url('office-expenses') }}/' + id + '?format=json', {
-        headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' }
-    })
-    .then(r => r.json())
-    .then(data => {
-        document.getElementById('expenseModalTitle').textContent = 'Edit Expense Details';
-        document.getElementById('expenseFormMethod').value = 'PUT';
-        document.getElementById('expenseForm').action = '{{ url('office-expenses') }}/' + id;
-        document.getElementById('expenseDate').value = data.date || '';
-        document.getElementById('expenseCategory').value = data.category || '';
-        document.getElementById('selectedCategoryLabel').textContent = data.category || '-- Choose Specific Category --';
-        document.getElementById('selectedCategoryLabel').classList.add('text-gray-900');
-        
-        // Handle custom category logic
-        const predefined = ['Electricity (Meralco)', 'Water (Maynilad)', 'Internet & WiFi', 'Communications', 'Office Supplies', 'Pantry & Cleaning', 'Building Repairs', 'Construction Materials', 'Office Equipment', 'Spare Parts Purchase', 'Tires & Batteries', 'Oil & Lubricants', 'Govt Permits & Fees', 'LTO & Registration', 'Insurance', 'Franchise Renewal', 'Staff Meals & Incentives', 'Petty Cash'];
-        
-        if (data.category && !predefined.includes(data.category)) {
-            document.getElementById('customCategoryGroup').classList.remove('hidden');
-            document.getElementById('expenseCustomCategory').value = data.category;
-            document.getElementById('selectedCategoryLabel').textContent = 'Custom: ' + data.category;
-        } else {
-            document.getElementById('customCategoryGroup').classList.add('hidden');
-        }
-
-        // Reset all sections first
-        document.getElementById('inventorySyncSection').classList.add('hidden');
-        document.getElementById('franchiseSyncSection').classList.add('hidden');
-        document.getElementById('standardVendorOnly').classList.remove('hidden');
-        document.getElementById('topAmountGroup').classList.remove('hidden');
-
-        // Handle Inventory Link for Edit
-        if (data.category === 'Spare Parts Purchase') {
-            document.getElementById('inventorySyncSection').classList.remove('hidden');
-            document.getElementById('standardVendorOnly').classList.add('hidden');
-            document.getElementById('expenseSparePartId').value = data.spare_part_id || '';
-            document.getElementById('expenseQuantity').value = data.quantity || '';
-            document.getElementById('expenseUnitPrice').value = data.unit_price || '';
-            document.getElementById('expenseAmount').readOnly = true;
-            document.getElementById('expenseAmount').classList.add('bg-gray-100');
-            
-            // Populate Part Label
-            if (data.spare_part_id) {
-                const part = partsCatalog.find(p => p.id == data.spare_part_id);
-                if (part) {
-                    const partLabel = document.getElementById('selectedPartLabel');
-                    partLabel.textContent = part.name + ' (Stock: ' + part.stock_quantity + ')';
-                    partLabel.classList.add('text-gray-900');
-                }
-            }
-            
-            // Populate Supplier Label (shared with standard vendor)
-            if (data.vendor_name) {
-                const supLabel = document.getElementById('selectedSupplierLabel');
-                supLabel.textContent = data.vendor_name;
-                supLabel.classList.add('text-gray-900');
-                document.getElementById('syncSupplierHidden').value = data.vendor_name;
-            }
-        } else if (data.category === 'Franchise Renewal') {
-            document.getElementById('franchiseSyncSection').classList.remove('hidden');
-            document.getElementById('expenseFranchiseCaseId').value = data.franchise_case_id || '';
-            // We don't necessarily have the new_expiry_date in the expense table, 
-            // but we can at least show the section.
-        } else {
-            document.getElementById('expenseAmount').readOnly = false;
-            document.getElementById('expenseAmount').classList.remove('bg-gray-100');
-        }
-
-        document.getElementById('expenseDescription').value = data.description || '';
-        document.getElementById('expenseAmount').value = data.amount || '';
-        document.getElementById('expenseReference').value = data.reference_number || '';
-        document.getElementById('expenseVendor').value = data.vendor_name || '';
-        
-        // Select correct radio
-        const pm = data.payment_method || 'Cash';
-        if(pm === 'Cash') document.getElementById('pmCash').checked = true;
-        else if(pm === 'Check') document.getElementById('pmCheck').checked = true;
-        else if(pm === 'Transfer') document.getElementById('pmTransfer').checked = true;
- 
-        const modal = document.getElementById('expenseModal');
-        modal.classList.remove('hidden');
-        setTimeout(() => {
-            document.getElementById('modalContainer').classList.remove('scale-95');
-        }, 10);
-        if (window.lucide) lucide.createIcons();
-    });
-}
- 
 function closeExpenseModal() {
     document.getElementById('modalContainer').classList.add('scale-95');
     setTimeout(() => {
@@ -1195,14 +1107,7 @@ function filterParts(query) {
     });
 }
 
-
-function markAsModified() {
-    const badge = document.getElementById('editModeBadge');
-    const priceBadge = document.getElementById('priceEditBadge');
-    if (badge) badge.classList.remove('hidden');
-    if (priceBadge) priceBadge.classList.remove('hidden');
-}
-
+// Duplicate markAsModified removed
 function toggleNewPartRegistration() {
     const isNew = document.getElementById('newPartGroup').classList.contains('hidden');
     const existingGroup = document.getElementById('existingPartGroup');
@@ -1229,9 +1134,15 @@ function toggleNewPartRegistration() {
         btn.textContent = '+ REGISTER NEW ITEM';
         btn.classList.replace('bg-gray-100', 'bg-rose-50');
         btn.classList.replace('text-gray-600', 'text-rose-600');
-        
         partSelectId.value = '';
-        updatePartDetails(partSelectId);
+        document.getElementById('selectedPartLabel').textContent = '-- Select Existing Part to Restock --';
+        document.getElementById('selectedPartLabel').classList.remove('text-gray-900');
+        document.getElementById('selectedPartLabel').classList.add('text-gray-400');
+        document.getElementById('expenseUnitPrice').value = '';
+        document.getElementById('expenseDescription').value = '';
+        document.getElementById('syncSupplierHidden').value = '';
+        document.getElementById('expenseVendor').value = '';
+        document.getElementById('selectedSupplierLabel').textContent = '-- Choose or Type Supplier --';
     }
     lucide.createIcons();
 }
@@ -1251,31 +1162,8 @@ function handleSupplierChange(select) {
     }
 }
 
-function updateSyncSupplierValue(val) {
-    document.getElementById('syncSupplierHidden').value = val;
-}
-
-function updatePartDetails(select) {
-    const val = select.value;
-    const option = select.options[select.selectedIndex];
-    const unitPriceInput = document.getElementById('expenseUnitPrice');
-
-    if (!val || val === 'new') return;
-
-    if (unitPriceInput) unitPriceInput.value = option.dataset.price;
-    
-    const supplier = option.dataset.supplier || 'Unspecified Supplier';
-    const syncHidden = document.getElementById('syncSupplierHidden');
-    const expVendor = document.getElementById('expenseVendor');
-    
-    if (syncHidden) syncHidden.value = supplier;
-    if (expVendor) expVendor.value = supplier;
-
-    const descInput = document.getElementById('expenseDescription');
-    if (descInput) descInput.value = "PURCHASED: " + option.text.split(' (Stock:')[0];
-    
-    calcInventoryTotal();
-}
+// Duplicate updateSyncSupplierValue removed
+// updatePartDetails removed as it is obsolete
 
 // Update the hidden vendor field when typing in the supplier field (for other modes)
 const expNewSup = document.getElementById('expenseNewSupplier');
@@ -1536,3 +1424,4 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 </script>
 @endpush
+

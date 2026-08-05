@@ -256,54 +256,6 @@
                 </form>
             </div>
 
-            <!-- Test Push Notifications Card -->
-            <div class="bg-white rounded-lg shadow-sm">
-                <div class="p-2 border-b">
-                    <h2 class="text-sm font-semibold text-gray-900 flex items-center gap-1">
-                        <i data-lucide="smartphone" class="w-4 h-4 text-purple-600"></i>
-                        Test App Push Notifications
-                    </h2>
-                </div>
-                <div class="p-4 space-y-3">
-                    <p class="text-[10px] font-bold text-gray-500 leading-relaxed">
-                        Test if your Android device is registered correctly and can receive Real-time Firebase Push Notifications even when the app is completely closed.
-                    </p>
-                    
-                    <div id="fcm-status-container">
-                    @if(auth()->user()->fcm_token)
-                        <div class="p-3 bg-purple-50 rounded-xl border border-purple-100 flex items-start gap-2">
-                            <i data-lucide="check-circle" class="w-4 h-4 text-purple-600 shrink-0 mt-0.5"></i>
-                            <div>
-                                <p class="text-[10px] font-bold text-purple-700 uppercase tracking-wider">Device Registered</p>
-                                <p class="text-[9px] text-purple-600 font-semibold truncate max-w-[200px]">Token: {{ substr(auth()->user()->fcm_token, 0, 20) }}...</p>
-                            </div>
-                        </div>
-                    @else
-                        <div class="p-3 bg-amber-50 rounded-xl border border-amber-100 flex items-start gap-2">
-                            <i data-lucide="alert-circle" class="w-4 h-4 text-amber-600 shrink-0 mt-0.5"></i>
-                            <div>
-                                <p class="text-[10px] font-bold text-amber-700 uppercase tracking-wider">No Device Registered</p>
-                                <p class="text-[9px] text-amber-600 font-semibold leading-relaxed">Please log in to the Euro Taxi app on your Android phone first to register your device.</p>
-                            </div>
-                        </div>
-                    @endif
-                    </div>
-
-                     <button type="button" id="btnTestPush" onclick="sendTestPush()" 
-                            {{ auth()->user()->fcm_token ? '' : 'disabled' }}
-                            class="w-full px-4 py-2.5 bg-purple-600 text-white text-xs font-black uppercase tracking-widest rounded-xl hover:bg-purple-700 disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed shadow-lg shadow-purple-100 disabled:shadow-none transition-all flex items-center justify-center gap-2">
-                        <i data-lucide="send" class="w-4 h-4"></i>
-                        Send Test Push
-                    </button>
-
-                    <!-- Real-Time Web-Bridge Chime Test -->
-                    <button type="button" id="btnTestWebChime" onclick="triggerTestNotificationBroadcast()" 
-                            class="w-full px-4 py-2.5 bg-gradient-to-r from-yellow-500 to-amber-500 hover:from-yellow-600 hover:to-amber-600 text-white text-xs font-black uppercase tracking-widest rounded-xl shadow-lg shadow-yellow-100 transition-all flex items-center justify-center gap-2">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-volume-2 animate-bounce"><path d="M11 5 6 9H2v6h4l5 4V5z"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>
-                        Send Web-Chime Test (Bypass)
-                    </button>
-                </div>
-            </div>
 
         </div>
     </div>

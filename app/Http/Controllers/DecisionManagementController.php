@@ -279,7 +279,7 @@ class DecisionManagementController extends Controller
     {
         DB::table('franchise_case_units')->where('franchise_case_id', $id)->delete();
         
-        $case = \App\Models\FranchiseCase::findOrFail($id);
+        $case = \App\Models\FranchiseCase::where('id', $id)->firstOrFail();
         $caseNo = $case->case_no;
         $case->delete();
         
@@ -314,3 +314,4 @@ class DecisionManagementController extends Controller
         return $this->preserveStateAndRedirect('decision-management.index', ['success' => 'Case rejected successfully']);
     }
 }
+

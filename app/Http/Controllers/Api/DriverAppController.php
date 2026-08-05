@@ -383,7 +383,24 @@ class DriverAppController extends Controller
 
         $actual = $boundaryData ? (float) $boundaryData->total_actual : 0;
         $status = ($boundaryData && $boundaryData->last_status) ? $boundaryData->last_status : 'pending';
-        $shortage = $boundaryData ? (float) $boundaryData->total_shortage : 0;
+
+        // Get today's shortage from driver_behavior (remaining unpaid portion)
+        $todayShortageTotal = $boundaryData ? (float)$boundaryData->total_shortage : 0;
+        $shortage = 0;
+        if ($todayShortageTotal > 0) {
+            // remaining_balance = still unpaid portion; paid = original shortage - remaining
+            $remainingShortage = (float) DB::table('driver_behavior')
+                ->where('driver_id', $driver->id)
+                ->where('incident_type', 'Short Boundary')
+                ->whereDate('incident_date', $today)
+                ->sum('remaining_balance');
+            $paidShortage = $todayShortageTotal - $remainingShortage;
+
+            // Add paid shortage to actual so progress bar reflects it
+            $actual += $paidShortage;
+            $shortage = $remainingShortage; // Only show what's still unpaid
+        }
+
         $excess = $boundaryData ? (float) $boundaryData->total_excess : 0;
 
         $progress = $target > 0 ? ($actual / $target) * 100 : 0;
@@ -403,7 +420,7 @@ class DriverAppController extends Controller
 
             if ($dayOfWeek === $codingDay) {
                 $is_coding = true;
-                $coding_message = 'ALERTO: Coding po kayo ngayon!';
+                $coding_message = 'ALERT: Your unit is coding today!';
                 $next_coding_date = Carbon::now('Asia/Manila')->format('Y-m-d');
             } else {
                 $daysToAdd = ($codingDay - $dayOfWeek + 7) % 7;
@@ -506,18 +523,71 @@ class DriverAppController extends Controller
                     $gps = $liveData[0];
                     $ignition = ($gps['accStatus'] ?? 0) == 1;
                     $speed = $ignition ? (float)($gps['speed'] ?? 0) : 0;
-                    
+                    $updateData = [
+                        'latitude' => $gps['lat'],
+                        'longitude' => $gps['lng'],
+                        'speed' => $speed,
+                        'heading' => $gps['direction'] ?? 0,
+                        'ignition_status' => $ignition,
+                        'timestamp' => $gps['gpsTime'] ?? now(),
+                        'updated_at' => now()
+                    ];
+
+                    if (isset($gps['currentMileage'])) {
+                        $updateData['odo'] = $gps['currentMileage'];
+                        
+                        $todayStr = \Carbon\Carbon::now('Asia/Manila')->format('Y-m-d');
+                        $existingTracking = DB::table('gps_tracking')->where('unit_id', $unit->id)->first();
+                        
+                        if ($existingTracking) {
+                            if ($existingTracking->daily_start_date === $todayStr) {
+                                $updateData['daily_start_mileage'] = $existingTracking->daily_start_mileage ?? $gps['currentMileage'];
+                                $updateData['daily_start_date'] = $existingTracking->daily_start_date;
+                            } else {
+                                $updateData['daily_start_mileage'] = $gps['currentMileage'];
+                                $updateData['daily_start_date'] = $todayStr;
+                            }
+                        } else {
+                            $updateData['daily_start_mileage'] = $gps['currentMileage'];
+                            $updateData['daily_start_date'] = $todayStr;
+                        }
+
+                        // --- HYBRID SYNC (MATCH WEB DISTANCE) ---
+                        // The app polls this every 5 seconds. We sync with Tracksolid's accurate 
+                        // getMileage API every 10 minutes to prevent API limits while keeping distance exact.
+                        $hybridSyncCacheKey = 'hybrid_sync_' . $unit->id . '_' . $todayStr;
+                        if (!\Illuminate\Support\Facades\Cache::has($hybridSyncCacheKey) && $gps['currentMileage'] > 0) {
+                            try {
+                                $beginTime = now()->timezone('Asia/Manila')->startOfDay()->timezone('UTC')->format('Y-m-d H:i:s');
+                                $endTime = gmdate('Y-m-d H:i:s');
+                                $mileageData = $this->tracksolid->getMileage($unit->imei, $beginTime, $endTime);
+                                
+                                $totalDistanceMeters = 0;
+                                if ($mileageData && is_array($mileageData)) {
+                                    foreach ($mileageData as $record) {
+                                        $totalDistanceMeters += (float)($record['distance'] ?? 0);
+                                    }
+                                }
+                                $totalDistance = $totalDistanceMeters / 1000;
+                                
+                                if ($totalDistance > 0) {
+                                    $correctedBaseline = $gps['currentMileage'] - $totalDistance;
+                                    $updateData['daily_start_mileage'] = $correctedBaseline;
+                                    $updateData['daily_start_date'] = $todayStr;
+                                    
+                                    // Cache for 10 minutes (600 seconds)
+                                    \Illuminate\Support\Facades\Cache::put($hybridSyncCacheKey, true, 600);
+                                }
+                            } catch (\Exception $e) {
+                                \Log::error("App Hybrid Sync Error for unit {$unit->plate_number}: " . $e->getMessage());
+                            }
+                        }
+                        // --- END HYBRID SYNC ---
+                    }
+
                     DB::table('gps_tracking')->updateOrInsert(
                         ['unit_id' => $unit->id],
-                        [
-                            'latitude' => $gps['lat'],
-                            'longitude' => $gps['lng'],
-                            'speed' => $speed,
-                            'heading' => $gps['direction'] ?? 0,
-                            'ignition_status' => $ignition,
-                            'timestamp' => $gps['gpsTime'] ?? now(),
-                            'updated_at' => now()
-                        ]
+                        $updateData
                     );
                 }
             }
@@ -780,6 +850,30 @@ class DriverAppController extends Controller
             ->limit(30)
             ->get();
 
+        // Enrich: reflect paid shortages so driver sees correct status/amounts
+        $debtsPerDate = DB::table('driver_behavior')
+            ->where('driver_id', $driver->id)
+            ->where('incident_type', 'Short Boundary')
+            ->select('incident_date', DB::raw('SUM(remaining_balance) as remaining'), DB::raw('SUM(total_charge_to_driver) as original_shortage'))
+            ->groupBy('incident_date')
+            ->get()
+            ->keyBy(function($d) { return \Carbon\Carbon::parse($d->incident_date)->toDateString(); });
+
+        $earnings = $earnings->map(function($b) use ($debtsPerDate) {
+            $date = \Carbon\Carbon::parse($b->date)->toDateString();
+            if (isset($debtsPerDate[$date])) {
+                $debt = $debtsPerDate[$date];
+                $remaining = (float) $debt->remaining;
+                $paidAmount = (float)$debt->original_shortage - $remaining;
+                $b->shortage = $remaining;
+                $b->actual_boundary = (float)$b->actual_boundary + $paidAmount;
+                if ($remaining <= 0 && in_array(strtolower($b->status ?? ''), ['shortage', 'pending'])) {
+                    $b->status = 'paid';
+                }
+            }
+            return $b;
+        });
+
         return response()->json([
             'success' => true,
             'data' => $earnings
@@ -873,7 +967,65 @@ class DriverAppController extends Controller
             )
             ->get();
 
-        return response()->json(['success' => true, 'data' => $boundaries]);
+        // Enrich each boundary: replace raw shortage with actual remaining debt from driver_behavior
+        // so that paid shortages no longer appear as shortage to the driver
+        $debtsPerDate = DB::table('driver_behavior')
+            ->where('driver_id', $driver->id)
+            ->where('incident_type', 'Short Boundary')
+            ->select('incident_date', DB::raw('SUM(remaining_balance) as remaining'), DB::raw('SUM(total_charge_to_driver) as original_shortage'))
+            ->groupBy('incident_date')
+            ->get()
+            ->keyBy(function($d) { return \Carbon\Carbon::parse($d->incident_date)->toDateString(); });
+
+        $boundaries = $boundaries->map(function($b) use ($debtsPerDate) {
+            $b->record_type = 'boundary';
+            $date = \Carbon\Carbon::parse($b->date)->toDateString();
+            if (isset($debtsPerDate[$date])) {
+                $debt = $debtsPerDate[$date];
+                $remaining = (float) $debt->remaining;
+                $b->shortage = $remaining; // Show only what's still unpaid
+                // Update effective actual_boundary: add what's been paid toward shortage
+                $paidAmount = (float)$debt->original_shortage - $remaining;
+                $b->actual_boundary = (float)$b->actual_boundary + $paidAmount;
+                // If shortage is fully paid, elevate status to 'paid'
+                if ($remaining <= 0 && in_array(strtolower($b->status ?? ''), ['shortage', 'pending'])) {
+                    $b->status = 'paid';
+                }
+            }
+            return $b;
+        });
+
+        // Fetch paid debt payments (Missed Boundary, Short Boundary, etc.) from driver_behavior
+        $paidDebts = DB::table('driver_behavior')
+            ->leftJoin('units', 'driver_behavior.unit_id', '=', 'units.id')
+            ->where('driver_behavior.driver_id', $driver->id)
+            ->where('driver_behavior.charge_status', 'paid')
+            ->where('driver_behavior.total_paid', '>', 0)
+            ->whereNull('driver_behavior.deleted_at')
+            ->select(
+                'driver_behavior.id',
+                'driver_behavior.incident_date as date',
+                'driver_behavior.incident_type',
+                'driver_behavior.description',
+                'driver_behavior.total_charge_to_driver as boundary_amount',
+                'driver_behavior.total_paid as actual_boundary',
+                'driver_behavior.remaining_balance',
+                'driver_behavior.charge_status',
+                'driver_behavior.updated_at',
+                'units.plate_number'
+            )
+            ->orderByDesc('driver_behavior.updated_at')
+            ->get()
+            ->map(function($d) {
+                $d->record_type = 'debt_payment';
+                $d->status = 'paid';
+                $d->shortage = 0;
+                $d->excess = 0;
+                $d->is_extra = 0;
+                return $d;
+            });
+
+        return response()->json(['success' => true, 'data' => $boundaries, 'debt_payments' => $paidDebts]);
     }
 
     public function incidents(Request $request)
@@ -894,6 +1046,18 @@ class DriverAppController extends Controller
             ->orderByDesc('driver_behavior.timestamp')
             ->get();
 
+        $incidents = $incidents->map(function ($incident) {
+            // Auto-correct cases where admin added a charge via Edit but status remained 'none'
+            if ($incident->remaining_balance > 0 && strtolower($incident->charge_status) === 'none') {
+                $incident->charge_status = 'pending';
+            }
+
+            if (strtolower($incident->charge_status) !== 'pending') {
+                $incident->remaining_balance = 0;
+            }
+            return $incident;
+        });
+
         return response()->json([
             'success' => true,
             'data' => $incidents
@@ -910,6 +1074,8 @@ class DriverAppController extends Controller
         $charges = DB::table('driver_behavior')
             ->where('driver_id', $driver->id)
             ->where('total_charge_to_driver', '>', 0)
+            ->where('charge_status', 'pending')
+            ->where('remaining_balance', '>', 0)
             ->whereNull('deleted_at')
             ->orderByDesc('incident_date')
             ->get();
@@ -1129,6 +1295,27 @@ class DriverAppController extends Controller
                 'units.plate_number',
                 DB::raw("IF(boundaries.expected_driver_id != boundaries.driver_id AND boundaries.expected_driver_id IS NOT NULL, 1, boundaries.is_extra_driver) as is_extra")
             ]);
+
+        // Enrich actual_boundary: add paid shortage amounts so Performance chart/list reflects paid debts
+        $debtsPerDate = DB::table('driver_behavior')
+            ->where('driver_id', $driver->id)
+            ->where('incident_type', 'Short Boundary')
+            ->where('incident_date', '>=', now()->subDays(7)->toDateString())
+            ->select('incident_date', DB::raw('SUM(remaining_balance) as remaining'), DB::raw('SUM(total_charge_to_driver) as original_shortage'))
+            ->groupBy('incident_date')
+            ->get()
+            ->keyBy(function($d) { return \Carbon\Carbon::parse($d->incident_date)->toDateString(); });
+
+        $history = $history->map(function($b) use ($debtsPerDate) {
+            $date = \Carbon\Carbon::parse($b->date)->toDateString();
+            if (isset($debtsPerDate[$date])) {
+                $debt = $debtsPerDate[$date];
+                $remaining = (float) $debt->remaining;
+                $paidAmount = (float)$debt->original_shortage - $remaining;
+                $b->actual_boundary = (float)$b->actual_boundary + $paidAmount;
+            }
+            return $b;
+        });
 
         // Include the official rating so Performance.tsx gets it in one call
         $rating = $this->getDriverRatingObject($driver);

@@ -109,6 +109,8 @@ const Login: FC = () => {
   const [toast, setToast] = useState<string | null>(null);
   const [quote, setQuote] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
+  const [showFpPassword, setShowFpPassword] = useState(false);
 
   // MFA state
   const [mfaToken, setMfaToken] = useState('');
@@ -139,7 +141,17 @@ const Login: FC = () => {
   ];
 
   useState(() => { setQuote(quotes[Math.floor(Math.random() * quotes.length)]); });
-  useEffect(() => () => { if (timerRef.current) clearInterval(timerRef.current); }, []);
+  useEffect(() => {
+    // Load remembered credentials
+    const savedLogin = localStorage.getItem('remembered_login');
+    const savedPass = localStorage.getItem('remembered_password');
+    if (savedLogin && savedPass) {
+      setLoginValue(savedLogin);
+      setPassword(savedPass);
+      setRememberMe(true);
+    }
+    return () => { if (timerRef.current) clearInterval(timerRef.current); };
+  }, []);
 
   const startResendTimer = () => {
     setResendCountdown(180);
@@ -162,6 +174,14 @@ const Login: FC = () => {
     try {
       const result = await login({ login: loginValue, password });
       if (result.success) {
+        if (rememberMe) {
+          localStorage.setItem('remembered_login', loginValue);
+          localStorage.setItem('remembered_password', password);
+        } else {
+          localStorage.removeItem('remembered_login');
+          localStorage.removeItem('remembered_password');
+        }
+
         if (result.mfa_required) {
           setMfaToken(result.user_id);
           const phone = result.phone || result.email || '';
@@ -387,8 +407,20 @@ const Login: FC = () => {
                   </div>
                 </div>
 
-                {/* Forgot Password link */}
-                <div style={{ textAlign: 'right', marginBottom: '24px' }}>
+                {/* Options Row: Remember Me & Forgot Password */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <input 
+                      type="checkbox" 
+                      id="rememberMe" 
+                      checked={rememberMe} 
+                      onChange={(e) => setRememberMe(e.target.checked)} 
+                      style={{ accentColor: '#eab308', width: '16px', height: '16px', cursor: 'pointer' }} 
+                    />
+                    <label htmlFor="rememberMe" style={{ color: t.textSecondary, fontSize: '13px', cursor: 'pointer', fontWeight: '500' }}>
+                      Remember Me
+                    </label>
+                  </div>
                   <button type="button" onClick={() => setScreen('forgot_phone')} style={{
                     background: 'none',
                     border: 'none',
@@ -402,6 +434,29 @@ const Login: FC = () => {
                     Forgot Password?
                   </button>
                 </div>
+
+                {/* Inline error banner - shows full message for ban/suspend */}
+                {error && (
+                  <div style={{
+                    background: 'rgba(239,68,68,0.10)',
+                    border: '1px solid rgba(239,68,68,0.35)',
+                    borderRadius: '12px',
+                    padding: '12px 14px',
+                    marginBottom: '16px',
+                    display: 'flex',
+                    alignItems: 'flex-start',
+                    gap: '10px',
+                  }}>
+                    <span style={{ fontSize: '18px', flexShrink: 0 }}>🚫</span>
+                    <p style={{
+                      color: '#ef4444',
+                      fontSize: '13px',
+                      fontWeight: '600',
+                      margin: 0,
+                      lineHeight: '1.5',
+                    }}>{error}</p>
+                  </div>
+                )}
 
                 <IonButton expand="block" type="submit" disabled={isLoading} style={primaryBtn}>
                   {isLoading ? <IonSpinner name="crescent" /> : 'Sign In'}
@@ -522,17 +577,29 @@ const Login: FC = () => {
                 <label style={labelStyle}>New Password</label>
                 <div style={{ ...inputWrap, marginBottom: '16px' }}>
                   <IonIcon icon={lockClosedOutline} style={iconStyle()} />
-                  <IonInput type="password" value={fpPassword}
+                  <IonInput type={showFpPassword ? "text" : "password"} value={fpPassword}
                     onIonInput={(e) => setFpPassword(e.detail.value!)}
                     placeholder="••••••••" style={inputStyle} />
+                  <button type="button" onClick={() => setShowFpPassword(!showFpPassword)} style={{
+                    position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)',
+                    background: 'none', border: 'none', color: '#64748b', fontSize: '18px', zIndex: 10, padding: '8px'
+                  }}>
+                    <IonIcon icon={showFpPassword ? eyeOffOutline : eyeOutline} />
+                  </button>
                 </div>
 
                 <label style={labelStyle}>Confirm Password</label>
                 <div style={{ ...inputWrap, marginBottom: '24px' }}>
                   <IonIcon icon={lockClosedOutline} style={iconStyle()} />
-                  <IonInput type="password" value={fpConfirm}
+                  <IonInput type={showFpPassword ? "text" : "password"} value={fpConfirm}
                     onIonInput={(e) => setFpConfirm(e.detail.value!)}
                     placeholder="••••••••" style={inputStyle} />
+                  <button type="button" onClick={() => setShowFpPassword(!showFpPassword)} style={{
+                    position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)',
+                    background: 'none', border: 'none', color: '#64748b', fontSize: '18px', zIndex: 10, padding: '8px'
+                  }}>
+                    <IonIcon icon={showFpPassword ? eyeOffOutline : eyeOutline} />
+                  </button>
                 </div>
 
                 <IonButton expand="block" type="submit" disabled={isLoading} style={primaryBtn}>
@@ -546,8 +613,6 @@ const Login: FC = () => {
             &copy; 2026 EuroTaxi System. All rights reserved.
           </p>
 
-          <IonToast isOpen={!!error} message={error || ''} duration={4000}
-            onDidDismiss={() => setError(null)} color="danger" position="bottom" />
           <IonToast isOpen={!!toast} message={toast || ''} duration={2500}
             onDidDismiss={() => setToast(null)} color="success" position="bottom" />
         </div>

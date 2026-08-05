@@ -17,7 +17,7 @@ class StaffController extends Controller
 
     public function show($id)
     {
-        $staff = User::findOrFail($id);
+        $staff = User::where('id', $id)->firstOrFail();
         return response()->json(['success' => true, 'data' => $staff]);
     }
 
@@ -33,3 +33,4 @@ class StaffController extends Controller
         return response()->json(['success' => true, 'id' => $user->id]);
     }
 }
+

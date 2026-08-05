@@ -69,7 +69,11 @@ class UnitController extends Controller
             $query->where(function ($q) use ($search) {
                 $q->where('u.plate_number', 'like', "%{$search}%")
                     ->orWhere('u.make', 'like', "%{$search}%")
-                    ->orWhere('u.model', 'like', "%{$search}%");
+                    ->orWhere('u.model', 'like', "%{$search}%")
+                    ->orWhere('drv1.first_name', 'like', "%{$search}%")
+                    ->orWhere('drv1.last_name', 'like', "%{$search}%")
+                    ->orWhere('drv2.first_name', 'like', "%{$search}%")
+                    ->orWhere('drv2.last_name', 'like', "%{$search}%");
             });
         }
 
@@ -210,8 +214,8 @@ class UnitController extends Controller
             'boundary_rate' => 'required|numeric|max:100000',
             'purchase_date' => 'nullable|date|before_or_equal:'.$today,
             'purchase_cost' => 'nullable|numeric|max:1000000',
-            'motor_no' => 'required|string|max:30|regex:/^[A-Za-z0-9\-\s]+$/',
-            'chassis_no' => 'required|string|max:30|regex:/^[A-Za-z0-9\-\s]+$/',
+            'motor_no' => 'required|string|max:25|regex:/^[A-Z0-9]+$/',
+            'chassis_no' => 'required|string|max:25|regex:/^[A-Z0-9]+$/',
             'unit_type' => 'sometimes|required|in:new,old,rented',
             'coding_day' => 'nullable|string',
             'driver_id' => 'nullable|integer',
@@ -223,8 +227,8 @@ class UnitController extends Controller
             'plate_number.regex' => 'Plate number must be alphanumeric and can contain at most one space.',
             'make.regex' => 'Vehicle make cannot be pure numbers, spaces, or symbols.',
             'model.regex' => 'Vehicle model cannot be pure numbers, spaces, or symbols.',
-            'motor_no.regex' => 'Motor number must only contain letters, numbers, hyphens, or spaces.',
-            'chassis_no.regex' => 'Chassis number must only contain letters, numbers, hyphens, or spaces.',
+            'motor_no.regex' => 'Motor number must be alphanumeric with no spaces or symbols.',
+            'chassis_no.regex' => 'Chassis number must be alphanumeric with no spaces or symbols.',
             'imei.regex' => 'IMEI must be alphanumeric (hyphens allowed) with no spaces or symbols.',
             'purchase_date.before_or_equal' => 'Purchase date cannot be in the future.',
             'year.max' => 'Year cannot exceed 2026.',
@@ -312,8 +316,8 @@ class UnitController extends Controller
             'boundary_rate'        => 'required|numeric|max:100000',
             'purchase_date'        => 'nullable|date|before_or_equal:'.$today,
             'purchase_cost'        => 'nullable|numeric|max:1000000',
-            'motor_no'             => 'required|string|max:30|regex:/^[A-Za-z0-9\-\s]+$/',
-            'chassis_no'           => 'required|string|max:30|regex:/^[A-Za-z0-9\-\s]+$/',
+            'motor_no'             => 'required|string|max:25|regex:/^[A-Z0-9]+$/',
+            'chassis_no'           => 'required|string|max:25|regex:/^[A-Z0-9]+$/',
             'unit_type'            => 'sometimes|required|in:new,old,rented',
             'coding_day'           => 'nullable|string',
             'driver_id'            => 'nullable|integer',
@@ -325,8 +329,8 @@ class UnitController extends Controller
             'plate_number.regex'              => 'Plate number must be alphanumeric and can contain at most one space.',
             'make.regex'                      => 'Vehicle make cannot be pure numbers, spaces, or symbols.',
             'model.regex'                     => 'Vehicle model cannot be pure numbers, spaces, or symbols.',
-            'motor_no.regex'                  => 'Motor number must only contain letters, numbers, hyphens, or spaces.',
-            'chassis_no.regex'                => 'Chassis number must only contain letters, numbers, hyphens, or spaces.',
+            'motor_no.regex'                  => 'Motor number must be alphanumeric with no spaces or symbols.',
+            'chassis_no.regex'                => 'Chassis number must be alphanumeric with no spaces or symbols.',
             'imei.regex'                      => 'IMEI must be alphanumeric (hyphens allowed) with no spaces or symbols.',
             'purchase_date.before_or_equal'   => 'Purchase date cannot be in the future.',
             'year.max'                        => 'Year cannot exceed '.$maxYear.'.',
@@ -925,6 +929,7 @@ class UnitController extends Controller
             ->get()
             ->map(function ($unit) {
                 $unit->flag_source = 'manual_stolen';
+                $unit->uuid = $unit->id;
                 return $unit;
             });
 
@@ -942,6 +947,7 @@ class UnitController extends Controller
             ->get()
             ->map(function ($unit) {
                 $unit->flag_source = 'auto_boundary';
+                $unit->uuid = $unit->id;
                 return $unit;
             });
 
@@ -1090,14 +1096,22 @@ class UnitController extends Controller
             ->where('status', '!=', 'missing')
             ->select('id', 'plate_number', 'make', 'model', 'driver_id', 'secondary_driver_id')
             ->orderBy('plate_number')
-            ->get();
+            ->get()
+            ->map(function ($unit) {
+                $unit->uuid = $unit->id;
+                return $unit;
+            });
             
         $availableDrivers = DB::table('drivers')
             ->whereNull('deleted_at')
             ->whereNotIn('driver_status', ['banned'])
             ->select('id', 'first_name', 'last_name', 'contact_number', 'license_number')
             ->orderBy('first_name')
-            ->get();
+            ->get()
+            ->map(function ($driver) {
+                $driver->uuid = $driver->id;
+                return $driver;
+            });
 
         return view('units.flagged', compact(
             'allFlagged',
@@ -1130,9 +1144,9 @@ class UnitController extends Controller
                 $this->importExcel($file);
             }
             
-            return redirect()->route('units.index')->with('success', 'Units imported successfully!');
+            return back()->with('success', 'Units imported successfully!');
         } catch (\Exception $e) {
-            return redirect()->route('units.index')->with('error', 'Error importing file: ' . $e->getMessage());
+            return back()->with('error', 'Error importing file: ' . $e->getMessage());
         }
     }
 
@@ -1250,8 +1264,8 @@ class UnitController extends Controller
 
         foreach ($units as $unit) {
             $driverCount = 0;
-            if ($unit->driver1_name) $driverCount++;
-            if ($unit->driver2_name) $driverCount++;
+            if (trim($unit->driver1_name)) $driverCount++;
+            if (trim($unit->driver2_name)) $driverCount++;
             $unit->driver_count = $driverCount;
         }
 
@@ -1336,3 +1350,4 @@ class UnitController extends Controller
         ]);
     }
 }
+

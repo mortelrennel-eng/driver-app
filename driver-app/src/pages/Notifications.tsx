@@ -21,8 +21,9 @@ import {
 } from 'ionicons/icons';
 import { useHistory } from 'react-router-dom';
 import { useTheme } from '../context/ThemeContext';
-import axios from 'axios';
+
 import { endpoints } from '../config/api';
+import { cachedGet } from '../utils/cachedGet';
 
 interface DriverNotification {
   id: string;
@@ -43,7 +44,7 @@ const Notifications: FC = () => {
 
   const fetchNotifications = async () => {
     try {
-      const response = await axios.get(endpoints.notifications);
+      const response = await cachedGet(endpoints.notifications);
       if (response.data.success) {
         const clearedAt = localStorage.getItem('notifications_cleared_at');
         let filtered = response.data.notifications;
@@ -130,7 +131,7 @@ const Notifications: FC = () => {
             </div>
             <div>
               <div style={{ fontSize: '16px', fontWeight: '900', color: t.textPrimary, marginBottom: '2px' }}>Your Activity Feed</div>
-              <div style={{ fontSize: '12px', color: t.textSecondary, lineHeight: '1.4' }}>Track your remittances, charges, and important system notices here.</div>
+              <div style={{ fontSize: '12px', color: t.textSecondary, lineHeight: '1.4' }}>Track your remittances, debts, and important system notices here.</div>
             </div>
           </div>
 

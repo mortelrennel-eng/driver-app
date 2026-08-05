@@ -66,7 +66,7 @@ class AnnouncementController extends Controller
      */
     public function update(Request $request, $id)
     {
-        $announcement = Announcement::findOrFail($id);
+        $announcement = Announcement::where('id', $id)->firstOrFail();
         
         $request->validate([
             'title' => 'string|max:255',
@@ -91,7 +91,7 @@ class AnnouncementController extends Controller
      */
     public function destroy($id)
     {
-        $announcement = Announcement::findOrFail($id);
+        $announcement = Announcement::where('id', $id)->firstOrFail();
         $announcement->delete();
 
         return redirect()->back()->with('success', 'Announcement deleted.');
@@ -102,9 +102,10 @@ class AnnouncementController extends Controller
      */
     public function togglePin($id)
     {
-        $announcement = Announcement::findOrFail($id);
+        $announcement = Announcement::where('id', $id)->firstOrFail();
         $announcement->update(['is_pinned' => !$announcement->is_pinned]);
 
         return redirect()->back()->with('success', 'Pin status updated.');
     }
 }
+

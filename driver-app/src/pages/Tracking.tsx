@@ -21,31 +21,32 @@ import axios from 'axios';
 import { endpoints } from '../config/api';
 import { useHistory } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+
 import markerIcon from 'leaflet/dist/images/marker-icon.png';
 import markerIconRetina from 'leaflet/dist/images/marker-icon-2x.png';
 import markerShadow from 'leaflet/dist/images/marker-shadow.png';
 
-// ── Haversine: distance in km between two lat/lng points ──────────
-function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
-  const R = 6371;
+// ── Distance calculations ───────────────────────────────────────────
+const haversineDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
+  const R = 6371; // km
   const dLat = (lat2 - lat1) * Math.PI / 180;
-  const dLng = (lng2 - lng1) * Math.PI / 180;
-  const a = Math.sin(dLat / 2) ** 2 +
-    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-    Math.sin(dLng / 2) ** 2;
-  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-}
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a = 
+    Math.sin(dLat/2) * Math.sin(dLat/2) +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
+    Math.sin(dLon/2) * Math.sin(dLon/2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  return R * c;
+};
 
-// ── Calculate total path distance in km ───────────────────────────
-function calcPathDistKm(path: [number, number][]): number {
+const getPathDistance = (path: [number, number][]) => {
   let total = 0;
-  for (let i = 1; i < path.length; i++) {
-    const d = haversineKm(path[i-1][0], path[i-1][1], path[i][0], path[i][1]);
-    // Ignore GPS noise jumps > 2km between consecutive points
-    if (d < 2) total += d;
+  for (let i = 0; i < path.length - 1; i++) {
+    total += haversineDistance(path[i][0], path[i][1], path[i+1][0], path[i+1][1]);
   }
   return total;
-}
+};
+
 
 // ── Default Leaflet icon fix ───────────────────────────────────────
 const DefaultIcon = L.icon({
@@ -88,6 +89,21 @@ const nearbyIcon = L.divIcon({
   iconSize: [34, 34],
   iconAnchor: [17, 17],
   popupAnchor: [0, -20],
+});
+
+const startPinIcon = L.divIcon({
+  className: 'custom-div-icon',
+  html: `<div id="track-start-pin" style="
+    width:34px;height:34px;border-radius:50%;
+    background:linear-gradient(135deg,#22c55e,#16a34a);
+    border:3px solid white;
+    box-shadow:0 4px 14px rgba(34,197,94,0.6);
+    display:flex;align-items:center;justify-content:center;
+    font-size:18px;
+  ">🏁</div>`,
+  iconSize: [34, 34],
+  iconAnchor: [17, 34],
+  popupAnchor: [0, -36],
 });
 
 // ── MapController: handles locate-me and auto-follow ───────
@@ -206,16 +222,21 @@ const statusColor = (status: string, offline = false) => {
   if (offline) return '#ef4444';
   const s = (status || '').toLowerCase();
   if (['active', 'moving'].includes(s)) return '#22c55e';
-  if (s === 'idle') return '#fbbf24';
-  if (s === 'stopped') return '#f97316';
+  if (['idle', 'stopped', 'park', 'parked'].includes(s)) return '#fbbf24';
   return '#94a3b8';
 };
 
 const statusLabel = (status: string, offline = false) => {
   if (offline) return 'OFFLINE';
   if (!status) return 'OFFLINE';
+  const s = status.toLowerCase();
+  if (['idle', 'stopped', 'park', 'parked'].includes(s)) return 'PARK';
   return status.toUpperCase();
 };
+
+
+
+
 
 // ── Main Component ────────────────────────────────────────────────
 const Tracking: React.FC = () => {
@@ -227,10 +248,8 @@ const Tracking: React.FC = () => {
   const [position, setPosition] = useState<[number, number]>([14.5995, 120.9842]);
   const [isOffline, setIsOffline] = useState(false);
   const [rawPath, setRawPath] = useState<[number, number][]>([]);
-  const [snappedPath, setSnappedPath] = useState<[number, number][]>([]);
   const [displayAddress, setDisplayAddress] = useState('Detecting location...');
   const lastGeocodeRef = useRef<[number, number] | null>(null);
-  const [clientDistKm, setClientDistKm] = useState<number>(0);
 
   // ── Load user-specific tracking history on mount or user change ───
   useEffect(() => {
@@ -264,22 +283,6 @@ const Tracking: React.FC = () => {
       } catch (e) {}
     }
     setRawPath(loadedRaw);
-
-    // 3. Load snapped path history
-    const savedSnapped = localStorage.getItem(`tracking_snapped_path_history_${userId}`);
-    let loadedSnapped: [number, number][] = [];
-    if (savedSnapped) {
-      try {
-        const parsed = JSON.parse(savedSnapped);
-        const today = new Date().toLocaleDateString('en-PH', { timeZone: 'Asia/Manila' });
-        if (parsed.date === today && Array.isArray(parsed.path)) {
-          loadedSnapped = parsed.path;
-        }
-      } catch (e) {}
-    } else if (loadedRaw.length > 0) {
-      loadedSnapped = loadedRaw;
-    }
-    setSnappedPath(loadedSnapped);
   }, [user]);
 
 
@@ -371,8 +374,8 @@ const Tracking: React.FC = () => {
 
   const latestPosRef = useRef<[number, number]>(position);
   useEffect(() => {
-    latestPosRef.current = snappedPath.length > 0 ? snappedPath[snappedPath.length - 1] : position;
-  }, [snappedPath, position]);
+    latestPosRef.current = position;
+  }, [position]);
 
   // ── Auto-center map when returning to tab ────────────────────────
   useIonViewDidEnter(() => {
@@ -392,59 +395,6 @@ const Tracking: React.FC = () => {
       }, 300);
     });
   });
-
-  // ── Snap path to roads (OSRM) ────────────────────────────────────
-  const snappingRef = useRef(false);
-  const prevPathLen = useRef(0);
-  
-  const snapToRoad = async (path: [number, number][]) => {
-    if (path.length < 2) return path;
-    try {
-      const MAX_POINTS = 90;
-      const pointsToSnap = path.slice(-MAX_POINTS);
-      const coords = pointsToSnap.map(p => `${p[1]},${p[0]}`).join(';');
-      
-      // Use 'route' API instead of 'match' API. Route API finds the driving path between points, 
-      // which perfectly connects gaps if the app was closed!
-      const res = await axios.get(`https://router.project-osrm.org/route/v1/driving/${coords}?overview=full&geometries=geojson`, {
-        transformRequest: [(data, headers) => {
-          if (headers) delete headers['Authorization'];
-          return data;
-        }]
-      });
-      
-      if (res.data && res.data.routes && res.data.routes.length > 0) {
-        const snappedTail: [number, number][] = res.data.routes[0].geometry.coordinates.map((c: any) => [c[1], c[0]]);
-        
-        if (path.length <= MAX_POINTS) return snappedTail;
-        return [...path.slice(0, path.length - MAX_POINTS), ...snappedTail];
-      }
-    } catch (e) {}
-    return path;
-  };
-
-  useEffect(() => {
-    let active = true;
-    if (rawPath.length < 2) {
-      setSnappedPath(rawPath);
-      return;
-    }
-    if (rawPath.length === prevPathLen.current) {
-      return;
-    }
-    const processSnap = async () => {
-      if (snappingRef.current) return;
-      snappingRef.current = true;
-      const snapped = await snapToRoad(rawPath);
-      if (active) {
-        setSnappedPath(snapped);
-        prevPathLen.current = rawPath.length;
-      }
-      snappingRef.current = false;
-    };
-    processSnap();
-    return () => { active = false; };
-  }, [rawPath]);
 
   // ── Reverse Geocode based on coordinates ─────────────────────────
   useEffect(() => {
@@ -474,28 +424,6 @@ const Tracking: React.FC = () => {
     }
   }, [position, isOffline, displayAddress]);
 
-  // ── Update client-side distance whenever rawPath changes ────────
-  useEffect(() => {
-    if (rawPath.length > 1) {
-      const km = calcPathDistKm(rawPath);
-      setClientDistKm(km);
-      // Persist to localStorage so it survives page refresh
-      const userId = user?.id || 'guest';
-      localStorage.setItem(`client_dist_km_${userId}`, km.toFixed(2));
-    }
-  }, [rawPath, user]);
-
-  // ── Load persisted client distance on mount ───────────────────────
-  useEffect(() => {
-    const userId = user?.id || 'guest';
-    const saved = localStorage.getItem(`client_dist_km_${userId}`);
-    if (saved) setClientDistKm(parseFloat(saved));
-  }, [user]);
-
-  // ── Native GPS watchPosition REMOVED ───────────
-  // We strictly rely on the server's tracking data (endpoints.driverPerformance)
-  // so the map follows the UNIT's location, not the driver's phone location when offline.
-
   // ── Poll every 5 seconds & instantly on resume ───────────────────
   useEffect(() => {
     fetchTracking();
@@ -519,22 +447,18 @@ const Tracking: React.FC = () => {
 
 
 
-  // ── Locate me button handler (re-center + enable auto-follow) ───
   const handleLocateMe = () => {
-    if (mapRef.current) {
-      const targetPos = snappedPath.length > 0 ? snappedPath[snappedPath.length - 1] : position;
-      const currentZoom = mapRef.current.getZoom();
-      
-      if (currentZoom >= 17 && autoFollow) {
-        // Already following + zoomed in => zoom out
-        mapRef.current.setView(targetPos, 14, { animate: true, duration: 0.5 });
-        setIsZoomedIn(false);
-        setAutoFollow(false);
-      } else {
-        // Re-center, zoom in, and enable auto-follow
-        mapRef.current.setView(targetPos, 18, { animate: true, duration: 0.5 });
+    if (mapRef.current && position[0] !== 0) {
+      if (!isZoomedIn) {
+        // First click: zoom IN to unit
+        mapRef.current.setView(position, 19, { animate: true });
         setIsZoomedIn(true);
         setAutoFollow(true);
+      } else {
+        // Second click: zoom OUT to overview
+        mapRef.current.setView(position, 14, { animate: true });
+        setIsZoomedIn(false);
+        setAutoFollow(false);
       }
     }
   };
@@ -617,7 +541,7 @@ const Tracking: React.FC = () => {
                 }}>
                   LIVE TRACKING
                 </div>
-                <div style={{
+                <div id="track-status-badge" style={{
                   padding: '2px 6px', borderRadius: '6px', fontSize: '8px', fontWeight: '900',
                   textTransform: 'uppercase', letterSpacing: '0.5px', flexShrink: 0,
                   background: `${sc}18`, color: sc, border: `1px solid ${sc}33`,
@@ -650,9 +574,12 @@ const Tracking: React.FC = () => {
                 borderRadius: '8px', padding: '4px 8px', textAlign: 'center',
                 boxShadow: '0 4px 12px rgba(0,0,0,0.15)', backdropFilter: 'blur(8px)'
               }}>
-                {/* Use client-computed distance (haversine from GPS path) for real-time accuracy */}
+                {/* Real-time distance: max of backend value and local path calculation */}
                 <span style={{ fontSize: '13px', fontWeight: '900', color: '#2563eb' }}>
-                  {clientDistKm > 0 ? clientDistKm.toFixed(2) : (data?.today_dist || '0.0')}
+                  {Math.max(
+                    data?.today_dist ? parseFloat(data.today_dist) : 0,
+                    getPathDistance(rawPath)
+                  ).toFixed(2)}
                 </span>
                 <span style={{ fontSize: '8px', color: '#64748b', fontWeight: '700', marginLeft: '2px' }}>km</span>
               </div>
@@ -660,16 +587,17 @@ const Tracking: React.FC = () => {
           </div>
 
           {/* ── MAP ── */}
-          <MapContainer
-            center={position}
-            zoom={16}
-            maxZoom={22}
-            zoomControl={false}
-            scrollWheelZoom={true}
-            style={{ height: '100%', width: '100%', zIndex: 1 }}
-          >
+          <div id="track-map-area" style={{ height: '100%', width: '100%', zIndex: 1 }}>
+            <MapContainer
+              center={position}
+              zoom={16}
+              maxZoom={22}
+              zoomControl={false}
+              scrollWheelZoom={true}
+              style={{ height: '100%', width: '100%' }}
+            >
             <MapController
-              targetPos={snappedPath.length > 0 ? snappedPath[snappedPath.length - 1] : position}
+              targetPos={position}
               autoFollow={autoFollow}
               onReady={(map) => { mapRef.current = map; }}
               onUserInteraction={handleUserInteraction}
@@ -682,38 +610,52 @@ const Tracking: React.FC = () => {
               maxZoom={22}
             />
 
-            {/* Road-snapped or raw path */}
-            {(snappedPath.length > 1 || rawPath.length > 1) && (
+            {/* Accurate path — uses rawPath directly (no road-snapping to avoid fake routes) */}
+            {rawPath.length > 1 && (
               <>
                 {/* Glow effect */}
                 <Polyline
-                  positions={snappedPath.length > 1 ? snappedPath : rawPath}
+                  positions={rawPath}
                   pathOptions={{ color: '#93c5fd', weight: 10, opacity: 0.3, lineCap: 'round', lineJoin: 'round' }}
                 />
                 {/* Main line */}
                 <Polyline
-                  positions={snappedPath.length > 1 ? snappedPath : rawPath}
+                  positions={rawPath}
                   pathOptions={{ color: '#3b82f6', weight: 4, opacity: 0.95, lineCap: 'round', lineJoin: 'round' }}
                 />
                 {/* White dashes on top */}
                 <Polyline
-                  positions={snappedPath.length > 1 ? snappedPath : rawPath}
+                  positions={rawPath}
                   pathOptions={{ color: '#fff', weight: 1.5, opacity: 0.6, lineCap: 'round', dashArray: '8 16' }}
                 />
               </>
             )}
 
             {/* Short Red Trail directly behind the unit marker to show direction */}
-            {(snappedPath.length > 1 || rawPath.length > 1) && (
+            {rawPath.length > 1 && (
               <Polyline
-                positions={snappedPath.length > 1 ? snappedPath.slice(-3) : rawPath.slice(-3)}
+                positions={rawPath.slice(-3)}
                 pathOptions={{ color: '#ef4444', weight: 6, opacity: 0.9, lineCap: 'round', lineJoin: 'round' }}
               />
             )}
 
+            {/* Starting point pin — shows where the driver began their trip today */}
+            {rawPath.length > 0 && (
+              <Marker position={rawPath[0]} icon={startPinIcon}>
+                <Popup>
+                  <div style={{ padding: '6px', minWidth: '120px' }}>
+                    <div style={{ fontWeight: '900', fontSize: '12px', color: '#166534' }}>🏁 Trip Start</div>
+                    <div style={{ fontSize: '10px', color: '#15803d', marginTop: '4px' }}>
+                      {rawPath[0][0].toFixed(5)}, {rawPath[0][1].toFixed(5)}
+                    </div>
+                  </div>
+                </Popup>
+              </Marker>
+            )}
+
             {/* My unit marker — tap opens info card */}
             <AnimatedMarker
-              position={snappedPath.length > 0 ? snappedPath[snappedPath.length - 1] : position}
+              position={position}
               icon={myUnitIcon}
               eventHandlers={{ click: () => setShowUnitCard(v => !v) }}
             />
@@ -741,6 +683,7 @@ const Tracking: React.FC = () => {
               );
             })}
           </MapContainer>
+          </div>
 
           {/* ── GPS SIGNAL LOST BANNER ── */}
           {isOffline && (
@@ -794,6 +737,7 @@ const Tracking: React.FC = () => {
           }}>
             {/* Unit Info Button (opens unit modal) */}
             <button
+              id="track-unit-btn"
               onClick={(e) => { e.stopPropagation(); setShowUnitCard(v => !v); }}
               style={{
                 width: '44px', height: '44px',
@@ -808,6 +752,7 @@ const Tracking: React.FC = () => {
 
             {/* Nearby Drivers Button */}
             <button
+              id="track-nearby-btn"
               onClick={(e) => { e.stopPropagation(); findNearbyDrivers(); }}
               disabled={isSearching}
               style={{
@@ -827,6 +772,7 @@ const Tracking: React.FC = () => {
 
             {/* Locate Me (toggle zoom in/out) */}
             <button
+              id="track-crosshair"
               onClick={handleLocateMe}
               style={{
                 width: '44px', height: '44px',
@@ -914,7 +860,7 @@ const Tracking: React.FC = () => {
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px', marginBottom: '14px' }}>
                     {[
                       { label: 'Speed', value: (data?.gps_status || '').toLowerCase() === 'moving' ? (data?.speed || '0') : '0', unit: 'km/h', bg: '#f0fdf4', color: '#16a34a' },
-                      { label: 'Distance', value: clientDistKm > 0 ? clientDistKm.toFixed(2) : (data?.today_dist || '0.0'), unit: 'km', bg: '#eff6ff', color: '#2563eb' },
+                      { label: 'Distance', value: Math.max(data?.today_dist ? parseFloat(data.today_dist) : 0, getPathDistance(rawPath)).toFixed(2), unit: 'km', bg: '#eff6ff', color: '#2563eb' },
                       { label: 'Engine', value: data?.ignition ? 'ON' : 'OFF', unit: '', bg: data?.ignition ? '#f0fdf4' : '#f1f5f9', color: data?.ignition ? '#16a34a' : '#94a3b8' },
                     ].map((s, i) => (
                       <div key={i} style={{

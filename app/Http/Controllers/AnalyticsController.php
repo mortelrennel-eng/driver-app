@@ -75,7 +75,7 @@ class AnalyticsController extends Controller
         // ── Expense Trends ─────────────────────────────────────────────────────
         $expenseTrends = DB::table('expenses')
             ->whereNull('deleted_at')
-            ->selectRaw('DATE_FORMAT(date, "%Y-%m") as month, SUM(ABS(amount)) as total, COUNT(*) as count')
+            ->selectRaw('DATE_FORMAT(date, "%Y-%m") as month, SUM(amount) as total, COUNT(*) as count')
             ->whereBetween('date', [$date_from, $date_to])
             ->groupBy('month')->orderBy('month')->get();
 
@@ -94,7 +94,7 @@ class AnalyticsController extends Controller
 
         $fleet_pulse = [
             'active_units' => $fleetCounts['active'] ?? 0,
-            'idle_units'   => $fleetCounts['idle'] ?? 0,
+            'idle_units'   => ($fleetCounts['idle'] ?? 0) + ($fleetCounts['vacant'] ?? 0) + ($fleetCounts['coding'] ?? 0),
             'maintenance'  => $fleetCounts['maintenance'] ?? 0,
             'surveillance' => $fleetCounts['surveillance'] ?? 0,
         ];
@@ -109,12 +109,20 @@ class AnalyticsController extends Controller
         $total_shortage = $financial_totals->total_shortage ?? 0;
         
         $total_expenses = DB::table('expenses')->whereNull('deleted_at')
-            ->whereBetween('date', [$date_from, $date_to])->sum(DB::raw('ABS(amount)')) ?? 0;
+            ->whereBetween('date', [$date_from, $date_to])->sum('amount') ?? 0;
+            
+        $total_maintenance = DB::table('maintenance')->whereNull('deleted_at')
+            ->whereBetween('date_started', [$date_from, $date_to])->sum('cost') ?? 0;
+            
+        $total_salaries = DB::table('salaries')
+            ->whereBetween('pay_date', [$date_from, $date_to])->sum('total_salary') ?? 0;
+            
+        $grand_total_expenses = $total_expenses + $total_maintenance + $total_salaries;
         
         $avg_boundary_rate = DB::table('units')->whereNull('deleted_at')->avg('boundary_rate') ?? 1000;
-        $break_even_days   = $avg_boundary_rate > 0 ? ceil($total_expenses / $avg_boundary_rate) : 0;
+        $break_even_days   = $avg_boundary_rate > 0 ? ceil($grand_total_expenses / $avg_boundary_rate) : 0;
         
-        $net_income = $total_boundary - $total_expenses;
+        $net_income = $total_boundary - $grand_total_expenses;
         $revenue_leakage_pct = $total_boundary > 0 ? round(($total_shortage / ($total_boundary + $total_shortage)) * 100, 1) : 0;
 
         // ── Operational Efficiency ───────────────────────────────────────────
@@ -145,7 +153,7 @@ class AnalyticsController extends Controller
 
         $expense_by_category = DB::table('expenses')
             ->whereNull('deleted_at')
-            ->selectRaw('category, SUM(ABS(amount)) as total, COUNT(*) as count')
+            ->selectRaw('category, SUM(amount) as total, COUNT(*) as count')
             ->whereBetween('date', [$date_from, $date_to])
             ->groupBy('category')->orderByDesc('total')->get();
 
@@ -202,38 +210,38 @@ class AnalyticsController extends Controller
         // ─────────────────────────────────────────────────────────────────────
 
         // Batch-query all monthly boundaries in one go
-        $sixMonthsAgo = date('Y-m-01', strtotime('-5 months'));
-        $today        = date('Y-m-t');
+        $sixMonthsAgo = date('Y-m-01', strtotime('first day of -6 months'));
+        $lastMonthEnd = date('Y-m-t', strtotime('last day of -1 month'));
 
         $monthlyBoundaries = DB::table('boundaries')
             ->whereNull('deleted_at')
-            ->whereBetween('date', [$sixMonthsAgo, $today])
+            ->whereBetween('date', [$sixMonthsAgo, $lastMonthEnd])
             ->selectRaw('DATE_FORMAT(date, "%Y-%m") as month, SUM(actual_boundary) as total')
             ->groupByRaw('DATE_FORMAT(date, "%Y-%m")')
             ->get()->pluck('total', 'month');
 
         $monthlyExpenses = DB::table('expenses')
             ->whereNull('deleted_at')
-            ->whereBetween('date', [$sixMonthsAgo, $today])
-            ->selectRaw('DATE_FORMAT(date, "%Y-%m") as month, SUM(ABS(amount)) as total')
+            ->whereBetween('date', [$sixMonthsAgo, $lastMonthEnd])
+            ->selectRaw('DATE_FORMAT(date, "%Y-%m") as month, SUM(amount) as total')
             ->groupByRaw('DATE_FORMAT(date, "%Y-%m")')
             ->get()->pluck('total', 'month');
 
         $monthlyMaintenance = DB::table('maintenance')
             ->whereNull('deleted_at')
-            ->whereBetween('date_started', [$sixMonthsAgo, $today])
+            ->whereBetween('date_started', [$sixMonthsAgo, $lastMonthEnd])
             ->selectRaw('DATE_FORMAT(date_started, "%Y-%m") as month, SUM(cost) as total')
             ->groupByRaw('DATE_FORMAT(date_started, "%Y-%m")')
             ->get()->pluck('total', 'month');
 
         $monthlySalaries = DB::table('salaries')
-            ->whereBetween('pay_date', [$sixMonthsAgo, $today])
+            ->whereBetween('pay_date', [$sixMonthsAgo, $lastMonthEnd])
             ->selectRaw('DATE_FORMAT(pay_date, "%Y-%m") as month, SUM(total_salary) as total')
             ->groupByRaw('DATE_FORMAT(pay_date, "%Y-%m")')
             ->get()->pluck('total', 'month');
 
         $income_history = [];
-        for ($i = 5; $i >= 0; $i--) {
+        for ($i = 6; $i >= 1; $i--) {
             $monthKey   = date('Y-m', strtotime("-$i months"));
             $monthLabel = date('M Y', strtotime("-$i months"));
 
@@ -367,14 +375,19 @@ class AnalyticsController extends Controller
             ->map(function ($unit) {
                 $avgDailyBoundary = (float)$unit->avg_daily_boundary;
                 $operatingDays    = (int)$unit->operating_days;
-
-                // Average daily maintenance cost over 90 days
-                $avgDailyMaint = $operatingDays > 0
-                    ? round((float)$unit->total_maint_cost / 90, 2)
-                    : 0;
-
-                $netDailyProfit     = round($avgDailyBoundary - $avgDailyMaint, 2);
-                $predictedMonthly   = round($netDailyProfit * 30, 2);
+                
+                // Total boundary over the 90-day period
+                $totalBoundary = $avgDailyBoundary * $operatingDays;
+                
+                // Calculate actual monthly averages based on the 3-month (90 day) window
+                $monthlyBoundary = $totalBoundary / 3;
+                $monthlyMaint = (float)$unit->total_maint_cost / 3;
+                
+                $predictedMonthly = round($monthlyBoundary - $monthlyMaint, 2);
+                $netDailyProfit   = round($predictedMonthly / 30, 2);
+                
+                // Average daily maintenance cost over 90 calendar days
+                $avgDailyMaint = round((float)$unit->total_maint_cost / 90, 2);
 
                 return [
                     'plate'               => $unit->plate_number,
@@ -792,7 +805,7 @@ class AnalyticsController extends Controller
         $expenses = DB::table('expenses')
             ->whereNull('deleted_at')
             ->whereBetween('date', [$date_from, $date_to])
-            ->selectRaw('date, SUM(ABS(amount)) as expenses')
+            ->selectRaw('date, SUM(amount) as expenses')
             ->groupBy('date')
             ->get()
             ->keyBy('date');
@@ -865,7 +878,7 @@ class AnalyticsController extends Controller
                 'expenses.category',
                 'expenses.description',
                 'expenses.vendor_name',
-                DB::raw('ABS(expenses.amount) as amount'),
+                DB::raw('expenses.amount as amount'),
                 'expenses.payment_method',
                 'expenses.reference_number',
                 'expenses.status',

@@ -1,0 +1,342 @@
+/* public/assets/css/tutorial.css */
+
+/* Driver.js Custom Overrides for Premium SaaS Look */
+.driver-overlay {
+    background: transparent !important;
+}
+
+/* Style the SVG cutout path directly so the hole remains transparent */
+.driver-overlay path {
+    fill: rgb(15, 23, 42) !important;
+    opacity: 0.7 !important;
+}
+
+.driver-popover {
+    border-radius: 16px !important;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.1) !important;
+    background: rgba(17, 24, 39, 0.95) !important;
+    backdrop-filter: blur(16px) !important;
+    padding: 24px !important;
+    font-family: inherit !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    max-width: 380px !important;
+    color: #f3f4f6 !important;
+    z-index: 100005 !important;
+    animation: popover-fade-in 0.4s ease forwards !important;
+}
+
+@keyframes popover-fade-in {
+    0% { opacity: 0; }
+    100% { opacity: 1; }
+}
+
+/* Hide default Driver.js arrow */
+.driver-popover-arrow {
+    display: none !important;
+}
+
+.driver-popover-title {
+    font-size: 1.25rem !important;
+    font-weight: 800 !important;
+    color: #ffffff !important;
+    margin-bottom: 12px !important;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    letter-spacing: -0.025em;
+}
+
+.driver-popover-description {
+    font-size: 0.95rem !important;
+    color: #9ca3af !important; /* Tailwind gray-400 */
+    line-height: 1.6 !important;
+    margin-bottom: 24px !important;
+}
+
+.driver-popover-footer {
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: flex-start !important;
+    align-items: stretch !important;
+    gap: 16px !important;
+    margin-top: 16px !important;
+}
+
+.tutorial-progress-text {
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: #60a5fa; /* Tailwind blue-400 */
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 8px;
+    display: block;
+}
+
+.driver-popover-navigation-btns {
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    width: 100% !important;
+    gap: 12px !important;
+}
+
+.driver-popover button {
+    border-radius: 10px !important;
+    padding: 10px 16px !important;
+    font-size: 0.9rem !important;
+    font-weight: 600 !important;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    border: none !important;
+    cursor: pointer !important;
+    text-shadow: none !important;
+}
+
+.driver-popover-next-btn {
+    background-color: #3b82f6 !important; /* Tailwind blue-500 */
+    color: white !important;
+    flex: 1;
+    display: flex !important;
+    justify-content: center !important;
+    align-items: center !important;
+    box-shadow: 0 4px 6px -1px rgba(59, 130, 246, 0.3), 0 2px 4px -1px rgba(59, 130, 246, 0.2) !important;
+}
+
+.driver-popover-next-btn:hover {
+    background-color: #2563eb !important;
+    transform: translateY(-1px) !important;
+    box-shadow: 0 10px 15px -3px rgba(59, 130, 246, 0.4), 0 4px 6px -2px rgba(59, 130, 246, 0.2) !important;
+}
+
+.driver-popover-prev-btn {
+    background-color: transparent !important;
+    color: #9ca3af !important;
+    border: 1px solid rgba(255,255,255,0.1) !important;
+    flex: 1;
+}
+
+.driver-popover-prev-btn:hover {
+    background-color: rgba(255,255,255,0.05) !important;
+    color: #ffffff !important;
+}
+
+.driver-popover-close-btn {
+    color: #9ca3af !important;
+    position: absolute !important;
+    top: 16px !important;
+    right: 16px !important;
+    background: transparent !important;
+    padding: 6px !important;
+    border-radius: 50% !important;
+    font-size: 1.2rem !important;
+    line-height: 1 !important;
+}
+
+.driver-popover-close-btn:hover {
+    color: #ffffff !important;
+    background: rgba(255,255,255,0.1) !important;
+}
+
+.tutorial-skip-link {
+    color: #6b7280;
+    font-size: 0.85rem;
+    font-weight: 500;
+    text-align: center;
+    cursor: pointer;
+    transition: color 0.2s;
+    margin-top: 8px;
+    background: none;
+    border: none;
+    display: block;
+    width: 100%;
+}
+.tutorial-skip-link:hover {
+    color: #9ca3af;
+    text-decoration: underline;
+}
+
+/* Hide next button if step requires click */
+.tutorial-force-click .driver-popover-next-btn {
+    display: none !important;
+}
+
+/* Highlighted Target Element Styling */
+.driver-active-element {
+    box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.5), 0 0 20px 5px rgba(59, 130, 246, 0.7) !important;
+    animation: tutorial-target-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* Pulse and Glow Animation for Target */
+@keyframes tutorial-target-pulse {
+    0%, 100% {
+        box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.4), 0 0 20px 5px rgba(59, 130, 246, 0.6);
+    }
+    50% {
+        box-shadow: 0 0 0 6px rgba(59, 130, 246, 0.7), 0 0 30px 10px rgba(59, 130, 246, 0.9);
+    }
+}
+
+/* Ripple Click Effect */
+.tutorial-ripple {
+    position: absolute;
+    border-radius: 50%;
+    transform: scale(0);
+    animation: ripple-animation 0.6s linear;
+    background-color: rgba(255, 255, 255, 0.7);
+    pointer-events: none;
+    z-index: 100000;
+}
+
+@keyframes ripple-animation {
+    to {
+        transform: scale(4);
+        opacity: 0;
+    }
+}
+
+/* Hand-drawn Arrow SVG Wrapper */
+.tutorial-arrow-wrapper {
+    position: absolute;
+    width: 120px;
+    height: 120px;
+    pointer-events: none;
+    z-index: 100006;
+}
+
+.tutorial-curved-arrow {
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+    animation: arrow-float 2s ease-in-out infinite;
+}
+
+.tutorial-curved-arrow path {
+    fill: none;
+    stroke: #60a5fa;
+    stroke-width: 4;
+    stroke-linecap: round;
+    animation: dash-flow 0.8s linear infinite;
+}
+
+@keyframes dash-flow {
+    from { stroke-dashoffset: 24; }
+    to { stroke-dashoffset: 0; }
+}
+
+@keyframes arrow-float {
+    0%, 100% { transform: translate(0, 0); }
+    50% { transform: translate(5px, 5px); }
+}
+
+/* Hide native driver.js 1 of 1 progress text since we use our own custom Step header */
+.driver-popover-progress-text {
+    display: none !important;
+}
+
+/* Positioning classes applied to the wrapper */
+.arrow-pos-right {
+    left: -130px;
+    top: -40px;
+}
+.arrow-pos-left {
+    right: -130px;
+    top: -40px;
+}
+.arrow-pos-bottom {
+    top: -130px;
+    left: 50%;
+    margin-left: -60px; /* center horizontally, width is 120 */
+}
+.arrow-pos-top {
+    bottom: -130px;
+    left: 50%;
+    margin-left: -60px;
+}
+
+/* Bottom Progress Bar */
+#tutorial-global-progress {
+    position: fixed;
+    bottom: 30px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 9999999 !important;
+    background: rgba(17, 24, 39, 0.85);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(255,255,255,0.1);
+    padding: 12px 24px;
+    border-radius: 9999px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    box-shadow: 0 10px 25px -5px rgba(0,0,0,0.5);
+    animation: slide-up 0.4s ease-out forwards;
+    pointer-events: auto !important;
+}
+
+@keyframes slide-up {
+    from { opacity: 0; transform: translate(-50%, 20px); }
+    to { opacity: 1; transform: translate(-50%, 0); }
+}
+
+.tutorial-progress-track {
+    position: relative;
+    width: 200px;
+    height: 4px;
+    background: rgba(255,255,255,0.1);
+    border-radius: 2px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.tutorial-progress-fill {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    background: #3b82f6;
+    border-radius: 2px;
+    transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    z-index: 1;
+}
+
+.tutorial-progress-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.2);
+    z-index: 2;
+    transition: all 0.3s;
+}
+
+.tutorial-progress-dot.active {
+    background: #ffffff;
+    box-shadow: 0 0 8px rgba(255,255,255,0.8);
+    transform: scale(1.3);
+}
+
+.tutorial-exit-btn {
+    background: transparent;
+    border: none;
+    color: #9ca3af;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: color 0.2s;
+    padding-left: 12px;
+    border-left: 1px solid rgba(255,255,255,0.1);
+}
+
+.tutorial-exit-btn:hover {
+    color: #ef4444;
+}
+
+@keyframes tutorialArrowFadeIn {
+    from { opacity: 0; transform: scale(0.9); }
+    to { opacity: 1; transform: scale(1); }
+}
+.arrow-fade-in {
+    animation: tutorialArrowFadeIn 0.3s ease forwards;
+}

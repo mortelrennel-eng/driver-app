@@ -46,7 +46,7 @@
             65% { transform: translateY(-5px); }
             80% { transform: translateY(3px); }
             95% { transform: translateY(-1px); }
-            100% { transform: translateY(0); }
+            100% { transform: translateY(0); opacity: 1; visibility: visible; }
         }
 
         .logo-bounce {
@@ -91,7 +91,7 @@
 
         @keyframes slideUp {
             from { opacity: 0; transform: translateY(20px); }
-            to { opacity: 1; transform: translateY(0); }
+            to { opacity: 1; transform: translateY(0); opacity: 1; visibility: visible; }
         }
 
         @media (max-width: 768px) {
@@ -163,8 +163,7 @@
             box-shadow: 0 10px 15px -3px rgba(59, 130, 246, 0.5);
         }
         .btn-primary:active {
-            transform: translateY(0);
-        }
+            transform: translateY(0); opacity: 1; visibility: visible; }
         .resend-btn {
             background: transparent;
             color: #6b7280;

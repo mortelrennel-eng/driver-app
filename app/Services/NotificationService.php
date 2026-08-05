@@ -32,7 +32,7 @@ class NotificationService
                     $exists = DB::table('system_alerts')
                         ->where('type', $type)
                         ->where('title', $title)
-                        ->where('is_resolved', false)
+                        ->where('created_at', '>=', now()->subDays(30)) // Only prevent re-insertion within 30 days
                         ->exists();
                     if (!$exists) {
                         DB::table('system_alerts')->insert([
@@ -70,7 +70,7 @@ class NotificationService
                             ->where('type', $type)
                             ->where('title', $title)
                             ->where('message', $msg)
-                            ->where('is_resolved', false)
+                            ->where('created_at', '>=', now()->subDays(30)) // Only prevent re-insertion within 30 days
                             ->exists();
                         if (!$exists) {
                             DB::table('system_alerts')->insert([
@@ -99,7 +99,7 @@ class NotificationService
                         ->where('type', $type)
                         ->where('title', $title)
                         ->where('message', $msg)
-                        ->where('is_resolved', false)
+                        ->where('created_at', '>=', now()->subDays(30))
                         ->exists();
                     if (!$exists) {
                         DB::table('system_alerts')->insert([
@@ -123,7 +123,7 @@ class NotificationService
                     $existingAlert = DB::table('system_alerts')
                         ->where('type', $type)
                         ->where('title', 'like', '%: ' . $p->name)
-                        ->where('is_resolved', false)
+                        ->where('created_at', '>=', now()->subDays(30))
                         ->first();
                     if (!$existingAlert) {
                         DB::table('system_alerts')->insert([
@@ -169,7 +169,7 @@ class NotificationService
                     $exists = DB::table('system_alerts')
                         ->where('type', $type)
                         ->where('title', $title)
-                        ->where('is_resolved', false)
+                        ->where('created_at', '>=', now()->subDays(30))
                         ->exists();
                     if (!$exists) {
                         DB::table('system_alerts')->insert([
@@ -211,7 +211,7 @@ class NotificationService
                     $exists = DB::table('system_alerts')
                         ->where('type', $type)
                         ->where('title', $title)
-                        ->where('is_resolved', false)
+                        ->where('created_at', '>=', now()->subDays(30))
                         ->exists();
                     if (!$exists) {
                         DB::table('system_alerts')->insert([
@@ -240,6 +240,7 @@ class NotificationService
                 // Fetch everything directly from system_alerts which has 100% parity with pushes!
                 $dbAlerts = DB::table('system_alerts')
                     ->where('is_resolved', false)
+                    ->whereNull('user_id') // Exclude driver-specific targeted alerts
                     ->orderByDesc('created_at')
                     ->limit(500)
                     ->get();
@@ -339,7 +340,7 @@ class NotificationService
                     DB::table('system_alerts')->insert([
                         'type' => 'coding_notice',
                         'title' => 'Coding Alert Today!',
-                        'message' => "ALERTO: Coding po ang unit niyo ({$unit->plate_number}) ngayong {$todayName}. Mag-ingat po!",
+                        'message' => "ALERT: Your unit ({$unit->plate_number}) is coding today ({$todayName}). Drive safely!",
                         'user_id' => $user->id,
                         'is_resolved' => false,
                         'created_at' => now(),
@@ -349,7 +350,7 @@ class NotificationService
 
                 $success = \App\Services\FirebasePushService::sendPush(
                     'Coding Alert Today!',
-                    "ALERTO: Coding po ang unit niyo ({$unit->plate_number}) ngayong {$todayName}. Mag-ingat po!",
+                    "ALERT: Your unit ({$unit->plate_number}) is coding today ({$todayName}). Drive safely!",
                     $user->fcm_token,
                     'coding'
                 );
@@ -488,15 +489,35 @@ class NotificationService
             ->get();
 
         foreach ($systemAlerts as $a) {
+            // Use the actual type stored in DB (e.g. 'notice' for payment received)
+            // Do NOT hardcode 'system' — that overrides the real type and loses the notification appearance
+            $alertType     = $a->type ?? 'system';
+            $alertSeverity = 'info';
+            $alertIcon     = 'megaphone-outline';
+
+            if ($alertType === 'notice') {
+                $alertSeverity = 'success';
+                $alertIcon     = 'checkmark-circle-outline';
+            } elseif ($alertType === 'at_risk') {
+                $alertSeverity = 'danger';
+                $alertIcon     = 'alert-octagon-outline';
+            } elseif ($alertType === 'violation_alert') {
+                $alertSeverity = 'warning';
+                $alertIcon     = 'alert-circle-outline';
+            } elseif ($alertType === 'remittance') {
+                $alertSeverity = 'success';
+                $alertIcon     = 'cash-outline';
+            }
+
              $feed[] = [
-                'id' => 'system_' . $a->id,
-                'type' => 'system',
-                'title' => $a->title,
-                'message' => $a->message,
-                'timestamp' => $a->created_at,
+                'id'           => 'system_' . $a->id,
+                'type'         => $alertType,
+                'title'        => $a->title,
+                'message'      => $a->message,
+                'timestamp'    => $a->created_at,
                 'time_display' => Carbon::parse($a->created_at)->diffForHumans(),
-                'severity' => 'info',
-                'icon' => 'megaphone-outline'
+                'severity'     => $alertSeverity,
+                'icon'         => $alertIcon,
             ];
         }
 
@@ -541,5 +562,92 @@ class NotificationService
         if (!$user || !$user->fcm_token) return false;
 
         return \App\Services\FirebasePushService::sendPush($title, $body, $user->fcm_token, $type);
+    }
+
+    /**
+     * Send push notification for boundary shortage.
+     */
+    public static function sendBoundaryShortageNotification($driverId, $date, $amount)
+    {
+        $driver = DB::table('drivers')->where('id', $driverId)->first();
+        if (!$driver || !$driver->user_id) return false;
+
+        $user = \App\Models\User::find($driver->user_id);
+        if (!$user || !$user->fcm_token) return false;
+
+        $dateStr = \Carbon\Carbon::parse($date)->format('M d, Y');
+        $amountStr = number_format($amount, 2);
+        
+        $title = 'Boundary Shortage Alert';
+        $body = "ALERT: You have a boundary shortage of ₱{$amountStr} for {$dateStr}.";
+
+        DB::table('system_alerts')->insert([
+            'type' => 'remittance',
+            'title' => $title,
+            'message' => $body,
+            'user_id' => $user->id,
+            'is_resolved' => false,
+            'created_at' => now(),
+            'updated_at' => now()
+        ]);
+
+        return \App\Services\FirebasePushService::sendPush($title, $body, $user->fcm_token, 'shortage');
+    }
+
+    /**
+     * Send push notification for missing boundary/absent.
+     */
+    public static function sendMissingBoundaryNotification($driverId, $date)
+    {
+        $driver = DB::table('drivers')->where('id', $driverId)->first();
+        if (!$driver || !$driver->user_id) return false;
+
+        $user = \App\Models\User::find($driver->user_id);
+        if (!$user || !$user->fcm_token) return false;
+
+        $dateStr = \Carbon\Carbon::parse($date)->format('M d, Y');
+        
+        $title = 'Missing Boundary Alert';
+        $body = "ALERT: You missed your boundary remittance for {$dateStr}.";
+
+        DB::table('system_alerts')->insert([
+            'type' => 'remittance',
+            'title' => $title,
+            'message' => $body,
+            'user_id' => $user->id,
+            'is_resolved' => false,
+            'created_at' => now(),
+            'updated_at' => now()
+        ]);
+
+        return \App\Services\FirebasePushService::sendPush($title, $body, $user->fcm_token, 'missing_boundary');
+    }
+
+    /**
+     * Send push notification for driver suspension or ban.
+     */
+    public static function sendDriverStatusNotification($driverId, $status)
+    {
+        $driver = DB::table('drivers')->where('id', $driverId)->first();
+        if (!$driver || !$driver->user_id) return false;
+
+        $user = \App\Models\User::find($driver->user_id);
+        if (!$user || !$user->fcm_token) return false;
+
+        $statusUpper = strtoupper($status);
+        $title = 'Account Status Update';
+        $body = "NOTICE: Your account status has been changed to {$statusUpper}. Please contact admin.";
+
+        DB::table('system_alerts')->insert([
+            'type' => 'system_alert',
+            'title' => $title,
+            'message' => $body,
+            'user_id' => $user->id,
+            'is_resolved' => false,
+            'created_at' => now(),
+            'updated_at' => now()
+        ]);
+
+        return \App\Services\FirebasePushService::sendPush($title, $body, $user->fcm_token, 'status_update');
     }
 }

@@ -1,0 +1,118 @@
+Smart Pull — 2026-07-16T06:27:57.210Z
+Pulled: 106
+Skipped: 1013
+Errors: 1
+
+Pulled Files:
+app/helpers.php
+app/Services/DecisionSupportService.php
+app/Services/NotificationService.php
+app/Http/Controllers/ChatController.php
+app/Http/Controllers/StaffController.php
+app/Http/Controllers/SalaryController.php
+app/Http/Controllers/NotificationController.php
+app/Http/Controllers/ActivityLogController.php
+app/Http/Controllers/DriverBehaviorController.php
+app/Http/Controllers/OfficeExpenseV4Controller.php
+app/Http/Controllers/UnitProfitabilityController.php
+app/Http/Controllers/ArchiveController.php
+app/Http/Controllers/DashboardController.php
+app/Http/Controllers/OfficeExpensesController.php
+app/Http/Controllers/AnalyticsController.php
+app/Http/Controllers/Api/NotificationController.php
+app/Http/Controllers/Api/DashboardController.php
+app/Http/Controllers/SuperAdminController.php
+app/Http/Middleware/PageAccessMiddleware.php
+app/Models/User.php
+resources/views/activity-log/index.blade.php
+resources/views/driver-behavior/accidents.blade.php
+resources/views/driver-behavior/index.blade.php
+resources/views/analytics/index.blade.php
+resources/views/layouts/app.blade.php
+resources/views/inventory/index.blade.php
+resources/views/office-expenses/partials/_expenses_table.blade.php
+resources/views/office-expenses/index.blade.php
+resources/views/my-account/index.blade.php
+resources/views/driver-management/pending-debts.blade.php
+resources/views/super-admin/index.blade.php
+resources/views/staff/admin.blade.php
+resources/views/staff/StaffController.php
+resources/views/staff/drivers.blade.php
+resources/views/staff/index.blade.php
+resources/views/archive/partials/_user_accounts_table.blade.php
+resources/views/archive/partials/_driver_accounts_table.blade.php
+resources/views/archive/partials/_boundaries_table.blade.php
+resources/views/archive/partials/_suppliers_table.blade.php
+resources/views/archive/partials/_units_table.blade.php
+resources/views/archive/partials/_franchise_cases_table.blade.php
+resources/views/archive/partials/_drivers_table.blade.php
+resources/views/archive/partials/_incidents_table.blade.php
+resources/views/archive/partials/_expenses_table.blade.php
+resources/views/archive/partials/_staff_table.blade.php
+resources/views/archive/partials/_maintenance_table.blade.php
+resources/views/archive/partials/_accidents_table.blade.php
+resources/views/archive/partials/_pricing_rules_table.blade.php
+resources/views/archive/partials/_spare_parts_table.blade.php
+resources/views/archive/partials/_driver_terms_table.blade.php
+resources/views/archive/index.blade.php
+resources/views/partials/chat-drawer.blade.php
+resources/views/live-tracking/index.blade.php
+resources/views/dashboard.blade.php
+resources/views/unit-profitability/index.blade.php
+resources/views/support/show.blade.php
+resources/views/support/index.blade.php
+resources/views/boundaries/index.blade.php
+routes/web.php
+database/migrations/2026_07_03_220711_add_reactions_to_chat_messages_table.php
+database/migrations/2026_07_03_214937_add_attachment_columns_to_chat_messages_table.php
+database/migrations/2026_07_03_221639_add_reply_to_id_to_chat_messages_table.php
+database/migrations/2026_07_04_135753_add_is_forwarded_to_chat_messages_table.php
+database/migrations/2026_07_04_200000_add_tutorial_completed_to_users_table.php
+public/probe_chat7.php
+public/assets/js/tutorial.js
+public/assets/css/tutorial.css
+public/test_key2.php
+public/test_analytics.php
+public/probe_chat10.php
+public/test_key3.php
+public/clear_cache.php
+public/test_ai.php
+public/probe_chat3.php
+public/sw.js
+public/migrate_chat.php
+public/probe_chat8.php
+public/run_migration.php
+public/migrate_reactions.php
+public/check_reactions.php
+public/check_status.php
+public/uploads/driver_docs/pnp_11_1783031167.jpg
+public/uploads/driver_docs/pnp_11_1783031187.jpg
+public/uploads/archives/terms/1782903667_1781059933_674217085_1633178314579704_8625597238355068036_n.jpg
+public/uploads/archives/terms/1782999267_Screenshot 2026-06-16 124543.png
+public/uploads/support_attachments/1783000550_1000052195.jpg
+public/uploads/support_attachments/1783030405_1000052204.jpg
+public/uploads/accident_photos/1782980883_accident.jpg
+public/uploads/accident_photos/1782981816_accident.jpg
+public/uploads/accident_photos/1782993716_accident.jpg
+public/uploads/accident_photos/1782982319_accident.jpg
+public/uploads/accident_photos/1783030930_accident.jpg
+public/fix_water.php
+public/test_analytics2.php
+public/probe_chat.php
+public/test_ai2.php
+public/test_analytics3.php
+public/test_key.php
+public/probe_chat4.php
+public/probe_chat6.php
+public/probe_chat9.php
+public/chat_debug.txt
+public/check3.php
+bootstrap/cache/packages.php
+bootstrap/cache/services.php
+.env
+
+Up-to-date (skipped):
+.htaccess (local is up-to-date)
+composer.json (local is up-to-date)
+artisan (local is up-to-date)
+index.php (local is up-to-date)

@@ -78,14 +78,18 @@
     {{-- ── Controls Bar ─────────────────────────────────── --}}
     <div class="flex flex-col lg:flex-row gap-4 justify-between items-center bg-white p-4 rounded-2xl border border-gray-100 shadow-sm">
 
-        {{-- Search --}}
+        @php $searchId = 'search_' . Str::random(10); @endphp
         <div class="relative w-full lg:max-w-xs">
+            <!-- Ultimate Chrome Autofill Defeater -->
+            <input type="email" name="fake_email_1" style="opacity: 0; position: absolute; height: 1px; width: 1px; z-index: -1;" tabindex="-1" autocomplete="username">
+            <input type="password" name="fake_pass_1" style="opacity: 0; position: absolute; height: 1px; width: 1px; z-index: -1;" tabindex="-1" autocomplete="current-password">
+            
             <span class="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">
                 <i data-lucide="search" class="w-4 h-4"></i>
             </span>
-            <input type="text" id="flagSearchInput" placeholder="Search plate, make, model…"
-                   autocomplete="off" spellcheck="false" readonly onfocus="this.removeAttribute('readonly');"
-                   class="w-full pl-11 pr-4 py-3 text-sm border-2 border-gray-100 rounded-xl focus:border-orange-400/40 focus:ring-4 focus:ring-orange-400/8 transition-all outline-none bg-slate-50/50">
+            <input type="text" id="{{ $searchId }}" name="{{ $searchId }}" placeholder="Search plate, make, model, driver…"
+                   autocomplete="new-password" spellcheck="false" role="presentation"
+                   class="js-flag-search w-full pl-11 pr-4 py-3 text-sm border-2 border-gray-100 rounded-xl focus:border-orange-400/40 focus:ring-4 focus:ring-orange-400/8 transition-all outline-none bg-slate-50/50">
         </div>
 
         {{-- Filter tabs --}}
@@ -136,9 +140,9 @@
         @endphp
 
         <div class="flag-card bg-white rounded-[2rem] border border-gray-100 shadow-sm overflow-hidden flex flex-col"
-             id="flagcard-{{ $unit->id }}"
+             id="flagcard-{{ $unit->uuid }}"
              data-flag-source="{{ $unit->flag_source }}"
-             data-search-terms="{{ strtolower($unit->plate_number . ' ' . $unit->make . ' ' . $unit->model) }}">
+             data-search-terms="{{ strtolower($unit->plate_number . ' ' . $unit->make . ' ' . $unit->model . ' ' . ($unit->suspect_driver ?? '') . ' ' . ($unit->last_known_driver ?? '')) }}">
 
             {{-- Card Header --}}
             <div class="p-6 bg-slate-50/60 border-b border-gray-50 flex items-start gap-4">
@@ -151,7 +155,7 @@
                         <span class="px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-widest border {{ $badgeCss }}">{{ $badgeText }}</span>
                     </div>
                     <p class="text-xs text-slate-500 font-bold mt-0.5">{{ $unit->make }} {{ $unit->model }} @if(!empty($unit->year))({{ $unit->year }})@endif</p>
-                    <p class="text-[10px] text-slate-400 mt-0.5 font-bold uppercase tracking-widest">Unit ID: UNT-{{ str_pad($unit->id, 4, '0', STR_PAD_LEFT) }}</p>
+                    <p class="text-[10px] text-slate-400 mt-0.5 font-bold uppercase tracking-widest">Unit ID: UNT-{{ str_pad($unit->uuid, 4, '0', STR_PAD_LEFT) }}</p>
                 </div>
             </div>
 
@@ -160,7 +164,15 @@
                 <div class="grid grid-cols-2 gap-4">
                     <div class="space-y-0.5">
                         <span class="text-[9px] font-black text-slate-400 uppercase tracking-widest block">Status</span>
-                        <span class="text-xs font-black text-slate-800 capitalize">{{ str_replace('_', ' ', $unit->status) }}</span>
+                        <span class="text-xs font-black text-red-600 capitalize">
+                            @if(($unit->flag_source ?? '') === 'auto_boundary')
+                                Missing (Auto-Flagged)
+                            @elseif(($unit->flag_source ?? '') === 'manual_stolen')
+                                Missing (Manual Flag)
+                            @else
+                                {{ str_replace('_', ' ', $unit->status) }}
+                            @endif
+                        </span>
                     </div>
                     <div class="space-y-0.5">
                         <span class="text-[9px] font-black text-slate-400 uppercase tracking-widest block">Days Inactive</span>
@@ -229,27 +241,27 @@
 
             {{-- Card Footer Actions --}}
             <div class="p-5 border-t border-gray-50 bg-slate-50 flex justify-between items-center gap-2 relative z-10 pointer-events-auto">
-                <button type="button" onclick="viewUnitDetails({{ $unit->id }})"
+                <button type="button" onclick="viewUnitDetails({{ $unit->uuid }})"
                    class="flex items-center gap-1.5 px-3 py-2 text-[10px] font-black text-slate-600 bg-white border border-gray-200 rounded-xl hover:bg-slate-100 transition-all cursor-pointer">
                     <i data-lucide="eye" class="w-3.5 h-3.5"></i> View
                 </button>
                 
                 @if($isMissing)
                 <button type="button"
-                        onclick="recoverUnit({{ $unit->id }}, '{{ $unit->plate_number }}')"
+                        onclick="recoverUnit({{ $unit->uuid }}, '{{ $unit->plate_number }}')"
                         class="relative z-50 pointer-events-auto flex items-center gap-1.5 px-4 py-2 bg-slate-900 hover:bg-slate-700 text-white text-[10px] font-black rounded-xl transition-all active:scale-95 shadow-md cursor-pointer">
                     <i data-lucide="shield-check" class="w-3.5 h-3.5 text-emerald-400"></i> Mark Recovered
                 </button>
                 @else
                 <div class="flex items-center gap-2">
                     <button type="button"
-                            onclick="ignoreFlag({{ $unit->id }}, '{{ $unit->plate_number }}')"
+                            onclick="ignoreFlag({{ $unit->uuid }}, '{{ $unit->plate_number }}')"
                             class="relative z-50 pointer-events-auto flex items-center gap-1.5 px-3 py-2 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 text-[10px] font-black rounded-xl transition-all active:scale-95 cursor-pointer"
                             title="Postpone this alert for 24 hours">
                         <i data-lucide="clock" class="w-3.5 h-3.5 text-orange-500"></i> Ignore
                     </button>
                     <button type="button"
-                            onclick="openManualFlagModal({{ $unit->id }})"
+                            onclick="openManualFlagModal({{ $unit->uuid }})"
                             class="relative z-50 pointer-events-auto flex items-center gap-1.5 px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-[10px] font-black rounded-xl transition-all active:scale-95 shadow-md shadow-red-500/20 cursor-pointer">
                         <i data-lucide="alert-triangle" class="w-3.5 h-3.5"></i> Mark Missing
                     </button>
@@ -332,7 +344,7 @@
                                         </div>
                                         @foreach($availableUnits as $u)
                                             <div class="unit-option px-3 py-2.5 rounded-lg hover:bg-slate-50 cursor-pointer transition-all border border-transparent hover:border-slate-200" 
-                                                 data-id="{{ $u->id }}" 
+                                                 data-id="{{ $u->uuid }}" 
                                                  data-primary="{{ $u->primary_driver_id ?? '' }}" 
                                                  data-secondary="{{ $u->secondary_driver_id ?? '' }}"
                                                  data-search="{{ strtolower($u->plate_number . ' ' . $u->make . ' ' . $u->model) }}">
@@ -379,9 +391,9 @@
                                         </div>
                                         @foreach($availableDrivers as $d)
                                             <div class="driver-option px-3 py-2 hover:bg-red-50 cursor-pointer border-b border-gray-100 last:border-b-0"
-                                                 data-id="{{ $d->id }}"
+                                                 data-id="{{ $d->uuid }}"
                                                  data-name="{{ $d->first_name }} {{ $d->last_name }}"
-                                                 onclick="selectDriver('{{ $d->id }}', '{{ addslashes($d->first_name . ' ' . $d->last_name) }}')">
+                                                 onclick="selectDriver('{{ $d->uuid }}', '{{ addslashes($d->first_name . ' ' . $d->last_name) }}')">
                                                 <div class="font-black text-sm text-gray-900">{{ $d->first_name }} {{ $d->last_name }}</div>
                                                 <div class="text-[11px] font-bold text-gray-500">{{ $d->contact_number }}</div>
                                             </div>
@@ -423,7 +435,7 @@
                     <div class="p-4 bg-amber-50 rounded-xl border border-amber-200 flex gap-3">
                         <i data-lucide="info" class="w-5 h-5 text-amber-500 shrink-0 mt-0.5"></i>
                         <p class="text-xs text-amber-700 font-medium leading-relaxed">
-                            Flagging a unit as <strong>Missing/Stolen</strong> will log a critical incident on the assigned driver's behavior record. The unit will remain flagged until manually recovered.
+                            Flagging a unit as <strong>Missing/Stolen</strong> will log a critical incident on the suspect driver's behavior record (if selected).<br> The unit will remain flagged until manually recovered.
                         </p>
                     </div>
                 </div>
@@ -667,7 +679,8 @@
     }
 
     function filterCards() {
-        const query = (document.getElementById('flagSearchInput')?.value || '').trim().toLowerCase();
+        const searchInput = document.querySelector('.js-flag-search');
+        const query = (searchInput?.value || '').trim().toLowerCase();
         const cards = document.querySelectorAll('.flag-card');
         const noResults = document.getElementById('noSearchResults');
         let visible = 0;
@@ -708,7 +721,8 @@
         filterCards();
     }
 
-    document.getElementById('flagSearchInput')?.addEventListener('input', filterCards);
+    const searchInput = document.querySelector('.js-flag-search');
+    searchInput?.addEventListener('input', filterCards);
 
     function recoverUnit(unitId, plateName) {
         if (!confirm(`Mark unit "${plateName}" as RECOVERED?\nThis will reset its status back to Active.`)) return;
@@ -839,3 +853,4 @@
 @include('units.partials._unit_details_shared')
 
 @endsection
+

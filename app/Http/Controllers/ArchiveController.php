@@ -19,13 +19,13 @@ class ArchiveController extends Controller
 {
     public function index()
     {
-        $archivedUnits = Unit::onlyTrashed()->orderByDesc('deleted_at')->get();
-        $archivedDrivers = Driver::onlyTrashed()->orderByDesc('deleted_at')->get();
-        $archivedExpenses = Expense::onlyTrashed()->orderByDesc('deleted_at')->get();
-        $archivedBoundaries = Boundary::onlyTrashed()->orderByDesc('deleted_at')->get();
-        $archivedMaintenance = Maintenance::with('unit')->onlyTrashed()->orderByDesc('deleted_at')->get();
-        $archivedFranchiseCases = FranchiseCase::onlyTrashed()->orderByDesc('deleted_at')->get();
-        $archivedStaff = Staff::onlyTrashed()->orderByDesc('deleted_at')->get();
+        $archivedUnits = Unit::onlyTrashed()->get();
+        $archivedDrivers = Driver::onlyTrashed()->get();
+        $archivedExpenses = Expense::onlyTrashed()->get();
+        $archivedBoundaries = Boundary::onlyTrashed()->get();
+        $archivedMaintenance = Maintenance::with('unit')->onlyTrashed()->get();
+        $archivedFranchiseCases = FranchiseCase::onlyTrashed()->get();
+        $archivedStaff = Staff::onlyTrashed()->get();
         $archivedIncidents = \App\Models\DriverBehavior::onlyTrashed()
             ->leftJoin('units as u', 'driver_behavior.unit_id', '=', 'u.id')
             ->leftJoin('drivers as d', 'driver_behavior.driver_id', '=', 'd.id')
@@ -33,18 +33,24 @@ class ArchiveController extends Controller
                 'driver_behavior.*',
                 'u.plate_number',
                 DB::raw("TRIM(CONCAT(COALESCE(d.first_name,''), ' ', COALESCE(d.last_name,''))) as driver_name")
-            )->orderByDesc('driver_behavior.deleted_at')->get();
+            )->get();
         
-        $archivedPricingRules = BoundaryRule::onlyTrashed()->orderByDesc('deleted_at')->get();
-        $archivedSuppliers = Supplier::onlyTrashed()->orderByDesc('deleted_at')->get();
+        $archivedPricingRules = BoundaryRule::onlyTrashed()->get();
+        $archivedSuppliers = Supplier::onlyTrashed()->get();
+        $archivedSpareParts = \App\Models\SparePart::onlyTrashed()->get();
+        $archivedAccidents = \App\Models\RescueRequest::with(['driver', 'unit'])->onlyTrashed()->get();
 
         // ─── Archived User Accounts (System Login Access) ───
         $archivedUserAccounts = \App\Models\User::onlyTrashed()
             ->where('role', '!=', 'super_admin')
-            ->orderByDesc('deleted_at')
             ->get();
 
-
+        // ─── Archived Driver Terms ───
+        $termsArchiveDir = public_path('uploads/archives/terms');
+        $archivedDriverTerms = [];
+        if (file_exists($termsArchiveDir)) {
+            $archivedDriverTerms = array_values(array_diff(scandir($termsArchiveDir), ['.', '..']));
+        }
 
         return view('archive.index', compact(
             'archivedUnits',
@@ -55,9 +61,12 @@ class ArchiveController extends Controller
             'archivedFranchiseCases',
             'archivedStaff',
             'archivedIncidents',
+            'archivedAccidents',
             'archivedPricingRules',
             'archivedSuppliers',
-            'archivedUserAccounts'
+            'archivedSpareParts',
+            'archivedUserAccounts',
+            'archivedDriverTerms'
         ));
     }
 
@@ -68,23 +77,9 @@ class ArchiveController extends Controller
             return back()->with('error', 'Invalid model type.');
         }
 
-        $item = $model::withTrashed()->findOrFail($id);
+        $item = $model::withTrashed()->where('id', $id)->firstOrFail();
         $name = $item->plate_number ?? ($item->full_name ?? ($item->name ?? ($item->case_no ?? ($item->description ?? ("ID# " . $item->id)))));
         $item->restore();
-
-        // If the item is a User, make sure to clear the disabled flags so they can log in
-        if ($type === 'user') {
-            $item->update([
-                'is_disabled' => false,
-                'disable_reason' => null
-            ]);
-            
-            // Also attempt to mark their driver profile as available if it was banned
-            $driver = \App\Models\Driver::where('user_id', $item->id)->first();
-            if ($driver && $driver->driver_status === 'banned') {
-                $driver->update(['driver_status' => 'available']);
-            }
-        }
 
         system_log("Restored " . ucfirst($type), "Item: {$name} was restored from the system archive.");
 
@@ -117,7 +112,7 @@ class ArchiveController extends Controller
             return back()->with('error', 'Invalid model type.');
         }
 
-        $item = $model::withTrashed()->findOrFail($id);
+        $item = $model::withTrashed()->where('id', $id)->firstOrFail();
         $name = $item->plate_number ?? ($item->full_name ?? ($item->name ?? ($item->case_no ?? ($item->description ?? ("ID# " . $item->id)))));
 
         // Safety: Unlink any driver records before permanently deleting a User
@@ -146,11 +141,14 @@ class ArchiveController extends Controller
             'franchise_case' => FranchiseCase::class,
             'staff' => Staff::class,
             'incident' => \App\Models\DriverBehavior::class,
+            'accident' => \App\Models\RescueRequest::class,
             'pricing_rule' => BoundaryRule::class,
             'supplier' => Supplier::class,
+            'spare_part' => \App\Models\SparePart::class,
             'user' => \App\Models\User::class,
 
             default => null,
         };
     }
 }
+

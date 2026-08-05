@@ -502,8 +502,7 @@
             }
 
             100% {
-                transform: translateY(0);
-            }
+                transform: translateY(0); opacity: 1; visibility: visible; }
         }
 
         .logo-bounce {

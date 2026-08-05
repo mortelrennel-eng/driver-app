@@ -173,8 +173,7 @@ async function updateFleetData() {
 
             // Auto-follow logic: pan map to followed unit
             if (followingUnitId && markers[followingUnitId]) {
-                const latlng = markers[followingUnitId].getLatLng();
-                map.panTo(latlng, { animate: true, duration: 1 });
+                centerMapOnPopup(followingUnitId, true);
             }
         } else {
             // Mark API as degraded if response comes back but not success
@@ -273,9 +272,10 @@ function sortUnitList() {
 function updateListItemUI(unit) {
     const item = document.querySelector(`.unit-item[data-unit-id="${unit.unit_id}"]`);
     if (!item) return;
-
-    // Update status dataset
+    // Update dataset for search filtering
     item.dataset.status = unit.gps_status;
+    item.dataset.driverName = unit.driver_name || '';
+    item.dataset.secondaryDriver = unit.secondary_driver || '';
     
     const badgeContainer = item.querySelector('.status-badge');
     let badgeHtml = '';
@@ -631,7 +631,7 @@ function updateMarker(unit) {
 
     // Popup content - always uses best available address so template never shows "Loading address..." unnecessarily
     const popupContent = `
-        <div class="p-4 min-w-[280px] font-sans pro-popup-container">
+        <div class="p-4 w-full font-sans pro-popup-container box-border">
             <div class="flex items-center justify-between border-b border-gray-100 pb-3 mb-3">
                 <div class="flex flex-col">
                     <div class="font-black text-gray-900 text-xl tracking-tight">${unit.plate_number}</div>
@@ -784,17 +784,24 @@ function updateMarker(unit) {
     } else {
         markers[unit.unit_id].bindPopup(popupContent, {
             className: 'pro-popup',
-            maxWidth: 300,
-            offset: [220, 200],
-            autoPan: true,
-            autoPanPaddingTopLeft:     L.point(60, 140),
-            autoPanPaddingBottomRight: L.point(60,  60),
+            maxWidth: 310,
+            minWidth: 310,
+            offset: [0, -35],
+            autoPan: false
         });
     }
 
     // Register popupopen handler (only runs when popup was NOT open during this update)
     markers[unit.unit_id].off('popupopen');
     markers[unit.unit_id].on('popupopen', function() {
+        // Add animation class only on fresh open (not during live data refresh)
+        const popupEl = markers[unit.unit_id]._popup?._container;
+        if (popupEl) {
+            popupEl.classList.add('popup-just-opened');
+            // Remove it after animation completes so re-renders don't re-animate
+            setTimeout(() => popupEl.classList.remove('popup-just-opened'), 350);
+        }
+
         if (typeof lucide !== 'undefined') lucide.createIcons();
         const addressEl = document.getElementById(`address-${unit.unit_id}`);
         if (addressEl) {
@@ -840,6 +847,37 @@ async function syncUnitStats(unitId) {
     }
 }
 
+function centerMapOnPopup(unitId, animate = true) {
+    if (!markers[unitId]) return;
+    const marker = markers[unitId];
+    const latlng = marker.getLatLng();
+    const popupEl = marker._popup?._container;
+    
+    if (popupEl && marker.isPopupOpen()) {
+        const zoom = Math.max(map.getZoom(), 16);
+        const px = map.project(latlng, zoom);
+        
+        // CSS translates the popup wrapper 200px right and 50% down 
+        // (so its center vertically aligns with the car marker).
+        // Therefore, the visual center of the popup is exactly at the car marker's Y,
+        // and +200px on X.
+        px.x += 200;
+        
+        const targetLatLng = map.unproject(px, zoom);
+        if (animate) {
+            map.flyTo(targetLatLng, zoom, { animate: true, duration: 0.5 });
+        } else {
+            map.setView(targetLatLng, zoom, { animate: false });
+        }
+    } else {
+        if (animate) {
+            map.flyTo(latlng, Math.max(map.getZoom(), 16), { animate: true, duration: 0.5 });
+        } else {
+            map.setView(latlng, Math.max(map.getZoom(), 16), { animate: false });
+        }
+    }
+}
+
 function selectUnitItem(unitId) {
     const previousSelection = document.querySelector('.unit-item.selected');
     if (previousSelection) previousSelection.classList.remove('selected');
@@ -857,9 +895,8 @@ function selectUnitItem(unitId) {
     
     // Zoom to Marker
     if (markers[unitId]) {
-        const latlng = markers[unitId].getLatLng();
-        map.flyTo(latlng, 16);
         markers[unitId].openPopup();
+        centerMapOnPopup(unitId, true);
         
         // Re-render the popup content to physically show the "Following" button state
         const marker = markers[unitId];

@@ -9,8 +9,6 @@
 
 <style>
 /* ── General ── */
-.stat-card   { transition: box-shadow .2s, border-color .2s; }
-.stat-card:hover { box-shadow: 0 4px 24px -4px rgba(15,23,42,.1); }
 
 /* ── Driver summary cards ── */
 .driver-card {
@@ -177,19 +175,27 @@
         </div>
 
         {{-- Search with full autofill prevention --}}
-        <div class="relative w-full sm:w-64" id="search-container">
+        <div class="relative w-full sm:w-auto flex flex-col sm:flex-row items-center gap-2" id="search-container">
             <div style="position:absolute;width:1px;height:1px;overflow:hidden;opacity:0;pointer-events:none;" aria-hidden="true">
                 <input type="text"  name="fake_name_trap" tabindex="-1">
                 <input type="email" name="email"          tabindex="-1">
                 <input type="password" name="password"   tabindex="-1">
             </div>
-            <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
-                <i data-lucide="search" class="w-4 h-4 text-gray-400"></i>
+            <div id="dateFilterContainer" class="hidden relative w-full sm:w-auto">
+                <input type="date" id="dateFilter" class="w-full sm:w-auto pl-4 pr-9 py-2.5 text-sm font-semibold text-gray-700 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:border-slate-400 focus:ring-0 outline-none transition-all cursor-pointer">
+                <button type="button" id="clearDateBtn" class="hidden absolute right-2 top-1/2 -translate-y-1/2 w-6 h-6 flex items-center justify-center text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-full transition-colors" title="Clear Date">
+                    <i data-lucide="x" class="w-4 h-4"></i>
+                </button>
             </div>
-            <input type="text" id="searchInput" name="driver_search_xq9"
-                autocomplete="new-password" readonly
-                placeholder="Search driver or plate…"
-                class="w-full pl-10 pr-4 py-2.5 text-sm font-semibold text-gray-700 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:border-slate-400 focus:ring-0 outline-none transition-all cursor-text">
+            <div class="relative w-full sm:w-64">
+                <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
+                    <i data-lucide="search" class="w-4 h-4 text-gray-400"></i>
+                </div>
+                <input type="text" id="searchInput" name="driver_search_xq9"
+                    autocomplete="new-password" readonly
+                    placeholder="Search driver or plate…"
+                    class="w-full pl-10 pr-4 py-2.5 text-sm font-semibold text-gray-700 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:border-slate-400 focus:ring-0 outline-none transition-all cursor-text">
+            </div>
         </div>
     </div>
 
@@ -295,14 +301,31 @@ document.addEventListener('DOMContentLoaded', function () {
         this.removeAttribute('readonly');
         if (this.value && this.value.includes('@')) this.value = '';
     }, { once: true });
-    si.addEventListener('input', e => {
-        const val = e.target.value.toLowerCase();
+    const df = document.getElementById('dateFilter');
+    const dfc = document.getElementById('dateFilterContainer');
+    const clrBtn = document.getElementById('clearDateBtn');
+    
+    function handleSearch() {
+        const val = si.value.toLowerCase();
+        const dVal = df ? df.value : '';
+        if (clrBtn) {
+            if (dVal) clrBtn.classList.remove('hidden');
+            else clrBtn.classList.add('hidden');
+        }
         if (document.getElementById('tab-active').classList.contains('active')) {
             filterCards(val);
         } else {
-            renderHistoryList(val);
+            renderHistoryList(val, dVal);
         }
-    });
+    }
+    si.addEventListener('input', handleSearch);
+    if(df) df.addEventListener('change', handleSearch);
+    if(clrBtn) {
+        clrBtn.addEventListener('click', () => {
+            if(df) df.value = '';
+            handleSearch();
+        });
+    }
 });
 
 /* ─── Tab switcher ────────────────────────────────────── */
@@ -312,19 +335,23 @@ function switchTab(tab) {
     const contA = document.getElementById('pendingDebtsContent');
     const contH = document.getElementById('debtHistoryContent');
     const srchInput = document.getElementById('searchInput');
+    const dateInput = document.getElementById('dateFilter');
+    const dfContainer = document.getElementById('dateFilterContainer');
 
     if (tab === 'active') {
         tabA.classList.add('active');    tabH.classList.remove('active');
         tabH.classList.add('text-gray-500'); tabA.classList.remove('text-gray-500');
         contA.classList.remove('hidden'); contH.classList.add('hidden');
         srchInput.placeholder = "Search driver or plate…";
+        if(dfContainer) dfContainer.classList.add('hidden');
         renderCards(srchInput.value.toLowerCase(), 1);
     } else {
         tabH.classList.add('active');    tabA.classList.remove('active');
         tabA.classList.add('text-gray-500'); tabH.classList.remove('text-gray-500');
         contH.classList.remove('hidden'); contA.classList.add('hidden');
-        srchInput.placeholder = "Search driver, plate, or date (e.g. Apr 22)…";
-        renderHistoryList(srchInput.value.toLowerCase());
+        srchInput.placeholder = "Search driver, plate, or date…";
+        if(dfContainer) dfContainer.classList.remove('hidden');
+        renderHistoryList(srchInput.value.toLowerCase(), dateInput ? dateInput.value : '');
     }
 }
 
@@ -387,13 +414,15 @@ function updateActiveStats() {
 /* ─── Debt type helper ────────────────────────────────── */
 function debtMeta(debt) {
     const d = (debt.description || '').toLowerCase();
-    if (debt.is_boundary_shortage)
+    const type = (debt.incident_type || '').toLowerCase();
+    if (type === 'short boundary' || type === 'short_boundary' || debt.is_boundary_shortage)
         return { icon:'trending-down', label:'Boundary Shortage', badge:'badge-shortage', color:'#be123c', dotCls:'bg-rose-400' };
-    if (d.includes('damage') || d.includes('accident'))
+    if (type.includes('damage') || type === 'vehicle damage' || d.includes('damage') || d.includes('accident'))
         return { icon:'car-front',     label:'Vehicle Damage',    badge:'badge-damage',   color:'#c2410c', dotCls:'bg-orange-400' };
-    if (d.includes('part') || d.includes('missing'))
+    if (type.includes('part') || d.includes('part') || d.includes('missing'))
         return { icon:'wrench',        label:'Missing Parts',     badge:'badge-parts',    color:'#b45309', dotCls:'bg-amber-400' };
-    return     { icon:'alert-triangle',label:'General Liability', badge:'badge-general',  color:'#475569', dotCls:'bg-slate-400' };
+    const fallbackLabel = debt.incident_type ? debt.incident_type : 'General Liability';
+    return     { icon:'alert-triangle',label: fallbackLabel, badge:'badge-general',  color:'#475569', dotCls:'bg-slate-400' };
 }
 
 /* ─── Render driver summary CARDS ─────────────────────── */
@@ -775,17 +804,7 @@ function handlePaymentSubmit(e, form, driverName, debtType, maxBalance, debtId) 
 /* ─── Fetch history ───────────────────────────────────── */
 function getDateCategory(dateStr) {
     const d = new Date(dateStr);
-    const today = new Date();
-    today.setHours(0,0,0,0);
-    const itemDate = new Date(d);
-    itemDate.setHours(0,0,0,0);
-    const diffTime = today - itemDate;
-    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-
-    if (diffDays === 0) return 'Today';
-    if (diffDays === 1) return 'Yesterday';
-    if (diffDays <= 7) return 'Past 7 Days';
-    return 'Older';
+    return d.toLocaleDateString('en-US', { month: 'long', year: 'numeric' }).toUpperCase();
 }
 
 function renderGroupedList(items, type) {
@@ -800,7 +819,11 @@ function renderGroupedList(items, type) {
         groups[cat].push(item);
     });
 
-    const order = ['Today', 'Yesterday', 'Past 7 Days', 'Older'];
+    // Sort the month-year categories descending (newest first)
+    const order = Object.keys(groups).sort((a, b) => {
+        return new Date(b) - new Date(a);
+    });
+
     let html = '';
 
     order.forEach(cat => {
@@ -865,26 +888,29 @@ function renderGroupedList(items, type) {
     return html;
 }
 
-function renderHistoryList(searchTerm = '') {
+function renderHistoryList(searchTerm = '', searchDate = '') {
     if (!allHistoryData || !allHistoryData.settled) return;
 
     let filteredSettled = allHistoryData.settled;
     let filteredPayments = allHistoryData.payments;
 
-    if (searchTerm) {
+    if (searchTerm || searchDate) {
         filteredSettled = allHistoryData.settled.filter(item => {
             const dateStr = new Date(item.date).toLocaleDateString('en-PH', {month:'short', day:'numeric', year:'numeric'}).toLowerCase();
-            return (item.driver_name && item.driver_name.toLowerCase().includes(searchTerm)) ||
+            const mText = !searchTerm || (item.driver_name && item.driver_name.toLowerCase().includes(searchTerm)) ||
                    (item.unit_plate && item.unit_plate.toLowerCase().includes(searchTerm)) ||
-                   dateStr.includes(searchTerm) ||
-                   item.date.includes(searchTerm);
+                   dateStr.includes(searchTerm) || item.date.includes(searchTerm);
+            const mDate = !searchDate || item.date.startsWith(searchDate);
+            return mText && mDate;
         });
 
         filteredPayments = allHistoryData.payments.filter(item => {
             const dateStr = new Date(item.date).toLocaleDateString('en-PH', {month:'short', day:'numeric', year:'numeric'}).toLowerCase();
-            return dateStr.includes(searchTerm) || 
+            const mText = !searchTerm || dateStr.includes(searchTerm) || 
                    item.date.includes(searchTerm) ||
                    (item.description && item.description.toLowerCase().includes(searchTerm));
+            const mDate = !searchDate || item.date.startsWith(searchDate);
+            return mText && mDate;
         });
     }
 

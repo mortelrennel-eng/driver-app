@@ -10,8 +10,8 @@ class SalaryController extends Controller
 {
     public function index(Request $request)
     {
-        $month = $request->input('month', date('m'));
-        $year = $request->input('year', date('Y'));
+        $date_from = $request->input('date_from', date('Y-m-01'));
+        $date_to = $request->input('date_to', date('Y-m-d'));
         $search = $request->input('search', '');
 
         // 1. Table Query (Recent Salaries)
@@ -44,24 +44,21 @@ class SalaryController extends Controller
             });
         }
 
-        if ($request->filled('date')) {
-            $query->whereDate('s.pay_date', $request->date);
-        }
+        // Always filter by date range so table and summary are synchronized
+        $query->whereBetween('s.pay_date', [$date_from, $date_to]);
 
         // Table shows all recent records regardless of month, ordered by latest creation
         $salaries = $query->orderBy('s.created_at', 'desc')->get();
 
-        // 2. Summary Query (Strictly Filtered Month)
+        // 2. Summary Query (Strictly Filtered Date)
         $monthlyRecords = DB::table('salaries')
-            ->where('month', $month)
-            ->where('year', $year)
+            ->whereBetween('pay_date', [$date_from, $date_to])
             ->get();
  
         // Calculate income from boundaries for net profit
         $total_income = DB::table('boundaries')
             ->whereNull('deleted_at')
-            ->whereMonth('date', $month)
-            ->whereYear('date', $year)
+            ->whereBetween('date', [$date_from, $date_to])
             ->sum('actual_boundary') ?? 0;
  
         // Calculate totals/summary using filtered records
@@ -113,7 +110,7 @@ class SalaryController extends Controller
             ->orderBy('name')
             ->get();
 
-        return view('salary.index', compact('salaries', 'summary', 'search', 'employees', 'month', 'year'));
+        return view('salary.index', compact('salaries', 'summary', 'search', 'employees', 'date_from', 'date_to'));
     }
 
     public function store(Request $request)
@@ -126,8 +123,8 @@ class SalaryController extends Controller
             'holiday_pay' => 'nullable|integer|min:1|max:99999',
             'night_differential' => 'nullable|integer|min:1|max:99999',
             'allowance' => 'nullable|integer|min:1|max:99999',
-            'month' => 'required|integer|min:1|max:12',
-            'year' => 'required|integer|min:2020|max:2030',
+            'month' => 'required|numeric|min:1|max:12',
+            'year' => 'required|numeric|min:2020|max:2030',
             'pay_date' => 'required|date',
         ]);
 
@@ -245,3 +242,4 @@ class SalaryController extends Controller
         return view('salary.report', compact('records', 'month', 'year', 'totals'));
     }
 }
+

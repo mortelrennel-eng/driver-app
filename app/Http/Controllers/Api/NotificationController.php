@@ -42,6 +42,22 @@ class NotificationController extends Controller
 
                 $type = $notif['type'] ?? 'notice';
                 switch ($type) {
+                    case 'notice':
+                        // Payment received / debt settlement notifications
+                        $severity = 'success';
+                        $icon = 'checkmark-circle-outline';
+                        break;
+                    case 'remittance':
+                        $severity = $notif['severity'] ?? 'success';
+                        $icon = 'cash-outline';
+                        break;
+                    case 'incident':
+                        $severity = $notif['severity'] ?? 'warning';
+                        $icon = 'alert-circle-outline';
+                        break;
+                    case 'system':
+                        // Keep whatever severity was already set by getDriverFeed
+                        break;
                     case 'at_risk':
                         $severity = 'danger';
                         $icon = 'alert-octagon-outline';
@@ -235,7 +251,7 @@ class NotificationController extends Controller
                     } elseif (is_array($readData)) {
                         $nowMs = time() * 1000;
                         foreach ($readData as $id => $timestamp) {
-                            if ($nowMs - $timestamp < 1800000) {
+                            if ($nowMs - $timestamp < 2592000000) {
                                 $readNotifIds[] = (string)$id;
                             }
                         }

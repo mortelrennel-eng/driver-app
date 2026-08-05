@@ -16,10 +16,7 @@ const baseLocal = 'c:\\xampp\\htdocs\\eurotaxisystem-main\\';
 const baseRemote = '/home/u747826271/domains/eurotaxisystem.site/public_html/';
 
 const filesToUpload = [
-    'app/Http/Controllers/Api/DriverAppController.php',
-    'app/Services/FirebasePushService.php',
-    'app/Http/Controllers/DriverBehaviorController.php',
-    'routes/api.php',
+    { local: 'app/Http/Controllers/Api/DriverAppController.php', remote: 'app/Http/Controllers/Api/DriverAppController.php' }
 ];
 
 async function upload() {
@@ -27,11 +24,11 @@ async function upload() {
         console.log('Connecting...');
         await sftp.connect(config);
         console.log('Connected!');
-        for (const file of filesToUpload) {
-            const local = path.join(baseLocal, file);
-            const remote = baseRemote + file;
+        for (const fileObj of filesToUpload) {
+            const local = path.join(baseLocal, fileObj.local);
+            const remote = baseRemote + fileObj.remote;
             await sftp.fastPut(local, remote);
-            console.log('✅ Uploaded: ' + file);
+            console.log('✅ Uploaded: ' + fileObj.local);
         }
         console.log('All done!');
     } catch (err) {

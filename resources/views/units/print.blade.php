@@ -3,116 +3,39 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Units Management Report - {{ date('Y-m-d') }}</title>
+    <title>Units Management Report &mdash; {{ date('Y-m-d') }}</title>
     <style>
-        @page {
-            size: A4;
-            margin: 20mm;
-        }
-        body {
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            font-size: 11pt;
-            color: #1a202c;
-            line-height: 1.5;
-            margin: 0;
-            padding: 0;
-        }
-        .header {
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-start;
-            border-bottom: 2px solid #e2e8f0;
-            padding-bottom: 20px;
-            margin-bottom: 30px;
-        }
-        .header-left h1 {
-            margin: 0;
-            color: #2d3748;
-            font-size: 24pt;
-            letter-spacing: -0.02em;
-        }
-        .header-left p {
-            margin: 5px 0 0 0;
-            color: #718096;
-            font-size: 10pt;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-        }
-        .header-right {
-            text-align: right;
-            color: #718096;
-            font-size: 9pt;
-        }
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-bottom: 30px;
-        }
-        th {
-            background-color: #f7fafc;
-            color: #4a5568;
-            font-weight: 700;
-            text-align: left;
-            padding: 12px 10px;
-            border-bottom: 2px solid #edf2f7;
-            text-transform: uppercase;
-            font-size: 8pt;
-            letter-spacing: 0.05em;
-        }
-        td {
-            padding: 12px 10px;
-            border-bottom: 1px solid #edf2f7;
-            font-size: 10pt;
-            vertical-align: top;
-        }
-        .unit-number {
-            font-weight: 700;
-            color: #2d3748;
-        }
-        .badge {
-            display: inline-block;
-            padding: 2px 8px;
-            border-radius: 9999px;
-            font-size: 7pt;
-            font-weight: 700;
-            text-transform: uppercase;
-        }
-        .badge-active { background-color: #def7ec; color: #03543f; }
-        .badge-maintenance { background-color: #fef3c7; color: #92400e; }
-        .badge-coding { background-color: #fde2e2; color: #9b1c1c; }
-        
-        .footer {
-            margin-top: 50px;
-            border-top: 1px solid #e2e8f0;
-            padding-top: 20px;
-            text-align: center;
-            font-size: 9pt;
-            color: #a0aec0;
-        }
-        
-        @media print {
-            .no-print { display: none; }
-            body { padding: 0; }
-            .header { margin-top: 0; }
-        }
+        @page { margin: 0; size: auto; }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { background: #fff; font-family: 'Segoe UI', system-ui, sans-serif; padding: 8mm 15mm 15mm 15mm; color: #111; font-size: 11px; }
+        h1 { text-align: center; font-size: 20px; font-weight: 900; text-transform: uppercase; letter-spacing: .15em; margin-bottom: 4px; }
+        .subtitle { text-align: center; font-size: 10px; color: #64748b; font-weight: 700; letter-spacing: .15em; text-transform: uppercase; margin-bottom: 32px; }
+        table { width: 100%; border-collapse: collapse; margin-bottom: 24px; }
+        thead tr { border-bottom: 1px solid #000; }
+        thead th { padding: 8px 10px; font-size: 9px; text-transform: uppercase; font-weight: 800; text-align: left; letter-spacing: .05em; }
+        thead th.center { text-align: center; }
+        thead th.right { text-align: right; }
+        tr { page-break-inside: avoid; break-inside: avoid; }
+        tbody tr { border-bottom: 1px solid #eee; }
+        td { padding: 8px 10px; font-size: 11px; vertical-align: top; }
+        td.center { text-align: center; font-weight: bold; }
+        td.right { text-align: right; font-weight: 900; }
+        .unit-number { font-weight: 900; font-size: 12px; color: #000; }
+        .unit-desc { font-size: 9px; color: #64748b; text-transform: uppercase; margin-top: 2px; }
+        .footer { text-align: center; margin-top: 40px; padding-top: 16px; border-top: 1px dashed #ccc; font-size: 9px; color: #777; }
+        img { max-height: 60px !important; width: auto !important; display: block; margin: 0 auto 15px auto; }
+        .header-meta { display: flex; justify-content: space-between; font-size: 10px; font-weight: bold; margin-bottom: 20px; text-transform: uppercase; border-bottom: 1px solid #000; padding-bottom: 10px; color: #333; }
+        .print-only { display: block !important; }
     </style>
 </head>
 <body onload="window.print()">
-    <div class="no-print" style="background: #ebf8ff; padding: 10px; text-align: center; border-bottom: 1px solid #bee3f8; color: #2b6cb0; font-size: 12px;">
-        This is a print-optimized view. The print dialog should open automatically. Use <strong>"Save as PDF"</strong> to download.
-        <button onclick="window.print()" style="margin-left: 20px; padding: 5px 15px; background: #3182ce; color: white; border: none; border-radius: 4px; cursor: pointer;">Open Print Dialog</button>
-    </div>
-
-    <div class="header">
-        <div class="header-left">
-            <img src="{{ asset('uploads/logo.png') }}" alt="Euro System Logo" style="height: 50px; margin-bottom: 5px; display: block;">
-            <p style="margin-top: 5px;">Units & Drivers Management Report</p>
-        </div>
-        <div class="header-right">
-            <div>Report Generated:</div>
-            <div style="font-weight: bold; color: #2d3748;">{{ date('F d, Y H:i:s') }}</div>
-            <div style="margin-top: 5px;">Total Units: <strong>{{ count($units) }}</strong></div>
-        </div>
+    <img src="{{ asset('image/logo.png') }}" alt="Euro System Logo">
+    <h1>UNITS & DRIVERS MANAGEMENT REPORT</h1>
+    <p class="subtitle">EURO TAXI MANAGEMENT SYSTEM &mdash; OFFICIAL RECORD</p>
+    
+    <div class="header-meta">
+        <div>Total Registered Units: {{ count($units) }}</div>
+        <div>Timestamp: {{ date('M d, Y H:i:s') }}</div>
     </div>
 
     <table>
@@ -121,8 +44,8 @@
                 <th>Unit Info</th>
                 <th>Primary Driver (D1)</th>
                 <th>Secondary Driver (D2)</th>
-                <th style="text-align: center;">Drivers</th>
-                <th>Rate</th>
+                <th class="center">Drivers</th>
+                <th class="right">Boundary Rate</th>
             </tr>
         </thead>
         <tbody>
@@ -130,19 +53,19 @@
             <tr>
                 <td>
                     <div class="unit-number">{{ $unit->plate_number }}</div>
-                    <div style="font-size: 8pt; color: #a0aec0;">{{ $unit->make }} {{ $unit->model }} ({{ $unit->year }})</div>
+                    <div class="unit-desc">{{ $unit->make }} {{ $unit->model }} ({{ $unit->year }})</div>
                 </td>
                 <td>{{ $unit->driver1_name ?? '---' }}</td>
                 <td>{{ $unit->driver2_name ?? '---' }}</td>
-                <td style="text-align: center; font-weight: bold;">{{ $unit->driver_count }}</td>
-                <td style="font-weight: 600;">₱{{ number_format($unit->boundary_rate, 2) }}</td>
+                <td class="center">{{ $unit->driver_count }}</td>
+                <td class="right">₱{{ number_format($unit->boundary_rate, 2) }}</td>
             </tr>
             @endforeach
         </tbody>
     </table>
 
     <div class="footer">
-        &copy; {{ date('Y') }} Euro Performance Taxi System. All rights reserved.
+        <p>Authenticated Units & Drivers Record &mdash; Generated: {{ date('m/d/Y, h:i:s A') }}</p>
     </div>
 </body>
 </html>

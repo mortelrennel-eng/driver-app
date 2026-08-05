@@ -23,6 +23,7 @@ class PageAccessMiddleware
         'my-account.forgot-password',
         'notifications.dismiss',
         'super-admin.*',
+        'chat.*',
     ];
 
     public function handle(Request $request, Closure $next)

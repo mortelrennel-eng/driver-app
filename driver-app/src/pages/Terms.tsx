@@ -14,8 +14,8 @@ import {
 } from '@ionic/react';
 import { arrowBackOutline, documentTextOutline } from 'ionicons/icons';
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
 import { endpoints } from '../config/api';
+import { cachedGet } from '../utils/cachedGet';
 import { useTheme } from '../context/ThemeContext';
 
 const Terms: React.FC = () => {
@@ -27,7 +27,7 @@ const Terms: React.FC = () => {
 
   const fetchImages = async () => {
     try {
-      const response = await axios.get(endpoints.termsImages);
+      const response = await cachedGet(endpoints.termsImages);
       if (response.data.success) {
         setImages(response.data.images || []);
       }

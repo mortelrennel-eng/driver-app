@@ -4,7 +4,7 @@
 @section('page-heading', 'Driver Support Chat')
 
 @section('content')
-<div class="flex h-[calc(100vh-180px)] bg-white rounded-3xl shadow-2xl shadow-gray-200/50 border border-gray-100 overflow-hidden">
+<div class="flex h-[calc(100vh-120px)] bg-white rounded-3xl shadow-2xl shadow-gray-200/50 border border-gray-100 overflow-hidden">
     <!-- Left Sidebar: Driver List -->
     <div class="w-80 border-r border-gray-100 flex flex-col bg-gray-50/30">
         <div class="p-6 border-b border-gray-100 bg-white">
@@ -29,7 +29,15 @@
                     <div class="relative flex-shrink-0">
                         <div class="w-12 h-12 rounded-xl bg-gray-200 flex items-center justify-center font-bold text-lg border-2 border-white shadow-sm overflow-hidden">
                             @if($driver->profile_image)
-                                <img src="{{ asset('storage/' . $driver->profile_image) }}" class="w-full h-full object-cover">
+                                @php
+                                    $imagePath = str_replace('resources/', '', $driver->profile_image);
+                                    $isIcon = str_starts_with($imagePath, 'image/') || str_contains($imagePath, 'resources/assets/');
+                                @endphp
+                                @if($isIcon)
+                                    <img src="{{ asset($imagePath) }}" class="w-full h-full object-cover">
+                                @else
+                                    <img src="{{ asset('storage/' . $driver->profile_image) }}" class="w-full h-full object-cover">
+                                @endif
                             @else
                                 {{ strtoupper(substr($driver->full_name ?? 'D', 0, 1)) }}
                             @endif
@@ -599,3 +607,4 @@
     });
 </script>
 @endsection
+

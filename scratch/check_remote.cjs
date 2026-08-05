@@ -10,20 +10,32 @@ const config = {
 
 const BASE_REMOTE = '/home/u747826271/domains/eurotaxisystem.site/public_html';
 
+const filesToCheck = [
+    'routes/api.php',
+    'resources/views/partials/chat-drawer.blade.php',
+    'resources/views/support/index.blade.php',
+    'app/Http/Controllers/Api/DriverAppController.php',
+    'app/Http/Controllers/DriverBehaviorV2Controller.php',
+    'app/Http/Controllers/DriverBehaviorController.php',
+    'public/assets/js/tutorial.js',
+    'public/sw.js'
+];
+
 const conn = new Client();
 
 conn.on('ready', () => {
-    conn.exec(`cat ${BASE_REMOTE}/resources/views/partials/chat-drawer.blade.php`, (err, stream) => {
+    const commands = filesToCheck.map(f => `ls -l ${BASE_REMOTE}/${f}`).join('; ');
+    const cmd = `${commands}; echo "--- Driver App Assets ---"; ls -l ${BASE_REMOTE}/public/driver-app/assets | head -n 5`;
+    
+    conn.exec(cmd, (err, stream) => {
         if (err) throw err;
-        let dataStr = '';
         stream.on('close', () => {
             conn.end();
-            console.log('File size:', dataStr.length);
-            console.log(dataStr.substring(0, 500));
         }).on('data', (data) => {
-            dataStr += data.toString();
+            process.stdout.write(data);
         }).stderr.on('data', (data) => {
-            console.error('STDERR: ' + data);
+            process.stderr.write(data);
         });
     });
 }).connect(config);
+

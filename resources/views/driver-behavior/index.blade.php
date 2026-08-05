@@ -1,7 +1,7 @@
 @extends('layouts.app')
 @section('title', 'Driver Performance - Euro System')
 @section('page-heading', 'Driver Performance & Violations')
-@section('page-subheading', 'Incidents • Incentives • Driver Profiles — All in one place')
+@section('page-subheading', 'Incidents • Incentives • Performance Summary — All in one place')
 
 @section('content')
 <style>
@@ -38,7 +38,7 @@
     }
     .tab-btn:active { transform: scale(0.95); }
     .incident-tag { @apply px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-widest border; }
-    .stat-card-premium { @apply transition-all duration-500 hover:-translate-y-2 hover:shadow-2xl cursor-default; }
+    .stat-card-premium { @apply cursor-default; }
     .custom-scroll::-webkit-scrollbar { width: 4px; }
     .custom-scroll::-webkit-scrollbar-thumb { background: #eab308; border-radius: 99px; }
     
@@ -75,14 +75,14 @@
     }
     
     #sa-toast {
-        position: fixed; bottom: 1.5rem; left: 50%; transform: translateX(-50%) translateY(4rem);
+        position: fixed; bottom: 1.5rem; left: 50%; transform: translateX(-50%) translateY(10rem); opacity: 0; visibility: hidden;
         background: #1e293b; border: 1px solid #eab308; color: #ffffff;
         padding: .85rem 1.75rem; border-radius: 999px; font-size: .85rem; font-weight: 600;
         box-shadow: 0 12px 40px rgba(0,0,0,.6);
         z-index: 9999; transition: transform .4s cubic-bezier(.34,1.56,.64,1);
         max-width: 90vw; display: flex; align-items: center; gap: .75rem;
-    }
-    #sa-toast.show { transform: translateX(-50%) translateY(0); }
+     opacity: 0; visibility: hidden; }
+    #sa-toast.show { transform: translateX(-50%) translateY(0);  opacity: 1; visibility: visible; }
     #sa-toast.error { border-color: #ef4444; }
 
     /* ── Modal ── */
@@ -114,53 +114,77 @@
         width: 100%;
     }
     .sa-input:focus { border-color: #eab308; }
+
+    /* Dashboard Wave CSS */
+    @keyframes drawChart { 0% { clip-path: inset(0 100% 0 0); opacity: 0; } 100% { clip-path: inset(0 0 0 0); opacity: 1; } }
+    .card-hover::after {
+        content: ''; position: absolute; bottom: 0; left: 0; width: 100%; height: 75px; background-size: 100% 100%; background-repeat: no-repeat; opacity: 0; transition: none !important; z-index: 0;
+    }
+    .wave-red::after { background-image: url('data:image/svg+xml;utf8,<svg viewBox="0 0 100 50" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg"><polygon fill="rgba(239,68,68,0.15)" stroke="rgba(239,68,68,0.4)" stroke-width="1.5" vector-effect="non-scaling-stroke" stroke-linejoin="miter" points="0,50 0,35 15,20 30,30 45,10 60,25 75,5 90,15 100,0 100,50" /></svg>'); }
+    .wave-teal::after { background-image: url('data:image/svg+xml;utf8,<svg viewBox="0 0 100 50" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg"><polygon fill="rgba(20,184,166,0.15)" stroke="rgba(20,184,166,0.4)" stroke-width="1.5" vector-effect="non-scaling-stroke" stroke-linejoin="miter" points="0,50 0,35 15,20 30,30 45,10 60,25 75,5 90,15 100,0 100,50" /></svg>'); }
+    .wave-purple::after { background-image: url('data:image/svg+xml;utf8,<svg viewBox="0 0 100 50" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg"><polygon fill="rgba(168,85,247,0.15)" stroke="rgba(168,85,247,0.4)" stroke-width="1.5" vector-effect="non-scaling-stroke" stroke-linejoin="miter" points="0,50 0,35 15,20 30,30 45,10 60,25 75,5 90,15 100,0 100,50" /></svg>'); }
+    .wave-yellow::after { background-image: url('data:image/svg+xml;utf8,<svg viewBox="0 0 100 50" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg"><polygon fill="rgba(234,179,8,0.15)" stroke="rgba(234,179,8,0.4)" stroke-width="1.5" vector-effect="non-scaling-stroke" stroke-linejoin="miter" points="0,50 0,35 15,20 30,30 45,10 60,25 75,5 90,15 100,0 100,50" /></svg>'); }
+    .wave-green::after { background-image: url('data:image/svg+xml;utf8,<svg viewBox="0 0 100 50" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg"><polygon fill="rgba(34,197,94,0.15)" stroke="rgba(34,197,94,0.4)" stroke-width="1.5" vector-effect="non-scaling-stroke" stroke-linejoin="miter" points="0,50 0,35 15,20 30,30 45,10 60,25 75,5 90,15 100,0 100,50" /></svg>'); }
+    .card-hover.in-view::after { animation: drawChart 1s ease-out forwards !important; }
 </style>
 
 {{-- ════════ HEADER STATS (COMPACT) ════════ --}}
 <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
 
     {{-- 1. VIOLATIONS TODAY --}}
-    <div class="stat-card-premium relative overflow-hidden bg-gradient-to-br from-red-600 to-rose-700 rounded-2xl p-4 text-white shadow-lg shadow-red-100 group">
-        <div class="absolute right-[-5px] top-[-5px] opacity-10 transition-transform group-hover:scale-110 duration-500">
-            <i data-lucide="alert-circle" class="w-16 h-16"></i>
+    <div class="in-view cursor-default group relative overflow-hidden rounded-2xl shadow-sm border border-red-100 bg-gradient-to-br from-red-50 to-rose-50/70">
+        <div class="relative p-3.5 sm:p-5 flex items-center justify-between z-20">
+            <div class="flex-1 min-w-0">
+                <p class="text-red-400 text-[9px] sm:text-[10px] font-black uppercase tracking-widest mb-1">Violations Today</p>
+                <p class="text-gray-900 text-xl sm:text-3xl font-black leading-none mb-1">{{ $stats['violations_today'] ?? 0 }}</p>
+            </div>
+            <div class="p-1.5 sm:p-3 bg-red-100 rounded-xl sm:rounded-2xl border border-red-200 shadow-sm flex-shrink-0">
+                <i data-lucide="alert-circle" class="w-5 h-5 sm:w-7 sm:h-7 text-red-600"></i>
+            </div>
         </div>
-        <div class="relative z-10 flex flex-col items-center text-center">
-            <p class="text-3xl font-black tracking-tighter leading-none">{{ $stats['violations_today'] ?? 0 }}</p>
-            <p class="text-[9px] font-black uppercase tracking-[0.1em] opacity-80 mt-1">Violations Today</p>
-        </div>
+        <i data-lucide="alert-circle" stroke-width="1" class="absolute right-0 bottom-0 w-24 h-24 -rotate-12 pointer-events-none" style="opacity: 0.15 !important; color: #ef4444 !important; z-index: 5 !important;"></i>
     </div>
 
     {{-- 2. TOTAL VIOLATORS --}}
-    <div class="stat-card-premium relative overflow-hidden bg-gradient-to-br from-teal-500 to-emerald-600 rounded-2xl p-4 text-white shadow-lg shadow-teal-100 group">
-        <div class="absolute right-[-5px] top-[-5px] opacity-10 transition-transform group-hover:scale-110 duration-500">
-            <i data-lucide="users" class="w-16 h-16"></i>
+    <div class="in-view cursor-default group relative overflow-hidden rounded-2xl shadow-sm border border-teal-100 bg-gradient-to-br from-teal-50 to-emerald-50/70">
+        <div class="relative p-3.5 sm:p-5 flex items-center justify-between z-20">
+            <div class="flex-1 min-w-0">
+                <p class="text-teal-400 text-[9px] sm:text-[10px] font-black uppercase tracking-widest mb-1">Total Violators</p>
+                <p class="text-gray-900 text-xl sm:text-3xl font-black leading-none mb-1">{{ $stats['total_violators'] ?? 0 }}</p>
+            </div>
+            <div class="p-1.5 sm:p-3 bg-teal-100 rounded-xl sm:rounded-2xl border border-teal-200 shadow-sm flex-shrink-0">
+                <i data-lucide="users" class="w-5 h-5 sm:w-7 sm:h-7 text-teal-600"></i>
+            </div>
         </div>
-        <div class="relative z-10 flex flex-col items-center text-center">
-            <p class="text-3xl font-black tracking-tighter leading-none">{{ $stats['total_violators'] ?? 0 }}</p>
-             <p class="text-[9px] font-black uppercase tracking-[0.1em] opacity-80 mt-1">Total Violators</p>
-        </div>
+        <i data-lucide="users" stroke-width="1" class="absolute right-0 bottom-0 w-24 h-24 -rotate-12 pointer-events-none" style="opacity: 0.15 !important; color: #14b8a6 !important; z-index: 5 !important;"></i>
     </div>
 
     {{-- 3. TOTAL CHARGES --}}
-    <div class="stat-card-premium relative overflow-hidden bg-gradient-to-br from-purple-600 to-indigo-700 rounded-2xl p-4 text-white shadow-lg shadow-purple-100 group">
-        <div class="absolute right-[-5px] top-[-5px] opacity-10 transition-transform group-hover:scale-110 duration-500">
-            <i data-lucide="banknote" class="w-16 h-16"></i>
+    <div class="in-view cursor-default group relative overflow-hidden rounded-2xl shadow-sm border border-purple-100 bg-gradient-to-br from-purple-50 to-fuchsia-50/70">
+        <div class="relative p-3.5 sm:p-5 flex items-center justify-between z-20">
+            <div class="flex-1 min-w-0">
+                <p class="text-purple-400 text-[9px] sm:text-[10px] font-black uppercase tracking-widest mb-1">Total Charges</p>
+                <p class="text-gray-900 text-xl sm:text-3xl font-black leading-none mb-1">₱{{ number_format($stats['total_charges'] ?? 0, 0) }}</p>
+            </div>
+            <div class="p-1.5 sm:p-3 bg-purple-100 rounded-xl sm:rounded-2xl border border-purple-200 shadow-sm flex-shrink-0">
+                <i data-lucide="banknote" class="w-5 h-5 sm:w-7 sm:h-7 text-purple-600"></i>
+            </div>
         </div>
-        <div class="relative z-10 flex flex-col items-center text-center">
-            <p class="text-xl font-black tracking-tighter leading-none">₱{{ number_format($stats['total_charges'] ?? 0, 0) }}</p>
-            <p class="text-[9px] font-black uppercase tracking-[0.1em] opacity-80 mt-1">Total Charges</p>
-        </div>
+        <i data-lucide="banknote" stroke-width="1" class="absolute right-0 bottom-0 w-24 h-24 -rotate-12 pointer-events-none" style="opacity: 0.15 !important; color: #a855f7 !important; z-index: 5 !important;"></i>
     </div>
 
     {{-- 4. ELIGIBLE INCENTIVE --}}
-    <div class="stat-card-premium relative overflow-hidden bg-gradient-to-br from-yellow-500 to-orange-500 rounded-2xl p-4 text-white shadow-lg shadow-yellow-100 group">
-        <div class="absolute right-[-5px] top-[-5px] opacity-10 transition-transform group-hover:scale-110 duration-500">
-            <i data-lucide="trophy" class="w-16 h-16"></i>
+    <div class="in-view cursor-default group relative overflow-hidden rounded-2xl shadow-sm border border-yellow-100 bg-gradient-to-br from-yellow-50 to-amber-50/70">
+        <div class="relative p-3.5 sm:p-5 flex items-center justify-between z-20">
+            <div class="flex-1 min-w-0">
+                <p class="text-yellow-500 text-[9px] sm:text-[10px] font-black uppercase tracking-widest mb-1">Eligible Incentive</p>
+                <p class="text-gray-900 text-xl sm:text-3xl font-black leading-none mb-1">{{ count($incentive_summary['eligible'] ?? []) }}</p>
+            </div>
+            <div class="p-1.5 sm:p-3 bg-yellow-100 rounded-xl sm:rounded-2xl border border-yellow-200 shadow-sm flex-shrink-0">
+                <i data-lucide="trophy" class="w-5 h-5 sm:w-7 sm:h-7 text-yellow-600"></i>
+            </div>
         </div>
-        <div class="relative z-10 flex flex-col items-center text-center">
-            <p class="text-3xl font-black tracking-tighter leading-none">{{ count($incentive_summary['eligible'] ?? []) }}</p>
-            <p class="text-[9px] font-black uppercase tracking-[0.1em] opacity-80 mt-1">Eligible Incentive</p>
-        </div>
+        <i data-lucide="trophy" stroke-width="1" class="absolute right-0 bottom-0 w-24 h-24 -rotate-12 pointer-events-none" style="opacity: 0.15 !important; color: #eab308 !important; z-index: 5 !important;"></i>
     </div>
 </div>
 
@@ -180,14 +204,7 @@
     </button>
     <button onclick="switchTab('profiles')" id="tab-btn-profiles"
         class="tab-btn {{ ($tab ?? '') === 'profiles' ? 'active' : '' }}">
-        <i data-lucide="user-circle" class="w-3.5 h-3.5 inline mr-1"></i> Driver Profiles
-    </button>
-    <button onclick="switchTab('accidents')" id="tab-btn-accidents"
-        class="tab-btn {{ ($tab ?? '') === 'accidents' ? 'active' : '' }}">
-        <i data-lucide="triangle-alert" class="w-3.5 h-3.5 inline mr-1 text-red-500"></i> Accident Reports
-        @if(isset($accident_reports) && $accident_reports->where('status', 'pending')->count() > 0)
-            <span class="ml-1 px-1.5 py-0.5 bg-red-500 text-white text-[9px] rounded-full animate-pulse">{{ $accident_reports->where('status', 'pending')->count() }}</span>
-        @endif
+        <i data-lucide="user-circle" class="w-3.5 h-3.5 inline mr-1"></i> Performance Summary
     </button>
     <div class="flex-1"></div>
     <button onclick="openIncidentModal()" class="px-5 py-2.5 bg-red-600 text-white font-black text-xs uppercase tracking-widest rounded-xl hover:bg-red-700 hover:scale-105 hover:shadow-xl hover:shadow-red-200 transition-all active:scale-95 flex items-center gap-2 shadow-sm">
@@ -296,10 +313,10 @@
                             <div class="text-[10px] text-gray-400 font-medium">{{ \Carbon\Carbon::parse($inc->timestamp)->timezone('Asia/Manila')->format('h:i A') }}</div>
                         </td>
                         <td class="px-5 py-3.5 whitespace-nowrap">
-                            <div class="text-xs font-bold text-gray-800">{{ $inc->driver_name ?? '—' }}</div>
+                            <div class="text-xs font-bold text-gray-800">{{ !empty(trim($inc->driver_name)) ? $inc->driver_name : '—' }}</div>
                         </td>
                         <td class="px-5 py-3.5 whitespace-nowrap">
-                            <span class="text-xs font-black text-blue-600 uppercase">{{ $inc->plate_number ?? '—' }}</span>
+                            <span class="text-xs font-black text-blue-600 uppercase">{{ !empty(trim($inc->plate_number)) ? $inc->plate_number : '—' }}</span>
                         </td>
                         <td class="px-5 py-3.5 max-w-[450px]">
                             {{-- Unified Tags Row --}}
@@ -428,34 +445,55 @@
      ════════════════════════════════════════ --}}
 <div id="tab-incentives" class="tab-content {{ ($tab ?? '') === 'incentives' ? '' : 'hidden' }}">
     <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-5">
-        <div class="bg-gradient-to-br from-green-500 to-emerald-600 rounded-2xl p-5 text-white shadow-lg">
-            <i data-lucide="trophy" class="w-6 h-6 mb-2 opacity-80"></i>
-            <p class="text-3xl font-black">{{ count($incentive_summary['eligible'] ?? []) }}</p>
-            <p class="text-xs font-black uppercase tracking-widest opacity-80 mt-1">Eligible for Incentive</p>
+        <div class="in-view cursor-default group relative overflow-hidden rounded-2xl shadow-sm border border-green-100 bg-gradient-to-br from-green-50 to-emerald-50/70">
+            <div class="relative p-3.5 sm:p-5 flex items-center justify-between z-20">
+                <div class="flex-1 min-w-0">
+                    <p class="text-green-500 text-[9px] sm:text-[10px] font-black uppercase tracking-widest mb-1">Eligible for Incentive</p>
+                    <p class="text-gray-900 text-xl sm:text-3xl font-black leading-none mb-1">{{ count($incentive_summary['eligible'] ?? []) }}</p>
+                </div>
+                <div class="p-1.5 sm:p-3 bg-green-100 rounded-xl sm:rounded-2xl border border-green-200 shadow-sm flex-shrink-0">
+                    <i data-lucide="trophy" class="w-5 h-5 sm:w-7 sm:h-7 text-green-600"></i>
+                </div>
+            </div>
+            <i data-lucide="trophy" stroke-width="1" class="absolute right-0 bottom-0 w-24 h-24 -rotate-12 pointer-events-none" style="opacity: 0.15 !important; color: #22c55e !important; z-index: 5 !important;"></i>
         </div>
-        <div class="bg-gradient-to-br from-red-500 to-rose-600 rounded-2xl p-5 text-white shadow-lg">
-            <i data-lucide="x-circle" class="w-6 h-6 mb-2 opacity-80"></i>
-            <p class="text-3xl font-black">{{ count($incentive_summary['ineligible'] ?? []) }}</p>
-            <p class="text-xs font-black uppercase tracking-widest opacity-80 mt-1">Disqualified</p>
+        <div class="in-view cursor-default group relative overflow-hidden rounded-2xl shadow-sm border border-red-100 bg-gradient-to-br from-red-50 to-rose-50/70">
+            <div class="relative p-3.5 sm:p-5 flex items-center justify-between z-20">
+                <div class="flex-1 min-w-0">
+                    <p class="text-red-400 text-[9px] sm:text-[10px] font-black uppercase tracking-widest mb-1">Disqualified</p>
+                    <p class="text-gray-900 text-xl sm:text-3xl font-black leading-none mb-1">{{ count($incentive_summary['ineligible'] ?? []) }}</p>
+                </div>
+                <div class="p-1.5 sm:p-3 bg-red-100 rounded-xl sm:rounded-2xl border border-red-200 shadow-sm flex-shrink-0">
+                    <i data-lucide="x-circle" class="w-5 h-5 sm:w-7 sm:h-7 text-red-600"></i>
+                </div>
+            </div>
+            <i data-lucide="x-circle" stroke-width="1" class="absolute right-0 bottom-0 w-24 h-24 -rotate-12 pointer-events-none" style="opacity: 0.15 !important; color: #ef4444 !important; z-index: 5 !important;"></i>
         </div>
-        <div class="bg-gradient-to-br from-yellow-500 to-amber-600 rounded-2xl p-5 text-white shadow-lg">
-            <i data-lucide="calendar-check" class="w-6 h-6 mb-2 opacity-80"></i>
-            @php
-                $now = now()->timezone('Asia/Manila');
-                $firstSundayThisMonth = $now->copy()->startOfMonth();
-                while($firstSundayThisMonth->dayOfWeek !== \Carbon\Carbon::SUNDAY) { $firstSundayThisMonth->addDay(); }
-                
-                if ($now->gt($firstSundayThisMonth->endOfDay())) {
-                    // Already passed this month's, target next month
-                    $targetDate = $now->copy()->addMonth()->startOfMonth();
-                } else {
-                    $targetDate = $now->copy()->startOfMonth();
-                }
+        <div class="in-view cursor-default group relative overflow-hidden rounded-2xl shadow-sm border border-yellow-100 bg-gradient-to-br from-yellow-50 to-amber-50/70">
+            <div class="relative p-3.5 sm:p-5 flex items-center justify-between z-20">
+                <div class="flex-1 min-w-0">
+                    <p class="text-yellow-500 text-[9px] sm:text-[10px] font-black uppercase tracking-widest mb-1">Next Payout Sunday</p>
+                    @php
+                        $now = now()->timezone('Asia/Manila');
+                        $firstSundayThisMonth = $now->copy()->startOfMonth();
+                        while($firstSundayThisMonth->dayOfWeek !== \Carbon\Carbon::SUNDAY) { $firstSundayThisMonth->addDay(); }
+                        
+                        if ($now->gt($firstSundayThisMonth->endOfDay())) {
+                            // Already passed this month's, target next month
+                            $targetDate = $now->copy()->addMonth()->startOfMonth();
+                        } else {
+                            $targetDate = $now->copy()->startOfMonth();
+                        }
 
-                while($targetDate->dayOfWeek !== \Carbon\Carbon::SUNDAY) { $targetDate->addDay(); }
-            @endphp
-            <p class="text-xl font-black">{{ $targetDate->format('M d, Y') }}</p>
-            <p class="text-xs font-black uppercase tracking-widest opacity-80 mt-1">Next Payout Sunday</p>
+                        while($targetDate->dayOfWeek !== \Carbon\Carbon::SUNDAY) { $targetDate->addDay(); }
+                    @endphp
+                    <p class="text-gray-900 text-lg sm:text-xl font-black leading-none mb-1">{{ $targetDate->format('M d, Y') }}</p>
+                </div>
+                <div class="p-1.5 sm:p-3 bg-yellow-100 rounded-xl sm:rounded-2xl border border-yellow-200 shadow-sm flex-shrink-0">
+                    <i data-lucide="calendar-check" class="w-5 h-5 sm:w-7 sm:h-7 text-yellow-600"></i>
+                </div>
+            </div>
+            <i data-lucide="calendar-check" stroke-width="1" class="absolute right-0 bottom-0 w-24 h-24 -rotate-12 pointer-events-none" style="opacity: 0.15 !important; color: #eab308 !important; z-index: 5 !important;"></i>
         </div>
     </div>
 
@@ -556,99 +594,7 @@
 </div>
 
 {{-- ════════════════════════════════════════
-     TAB 3: ACCIDENT REPORTS
-     ════════════════════════════════════════ --}}
-<div id="tab-accidents" class="tab-content {{ ($tab ?? '') === 'accidents' ? '' : 'hidden' }}">
-    <div class="bg-white rounded-2xl shadow-sm border border-red-100 overflow-hidden">
-        <div class="overflow-x-auto min-h-[400px]">
-            <table class="w-full text-left border-collapse">
-                <thead>
-                    <tr class="bg-gradient-to-r from-red-50 to-white text-[10px] font-black text-red-800 uppercase tracking-widest border-b border-red-100">
-                        <th class="px-5 py-4 w-40">Date & Time</th>
-                        <th class="px-5 py-4 w-48">Driver & Unit</th>
-                        <th class="px-5 py-4 w-64">Report Notes / Photo</th>
-                        <th class="px-5 py-4 w-48">GPS Location</th>
-                        <th class="px-5 py-4 w-32">Status</th>
-                        <th class="px-5 py-4 w-32 text-right">Actions</th>
-                    </tr>
-                </thead>
-                <tbody class="divide-y divide-gray-100/60 bg-white" id="accidentTableBody">
-                    @forelse($accident_reports ?? [] as $report)
-                    <tr class="hover:bg-red-50/30 transition-colors {{ $report->status === 'pending' ? 'bg-red-50' : '' }}" id="sos-row-{{ $report->id }}">
-                        <td class="px-5 py-4">
-                            <p class="text-xs font-bold text-gray-900">{{ \Carbon\Carbon::parse($report->created_at)->format('M d, Y') }}</p>
-                            <p class="text-[10px] text-gray-500 font-medium">{{ \Carbon\Carbon::parse($report->created_at)->format('h:i A') }}</p>
-                        </td>
-                        <td class="px-5 py-4">
-                            <p class="text-sm font-bold text-gray-900 truncate">{{ $report->driver->first_name ?? '' }} {{ $report->driver->last_name ?? '' }}</p>
-                            <p class="text-[10px] font-black text-gray-400 tracking-wider uppercase mt-0.5">{{ $report->unit->plate_number ?? 'N/A' }}</p>
-                        </td>
-                        <td class="px-5 py-4">
-                            <div class="text-xs text-gray-600 line-clamp-3 whitespace-pre-wrap">{{ $report->notes ?? 'No additional notes provided.' }}</div>
-                            @if($report->photo_path)
-                                <a href="{{ asset($report->photo_path) }}" target="_blank" class="mt-2 inline-flex items-center gap-1 text-[10px] font-bold text-blue-600 hover:text-blue-800 bg-blue-50 px-2 py-1 rounded-md transition-colors">
-                                    <i data-lucide="image" class="w-3 h-3"></i> View Photo
-                                </a>
-                            @endif
-                        </td>
-                        <td class="px-5 py-4">
-                            @if($report->latitude && $report->longitude)
-                                <div class="flex flex-col gap-1">
-                                    <span class="text-xs font-medium text-gray-800 address-resolver flex items-center gap-1" data-lat="{{ $report->latitude }}" data-lng="{{ $report->longitude }}">
-                                        <i data-lucide="loader-2" class="w-3 h-3 animate-spin text-blue-500"></i> Resolving address...
-                                    </span>
-                                    <a href="https://maps.google.com/?q={{ $report->latitude }},{{ $report->longitude }}" target="_blank" class="flex items-center gap-1 text-[10px] font-bold text-blue-600 hover:text-blue-800 uppercase tracking-widest transition-colors group w-max">
-                                        <i data-lucide="map" class="w-3 h-3"></i> View on Map
-                                    </a>
-                                </div>
-                            @else
-                                <span class="text-xs text-gray-400 italic">No GPS Data</span>
-                            @endif
-                        </td>
-                        <td class="px-5 py-4">
-                            @if($report->status === 'pending')
-                                <span class="px-2 py-1 bg-red-100 text-red-700 border border-red-200 text-[10px] font-black uppercase tracking-wider rounded-full flex items-center gap-1 w-max">
-                                    <i data-lucide="circle-alert" class="w-3 h-3"></i> Unacknowledged
-                                </span>
-                            @else
-                                <span class="px-2 py-1 bg-blue-100 text-blue-700 border border-blue-200 text-[10px] font-black uppercase tracking-wider rounded-full flex items-center gap-1 w-max">
-                                    <i data-lucide="check-circle" class="w-3 h-3"></i> Responding
-                                </span>
-                                @if($report->acknowledged_by)
-                                    <p class="text-[9px] text-gray-400 mt-1">Ack. by {{ \App\Models\User::find($report->acknowledged_by)?->first_name ?? 'Admin' }}</p>
-                                @endif
-                            @endif
-                        </td>
-                        <td class="px-5 py-4 text-right">
-                            <div class="flex items-center justify-end gap-2">
-                                <button onclick="viewSosDetails({{ $report->id }})" class="p-2 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded-lg transition-colors" title="View Details">
-                                    <i data-lucide="eye" class="w-4 h-4"></i>
-                                </button>
-                                <button onclick="archiveSos({{ $report->id }})" class="p-2 bg-gray-50 text-gray-500 hover:bg-gray-200 hover:text-gray-800 rounded-lg transition-colors" title="Archive">
-                                    <i data-lucide="archive" class="w-4 h-4"></i>
-                                </button>
-                            </div>
-                        </td>
-                    </tr>
-                    @empty
-                    <tr>
-                        <td colspan="5" class="px-5 py-12 text-center">
-                            <div class="flex flex-col items-center justify-center text-gray-400">
-                                <i data-lucide="shield-check" class="w-12 h-12 mb-3 text-gray-300"></i>
-                                <p class="text-sm font-medium">No accident reports found.</p>
-                                <p class="text-xs mt-1 text-gray-400">Safe driving environment.</p>
-                            </div>
-                        </td>
-                    </tr>
-                    @endforelse
-                </tbody>
-            </table>
-        </div>
-    </div>
-</div>
-
-{{-- ════════════════════════════════════════
-     TAB 4: DRIVER PROFILES
+     TAB 3: PERFORMANCE SUMMARY
      ════════════════════════════════════════ --}}
 <div id="tab-profiles" class="tab-content {{ ($tab ?? '') === 'profiles' ? '' : 'hidden' }}">
     <div class="mb-4">
@@ -663,7 +609,7 @@
             $inc = $profile['incentive'];
             $eligible = $inc['eligible'];
         @endphp
-        <div class="profile-card bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-md transition-all cursor-pointer" data-name="{{ strtolower($profile['name']) }}" onclick="openDriverDetails({{ $profile['id'] }})">
+        <div class="profile-card bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden cursor-pointer" data-name="{{ strtolower($profile['name']) }}" onclick="openDriverDetails({{ $profile['id'] }})">
             {{-- Card Header --}}
             <div class="p-5 border-b border-gray-50 flex items-center gap-3 {{ $eligible ? 'bg-gradient-to-r from-green-50 to-emerald-50' : 'bg-gray-50/50' }}">
                 <div class="w-11 h-11 rounded-xl {{ $eligible ? 'bg-green-500' : 'bg-gray-300' }} flex items-center justify-center text-white font-black text-lg shadow-sm flex-shrink-0">
@@ -2433,78 +2379,6 @@ window.IncidentManager = {
     }
 };
 
-window.archiveSos = async function(id) {
-    if (!confirm('Are you sure you want to move this accident report to Archive?')) return;
-    try {
-        const res = await fetch(`/api/accidents/${id}/archive`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
-                'X-Requested-With': 'XMLHttpRequest'
-            }
-        });
-        const result = await res.json();
-        if (result.success) {
-            window.location.reload();
-        } else {
-            alert(result.message || 'Failed to archive record.');
-        }
-    } catch (e) {
-        console.error(e);
-        alert('Error connecting to server.');
-    }
-};
-
-window.viewSosDetails = async function(id) {
-    try {
-        const res = await fetch(`/api/accidents/${id}/details`);
-        const result = await res.json();
-        if (result.success) {
-            const data = result.data;
-            const driverName = data.driver ? `${data.driver.first_name} ${data.driver.last_name}` : 'Unknown';
-            const unit = data.unit ? data.unit.plate_number : 'N/A';
-            const date = new Date(data.created_at).toLocaleString('en-US', { timeZone: 'Asia/Manila' });
-            let photoHtml = '';
-            if (data.photo_path) {
-                photoHtml = `<div style="margin-top:15px;text-align:center;"><img src="/${data.photo_path}" style="max-width:100%;border-radius:10px;box-shadow:0 4px 6px rgba(0,0,0,0.1);"></div>`;
-            }
-            
-            const modalHtml = `
-            <div id="sosViewModalOverlay" style="position:fixed;inset:0;background:rgba(0,0,0,0.5);backdrop-filter:blur(4px);z-index:99999;display:flex;align-items:center;justify-content:center;padding:20px;">
-                <div style="background:#fff;border-radius:20px;max-width:500px;width:100%;box-shadow:0 20px 40px rgba(0,0,0,0.2);overflow:hidden;animation:modal-in 0.2s ease;">
-                    <div style="padding:15px 20px;background:#fef2f2;border-bottom:1px solid #fee2e2;display:flex;justify-content:space-between;align-items:center;">
-                        <h3 style="margin:0;font-weight:900;color:#991b1b;display:flex;align-items:center;gap:8px;">
-                            <i data-lucide="alert-triangle" style="width:20px;height:20px;"></i> Emergency Details
-                        </h3>
-                        <button onclick="document.getElementById('sosViewModalOverlay').remove()" style="background:transparent;border:none;cursor:pointer;color:#991b1b;">
-                            <i data-lucide="x" style="width:20px;height:20px;"></i>
-                        </button>
-                    </div>
-                    <div style="padding:20px;max-height:70vh;overflow-y:auto;font-size:14px;color:#333;">
-                        <p style="margin-bottom:10px;"><strong>Reported At:</strong> <br>${date}</p>
-                        <p style="margin-bottom:10px;"><strong>Driver:</strong> <br>${driverName}</p>
-                        <p style="margin-bottom:10px;"><strong>Unit:</strong> <br>${unit}</p>
-                        <p style="margin-bottom:10px;"><strong>Notes/Description:</strong> <br><span style="white-space:pre-wrap;">${data.notes || 'No description provided.'}</span></p>
-                        ${photoHtml}
-                    </div>
-                </div>
-            </div>`;
-            
-            const div = document.createElement('div');
-            div.innerHTML = modalHtml;
-            document.body.appendChild(div);
-            if (typeof lucide !== 'undefined') lucide.createIcons();
-            
-        } else {
-            alert('Could not fetch details.');
-        }
-    } catch (e) {
-        console.error(e);
-        alert('Error connecting to server.');
-    }
-};
-
 window.closeEditIncidentModal = function() {
     const modal = document.getElementById('editIncidentModal');
     if (modal) {
@@ -2547,26 +2421,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         };
     }
-
-    // Resolve Addresses for Accident Table
-    document.querySelectorAll('.address-resolver').forEach(async (el) => {
-        const lat = el.getAttribute('data-lat');
-        const lng = el.getAttribute('data-lng');
-        if (lat && lng) {
-            try {
-                const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`);
-                const data = await res.json();
-                if (data && data.display_name) {
-                    el.innerHTML = `<i data-lucide="map-pin" class="w-3.5 h-3.5 text-blue-500 inline mr-1"></i> <span class="leading-snug">${data.display_name}</span>`;
-                } else {
-                    el.innerHTML = `<i data-lucide="map-pin" class="w-3.5 h-3.5 text-gray-400 inline mr-1"></i> Lat: ${lat}, Lng: ${lng}`;
-                }
-                if (typeof lucide !== 'undefined') lucide.createIcons();
-            } catch (e) {
-                el.innerHTML = `<i data-lucide="map-pin" class="w-3.5 h-3.5 text-gray-400 inline mr-1"></i> Lat: ${lat}, Lng: ${lng}`;
-            }
-        }
-    });
 });
 </script>
 @endsection
+

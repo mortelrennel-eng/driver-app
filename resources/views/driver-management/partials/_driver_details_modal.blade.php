@@ -1,5 +1,5 @@
 {{-- Driver Details Modal with Tabs --}}
-<div id="driverDetailsModal" class="fixed inset-0 bg-black/60 backdrop-blur-sm hidden h-full w-full z-50 flex items-center justify-center p-4 transition-all duration-300">
+<div id="driverDetailsModal" class="fixed inset-0 bg-black/60 backdrop-blur-sm hidden h-full w-full z-[60] flex items-center justify-center p-4 transition-all duration-300">
     <div class="relative bg-white rounded-2xl shadow-2xl max-w-5xl w-full h-[90vh] overflow-hidden flex flex-col scale-95 transition-transform duration-300" id="driverDetailsModalContainer">
         {{-- Modal Header (Deep Navy) --}}
         <div class="bg-slate-800 p-5 shrink-0">
@@ -179,7 +179,7 @@
                         </p>
                     </div>
                     <div class="pt-4 border-t border-slate-50">
-                        <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Emergency Nexus</span>
+                        <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Emergency Contact</span>
                         <div class="mt-2 bg-rose-50 p-3 rounded-xl border border-rose-100">
                             <p class="text-xs font-black text-rose-800">${data.emergency_contact || 'N/A'}</p>
                             <p class="text-[11px] font-bold text-rose-600 mt-0.5">${data.emergency_phone || 'N/A'}</p>
@@ -209,7 +209,7 @@
                             <div class="text-right">
                                 <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Fleet Status</span>
                                 <div class="mt-1">
-                                    <span class="px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-widest ${data.driver_status === 'banned' ? 'bg-red-100 text-red-700 ring-1 ring-red-300 animate-pulse' : (data.is_active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700')}">
+                                    <span class="px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-widest ${data.driver_status === 'banned' ? 'bg-red-100 text-red-700 ring-1 ring-red-300 animate-pulse' : (data.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700')}">
                                         ${(data.driver_status || 'Unknown')}
                                     </span>
                                 </div>
@@ -222,7 +222,7 @@
                             </div>
                             <div class="flex justify-between items-center py-2 border-b border-slate-200/50">
                                 <span class="text-xs font-bold text-slate-500">Active Targeted Rate</span>
-                                <span class="text-sm font-black text-blue-600">₱${data.current_pricing ? data.current_pricing.rate.toFixed(2) : '0.00'}</span>
+                                <span class="text-sm font-black text-blue-600">₱${data.daily_boundary_target ? parseFloat(data.daily_boundary_target).toLocaleString('en-PH', {minimumFractionDigits:2}) : '0.00'}</span>
                             </div>
                             ${data.current_pricing && data.current_pricing.label ? `
                                 <div class="mt-2 text-right">
@@ -273,7 +273,7 @@
                     const isPdf = doc.file.toLowerCase().endsWith('.pdf');
                     if (isPdf) {
                         previewHtml = `
-                            <div class="mt-2 mb-3 bg-slate-50 border border-slate-100 rounded-lg p-3 flex flex-col items-center justify-center">
+                            <div id="preview_box_${doc.id}" class="mt-2 mb-3 bg-slate-50 border border-slate-100 rounded-lg p-3 flex flex-col items-center justify-center">
                                 <i data-lucide="file-text" class="w-8 h-8 text-slate-400 mb-2"></i>
                                 <a href="/${doc.file}" target="_blank" class="inline-flex items-center gap-1 text-[10px] font-black text-blue-600 hover:text-blue-800 uppercase tracking-widest bg-blue-50 px-3 py-1.5 rounded-full">
                                     <i data-lucide="external-link" class="w-3 h-3"></i> Open PDF
@@ -282,21 +282,21 @@
                         `;
                     } else {
                         previewHtml = `
-                            <div class="mt-2 mb-3">
-                                <div class="relative w-full h-32 bg-slate-100 rounded-lg overflow-hidden border border-slate-200 group">
+                            <div id="preview_box_${doc.id}" class="mt-2 mb-3">
+                                <div class="relative w-full h-32 bg-slate-100 rounded-lg overflow-hidden border border-slate-200 group cursor-pointer" onclick="openImageModal('/${doc.file}')">
                                     <img src="/${doc.file}" alt="${doc.label}" class="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" />
-                                    <a href="/${doc.file}" target="_blank" class="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                                    <div class="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
                                         <span class="bg-white/90 text-slate-800 text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-full flex items-center gap-1 shadow-xl">
                                             <i data-lucide="maximize-2" class="w-3 h-3"></i> View Full Size
                                         </span>
-                                    </a>
+                                    </div>
                                 </div>
                             </div>
                         `;
                     }
                 } else {
                     previewHtml = `
-                        <div class="mt-2 mb-3 bg-slate-50 border border-dashed border-slate-200 rounded-lg h-32 flex flex-col items-center justify-center text-slate-400">
+                        <div id="preview_box_${doc.id}" class="mt-2 mb-3 bg-slate-50 border border-dashed border-slate-200 rounded-lg h-32 flex flex-col items-center justify-center text-slate-400">
                             <i data-lucide="image-off" class="w-6 h-6 mb-2 opacity-50"></i>
                             <span class="text-[9px] font-black uppercase tracking-widest opacity-60">No Document</span>
                         </div>
@@ -310,7 +310,7 @@
                         </label>
                         ${previewHtml}
                         <div class="pt-2">
-                            <input type="file" name="${doc.id}" accept=".jpg,.jpeg,.png,.pdf" class="block w-full text-[10px] font-bold text-slate-600 file:mr-3 file:py-1.5 file:px-3 file:rounded-full file:border-0 file:text-[10px] file:font-black file:uppercase file:tracking-widest file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer">
+                            <input type="file" name="${doc.id}" accept=".jpg,.jpeg,.png,.pdf" class="block w-full text-[10px] font-bold text-slate-600 file:mr-3 file:py-1.5 file:px-3 file:rounded-full file:border-0 file:text-[10px] file:font-black file:uppercase file:tracking-widest file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer" onchange="previewDocumentVault(this, '${doc.id}')">
                             <p class="text-[8px] text-slate-400 mt-1.5 uppercase tracking-widest font-bold">Upload new to overwrite</p>
                         </div>
                     </div>
@@ -600,6 +600,97 @@
         }, 150);
     }
 
+    function previewDocumentVault(input, docId) {
+        const file = input.files[0];
+        const previewBox = document.getElementById(`preview_box_${docId}`);
+        if (!previewBox) return;
+
+        if (file) {
+            const isPdf = file.name.toLowerCase().endsWith('.pdf');
+            if (isPdf) {
+                previewBox.outerHTML = `
+                    <div id="preview_box_${docId}" class="mt-2 mb-3 bg-blue-50 border border-blue-200 rounded-lg h-32 flex flex-col items-center justify-center text-blue-600 ring-2 ring-blue-500 ring-offset-1 transition-all">
+                        <i data-lucide="file-check-2" class="w-8 h-8 mb-2"></i>
+                        <span class="text-[10px] font-black uppercase tracking-widest text-slate-700 px-4 text-center truncate w-full" title="${file.name}">${file.name}</span>
+                        <span class="text-[8px] font-black uppercase tracking-widest text-blue-700 mt-1 bg-blue-200/50 px-2 py-0.5 rounded-full">Ready to Upload</span>
+                    </div>
+                `;
+                if (typeof lucide !== 'undefined') lucide.createIcons();
+            } else {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    previewBox.outerHTML = `
+                        <div id="preview_box_${docId}" class="mt-2 mb-3 ring-2 ring-blue-500 ring-offset-1 transition-all rounded-lg">
+                            <div class="relative w-full h-32 bg-slate-100 rounded-lg overflow-hidden border border-slate-200 group cursor-pointer" onclick="openImageModal('${e.target.result}')">
+                                <img src="${e.target.result}" alt="Preview" class="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" />
+                                <div class="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                                    <span class="bg-white/90 text-slate-800 text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-full flex items-center gap-1 shadow-xl">
+                                        <i data-lucide="maximize-2" class="w-3 h-3"></i> View Preview
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                    if (typeof lucide !== 'undefined') lucide.createIcons();
+                }
+                reader.readAsDataURL(file);
+            }
+        } else {
+            // Revert back
+            previewBox.outerHTML = `
+                <div id="preview_box_${docId}" class="mt-2 mb-3 bg-slate-50 border border-dashed border-slate-200 rounded-lg h-32 flex flex-col items-center justify-center text-slate-400">
+                    <i data-lucide="image-off" class="w-6 h-6 mb-2 opacity-50"></i>
+                    <span class="text-[9px] font-black uppercase tracking-widest opacity-60">No Document</span>
+                </div>
+            `;
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+        }
+    }
+
+    function openImageModal(src) {
+        let modal = document.getElementById('imagePreviewModalOverlay');
+        if (!modal) {
+            modal = document.createElement('div');
+            modal.id = 'imagePreviewModalOverlay';
+            modal.className = 'fixed inset-0 bg-slate-900/95 backdrop-blur-sm z-[9999] flex items-center justify-center hidden opacity-0 transition-opacity duration-300';
+            modal.innerHTML = `
+                <button type="button" class="absolute top-6 right-6 text-white/50 hover:text-white bg-white/10 hover:bg-white/20 p-3 rounded-full transition-colors group" onclick="closeImageModal()">
+                    <i data-lucide="x" class="w-6 h-6 group-hover:scale-110 transition-transform"></i>
+                </button>
+                <div class="relative w-full max-w-[90vw] h-[90vh] flex justify-center items-center">
+                    <img id="imagePreviewModalImg" src="" class="max-w-full max-h-full object-contain rounded-lg shadow-2xl scale-95 transition-transform duration-300" />
+                </div>
+            `;
+            document.body.appendChild(modal);
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+        }
+        
+        const img = document.getElementById('imagePreviewModalImg');
+        img.src = src;
+        
+        modal.classList.remove('hidden');
+        // Trigger reflow
+        void modal.offsetWidth;
+        modal.classList.remove('opacity-0');
+        img.classList.remove('scale-95');
+        img.classList.add('scale-100');
+    }
+
+    function closeImageModal() {
+        const modal = document.getElementById('imagePreviewModalOverlay');
+        const img = document.getElementById('imagePreviewModalImg');
+        if (modal) {
+            modal.classList.add('opacity-0');
+            if (img) {
+                img.classList.remove('scale-100');
+                img.classList.add('scale-95');
+            }
+            setTimeout(() => {
+                modal.classList.add('hidden');
+            }, 300);
+        }
+    }
+
     document.querySelectorAll('.driver-tab').forEach(tab => {
         tab.addEventListener('click', () => {
             document.querySelectorAll('.driver-tab').forEach(t => {
@@ -610,6 +701,67 @@
             tab.classList.add('border-blue-500', 'text-blue-600', 'active');
             const panel = document.querySelector(`.driver-tab-panel[data-tab-panel="${tab.dataset.tab}"]`);
             if (panel) panel.classList.remove('hidden');
+        });
+    });
+
+    document.getElementById('driverDocumentsForm')?.addEventListener('submit', function(e) {
+        e.preventDefault();
+        const driverId = document.getElementById('driverDocumentsDriverId').value;
+        const btn = this.querySelector('button[type="submit"]');
+        const origHtml = btn.innerHTML;
+        
+        // Check if there are any files selected
+        const fileInputs = this.querySelectorAll('input[type="file"]');
+        let hasFiles = false;
+        fileInputs.forEach(input => {
+            if(input.files.length > 0) hasFiles = true;
+        });
+        
+        if(!hasFiles) {
+            if(typeof showNotification === 'function') showNotification('Please select at least one document to upload.', 'error');
+            else alert('Please select at least one document to upload.');
+            return;
+        }
+        
+        btn.disabled = true;
+        btn.innerHTML = '<i data-lucide="loader-2" class="w-4 h-4 text-blue-400 animate-spin"></i> Uploading...';
+        if(typeof lucide !== 'undefined') lucide.createIcons();
+        
+        const formData = new FormData(this);
+        
+        fetch(`/driver-management/upload-documents/${driverId}`, {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
+                'Accept': 'application/json'
+            }
+        })
+        .then(r => r.json())
+        .then(data => {
+            btn.disabled = false;
+            btn.innerHTML = origHtml;
+            if(typeof lucide !== 'undefined') lucide.createIcons();
+            
+            if (data.success) {
+                if(typeof showNotification === 'function') showNotification(data.message, 'success');
+                else alert(data.message);
+                
+                // Clear file inputs
+                this.reset();
+                
+                // Reload the modal data to show updated images
+                openDriverDetails(driverId);
+            } else {
+                alert('Error: ' + (data.message || 'Upload failed.'));
+            }
+        })
+        .catch(err => {
+            console.error(err);
+            btn.disabled = false;
+            btn.innerHTML = origHtml;
+            if(typeof lucide !== 'undefined') lucide.createIcons();
+            alert('An error occurred during upload.');
         });
     });
 </script>

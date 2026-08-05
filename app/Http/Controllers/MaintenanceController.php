@@ -15,6 +15,7 @@ class MaintenanceController extends Controller
         $search = $request->input('search', '');
         $status = $request->input('status', '');
         $type = $request->input('type', '');
+        $date_filter = $request->input('date_filter', '');
         $page = max(1, (int) $request->input('page', 1));
         $limit = 10;
         $offset = ($page - 1) * $limit;
@@ -54,6 +55,10 @@ class MaintenanceController extends Controller
 
         if ($type) {
             $query->where('maintenance.maintenance_type', $type);
+        }
+
+        if ($date_filter) {
+            $query->whereDate('maintenance.date_started', $date_filter);
         }
 
         $total = $query->count();
@@ -137,11 +142,23 @@ class MaintenanceController extends Controller
 
         // MaintNotifs is now handled globally in AppServiceProvider
 
+        if ($request->ajax()) {
+            return view('maintenance.partials._maintenance_table', compact(
+                'records',
+                'search',
+                'status',
+                'type',
+                'date_filter',
+                'pagination'
+            ))->render();
+        }
+
         return view('maintenance.index', compact(
             'records',
             'search',
             'status',
             'type',
+            'date_filter',
             'pagination',
             'totals',
             'units',
@@ -334,7 +351,7 @@ class MaintenanceController extends Controller
 
         // Use Eloquent to trigger TrackChanges trait
         return DB::transaction(function () use ($id, $data, $parsed, $request) {
-            $maintenance = Maintenance::findOrFail($id);
+            $maintenance = Maintenance::where('id', $id)->firstOrFail();
             $maintenance->update($data);
 
             // Update unit status based on maintenance completion
@@ -418,7 +435,7 @@ class MaintenanceController extends Controller
     public function destroy($id)
     {
         return DB::transaction(function () use ($id) {
-            $maintenance = Maintenance::findOrFail($id);
+            $maintenance = Maintenance::where('id', $id)->firstOrFail();
             
             // Return stock back to inventory
             $parts = DB::table('maintenance_parts')->where('maintenance_id', $id)->get();
@@ -434,13 +451,13 @@ class MaintenanceController extends Controller
 
             ActivityLogController::log('Archived Maintenance Record', "Unit: {$plate}\nType: " . ucwords($type) . "\nRecord archived and stock returned.");
 
-            return redirect()->to(route('maintenance.index', request()->only(['page', 'search', 'status', 'type', 'view'])))->with('success', 'Maintenance record archived and stock returned.');
+            return back()->with('success', 'Maintenance record archived and stock returned.');
         });
     }
 
     public function toggleComplete($id)
     {
-        $maint = Maintenance::findOrFail($id);
+        $maint = Maintenance::where('id', $id)->firstOrFail();
         
         DB::transaction(function () use ($maint) {
             if (in_array(strtolower($maint->status), ['complete', 'completed'])) {
@@ -484,14 +501,14 @@ class MaintenanceController extends Controller
 
     public function toggleInProgress($id)
     {
-        $maint = Maintenance::findOrFail($id);
+        $maint = Maintenance::where('id', $id)->firstOrFail();
 
         DB::transaction(function () use ($maint) {
-            // Workflow: pending -> ongoing -> completed
+            // Workflow: pending -> in_progress -> completed
             $currentStatus = strtolower($maint->status);
             if ($currentStatus === 'pending') {
-                $maint->update(['status' => 'ongoing', 'date_completed' => null, 'updated_by' => Auth::id()]);
-            } elseif ($currentStatus === 'ongoing' || $currentStatus === 'testing') {
+                $maint->update(['status' => 'in_progress', 'date_completed' => null, 'updated_by' => Auth::id()]);
+            } elseif ($currentStatus === 'in_progress' || $currentStatus === 'testing' || $currentStatus === 'ongoing') {
                 $maint->update(['status' => 'completed', 'date_completed' => date('Y-m-d'), 'updated_by' => Auth::id()]);
                 DB::table('units')->where('id', $maint->unit_id)->update([
                     'status' => 'active', 
@@ -510,3 +527,5 @@ class MaintenanceController extends Controller
         return back()->with('success', 'Maintenance stage updated.');
     }
 }
+
+

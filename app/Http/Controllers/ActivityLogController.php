@@ -16,9 +16,34 @@ class ActivityLogController extends Controller
     {
         $query = LoginAudit::with('user')->orderByDesc('created_at');
 
-        // By default, exclude auth and account management logs unless explicitly requested via filter
-        if ($request->input('type') !== 'auth') {
-            $query->whereNotIn('action', ['login', 'logout', 'failed_login', 'created', 'approved', 'rejected']);
+        $type = $request->input('type');
+
+        // Apply Category Filters
+        if ($type === 'auth') {
+            // Only show auth-related logs
+            $query->whereIn('action', ['login', 'logout', 'failed_login']);
+        } elseif ($type === 'admin') {
+            // Show administrative actions (staff/user management, approvals, roles, etc.)
+            $query->where(function ($q) {
+                $q->where('action', 'like', '%approved%')
+                  ->orWhere('action', 'like', '%rejected%')
+                  ->orWhere('action', 'like', '%role%')
+                  ->orWhere('action', 'like', '%password%')
+                  ->orWhere('action', 'like', '%user%')
+                  ->orWhere('action', 'like', '%staff%')
+                  ->orWhere('action', 'like', '%driver%')
+                  ->orWhere('action', 'like', '%term%');
+            });
+        } elseif ($type === 'system') {
+            // Show system logic (units, boundaries, maintenance, inventory, etc) 
+            // Exclude auth and admin-heavy terms
+            $query->whereNotIn('action', ['login', 'logout', 'failed_login'])
+                  ->where('action', 'not like', '%user%')
+                  ->where('action', 'not like', '%staff%')
+                  ->where('action', 'not like', '%driver%');
+        } else {
+            // Default "All Activities": Show everything EXCEPT the spammy auth logs
+            $query->whereNotIn('action', ['login', 'logout', 'failed_login']);
         }
 
         // Search by name, email, action, or notes
@@ -35,18 +60,6 @@ class ActivityLogController extends Controller
         // Filter by role
         if ($request->filled('role')) {
             $query->where('user_role', $request->input('role'));
-        }
-
-        // Filter by action type (roughly)
-        if ($request->filled('type')) {
-            $type = $request->input('type');
-            if ($type === 'auth') {
-                $query->whereIn('action', ['login', 'logout', 'failed_login']);
-            } elseif ($type === 'admin') {
-                $query->whereIn('action', ['approved', 'rejected', 'role_change', 'password_reset']);
-            } elseif ($type === 'system') {
-                $query->whereNotIn('action', ['login', 'logout', 'failed_login', 'approved', 'rejected']);
-            }
         }
 
         // Filter by date range

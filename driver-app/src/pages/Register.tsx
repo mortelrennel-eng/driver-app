@@ -112,6 +112,7 @@ const Register: FC = () => {
 
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [showPassword, setShowPassword] = useState(false);
   const [step, setStep] = useState<'form' | 'otp' | 'success'>('form');
   const [pendingPhone, setPendingPhone] = useState('');
@@ -157,23 +158,34 @@ const Register: FC = () => {
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    const newErrors: Record<string, string> = {};
+
     // Name validation
-    if (formData.first_name.trim() === '') { setError('First name is required.'); return; }
-    if (!formData.first_name.match(/^[a-zA-ZñÑ\s]*$/)) { setError('First name must only contain letters.'); return; }
-    if (formData.last_name.trim() === '') { setError('Last name is required.'); return; }
-    if (!formData.last_name.match(/^[a-zA-ZñÑ\s]*$/)) { setError('Last name must only contain letters.'); return; }
+    if (formData.first_name.trim() === '') newErrors.first_name = 'First name is required.';
+    else if (!formData.first_name.match(/^[a-zA-ZñÑ\s]*$/)) newErrors.first_name = 'First name must only contain letters.';
+
+    if (formData.last_name.trim() === '') newErrors.last_name = 'Last name is required.';
+    else if (!formData.last_name.match(/^[a-zA-ZñÑ\s]*$/)) newErrors.last_name = 'Last name must only contain letters.';
     
     // Email validation
     const emailCheck = validateEmail(formData.email);
-    if (!emailCheck.valid) { setError(emailCheck.message); return; }
+    if (!emailCheck.valid) newErrors.email = emailCheck.message;
     
     // Phone validation
-    if (!formData.phone.startsWith('09')) { setError('Phone number must start with 09.'); return; }
-    if (formData.phone.length !== 11) { setError('Phone number must be exactly 11 digits.'); return; }
+    if (!formData.phone.startsWith('09')) newErrors.phone = 'Phone number must start with 09.';
+    else if (formData.phone.length !== 11) newErrors.phone = 'Phone number must be exactly 11 digits.';
     
     // Password validation
-    if (formData.password !== formData.password_confirmation) { setError('Passwords do not match.'); return; }
-    if (formData.password.length < 8) { setError('Password must be at least 8 characters.'); return; }
+    if (formData.password.length < 8) newErrors.password = 'Password must be at least 8 characters.';
+    else if (formData.password !== formData.password_confirmation) newErrors.password_confirmation = 'Passwords do not match.';
+
+    if (formData.plate_number.trim() === '') newErrors.plate_number = 'Plate number is required.';
+
+    if (Object.keys(newErrors).length > 0) {
+      setFieldErrors(newErrors);
+      return;
+    }
+    setFieldErrors({});
 
     setIsLoading(true);
     setError(null);
@@ -253,9 +265,9 @@ const Register: FC = () => {
     maxLen: number = 50,
     isRequired: boolean = true
   ) => (
-    <div>
+    <div style={{ marginBottom: '16px' }}>
       <label style={styles.label}>{label}</label>
-      <div style={styles.inputWrap}>
+      <div style={{ ...styles.inputWrap, marginBottom: '4px', border: fieldErrors[key] ? '1px solid #ef4444' : styles.inputWrap.border }}>
         <IonIcon icon={icon} style={styles.inputIcon} />
         <IonInput
           type={type === 'password' ? (showPassword ? 'text' : 'password') : (type as any)}
@@ -265,6 +277,7 @@ const Register: FC = () => {
             if (key === 'first_name' || key === 'last_name' || key === 'suffix') val = val.replace(/[^a-zA-ZñÑ.\s]/g, '');
             if (key === 'phone') val = val.replace(/[^0-9]/g, '');
             setFormData({ ...formData, [key]: val });
+            if (fieldErrors[key]) setFieldErrors({ ...fieldErrors, [key]: '' });
           }}
           placeholder={placeholder}
           required={isRequired}
@@ -279,6 +292,11 @@ const Register: FC = () => {
           />
         )}
       </div>
+      {fieldErrors[key] && (
+        <span style={{ color: '#ef4444', fontSize: '11px', fontWeight: '600', paddingLeft: '4px' }}>
+          {fieldErrors[key]}
+        </span>
+      )}
     </div>
   );
 

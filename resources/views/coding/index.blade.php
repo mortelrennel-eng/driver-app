@@ -27,7 +27,9 @@
         if ($highlight_plate) {
             foreach ($coding_calendar as $day => $day_units) {
                 $match = $day_units->first(function($u) use ($highlight_plate) {
-                    return stripos($u->plate_number, $highlight_plate) !== false;
+                    return stripos($u->plate_number, $highlight_plate) !== false || 
+                           stripos($u->driver1_name, $highlight_plate) !== false || 
+                           stripos($u->driver2_name, $highlight_plate) !== false;
                 });
                 
                 if ($match) {
@@ -122,9 +124,20 @@
                     };
                     const colorClass = dayColors[item.coding_day] || 'bg-gray-100 text-gray-600 border-gray-200';
 
+                    let driverInfo = '';
+                    const qLower = query.toLowerCase();
+                    if (item.driver1_name && item.driver1_name.toLowerCase().includes(qLower)) {
+                        driverInfo = `<div class="text-[10px] text-gray-500 font-bold truncate max-w-[150px]"><i data-lucide="user" class="w-3 h-3 inline pb-0.5"></i> ${item.driver1_name}</div>`;
+                    } else if (item.driver2_name && item.driver2_name.toLowerCase().includes(qLower)) {
+                        driverInfo = `<div class="text-[10px] text-gray-500 font-bold truncate max-w-[150px]"><i data-lucide="user" class="w-3 h-3 inline pb-0.5"></i> ${item.driver2_name}</div>`;
+                    }
+
                     div.innerHTML = `
-                        <div class="font-black text-gray-800 group-hover:text-blue-600 transition-colors uppercase tracking-tight">${item.plate_number}</div>
-                        <div class="px-2 py-0.5 ${colorClass} text-[9px] font-black rounded-full border border-gray-100 uppercase tracking-widest">${item.coding_day}</div>
+                        <div class="flex flex-col gap-0.5">
+                            <div class="font-black text-gray-800 group-hover:text-blue-600 transition-colors uppercase tracking-tight">${item.plate_number}</div>
+                            ${driverInfo}
+                        </div>
+                        <div class="px-2 py-0.5 ${colorClass} text-[9px] font-black rounded-full border border-gray-100 uppercase tracking-widest shrink-0">${item.coding_day}</div>
                     `;
 
                     div.addEventListener('click', () => {
@@ -211,7 +224,7 @@
                     <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                         <i data-lucide="search" class="h-4 w-4 text-gray-400"></i>
                     </div>
-                    <input type="search" name="search" id="plateSearch" value="{{ $search }}" placeholder="Search plate..."
+                    <input type="search" name="search" id="plateSearch" value="{{ $search }}" placeholder="Search plate or driver..."
                         class="block w-full pl-10 pr-3 py-1.5 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 focus:outline-none text-xs font-bold text-gray-700 shadow-sm transition-all" autocomplete="new-password" spellcheck="false" autocorrect="off" autocapitalize="off" readonly onfocus="this.removeAttribute('readonly');">
                     
                     <!-- Industry Standard Suggestions Dropdown -->
@@ -271,13 +284,19 @@
                         @php
                             if ($highlight_plate) {
                                 $units = $units->sortByDesc(function($u) use ($highlight_plate) {
-                                    return stripos($u->plate_number, $highlight_plate) !== false;
+                                    return stripos($u->plate_number, $highlight_plate) !== false || 
+                                           stripos($u->driver1_name, $highlight_plate) !== false || 
+                                           stripos($u->driver2_name, $highlight_plate) !== false;
                                 });
                             }
                         @endphp
                         @foreach($units as $unit)
                             @php 
-                                $isMatch = $highlight_plate && stripos($unit->plate_number, $highlight_plate) !== false;
+                                $isMatch = $highlight_plate && (
+                                    stripos($unit->plate_number, $highlight_plate) !== false ||
+                                    stripos($unit->driver1_name, $highlight_plate) !== false ||
+                                    stripos($unit->driver2_name, $highlight_plate) !== false
+                                );
                             @endphp
                             <tr class="coding-row group {{ $isMatch ? 'bg-yellow-50/80 border-yellow-200' : '' }}" data-day="{{ $day }}" style="{{ $day === $active_day ? '' : 'display: none;' }}">
                                 <td class="px-6 py-4 whitespace-nowrap font-black {{ $isMatch ? 'text-blue-700' : 'text-gray-900' }} group-hover:text-blue-600 transition-colors">

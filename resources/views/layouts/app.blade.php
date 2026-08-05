@@ -92,6 +92,10 @@
     <link rel="stylesheet" href="{{ asset('assets/fontawesome/all.min.css') }}?v=stable_6.4.0">
     <link rel="stylesheet" href="{{ asset('assets/inter/inter.css') }}?v=stable_3.19.3">
 
+    <!-- Interactive Tutorial Assets -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/driver.js@1.3.1/dist/driver.css"/>
+    <link rel="stylesheet" href="{{ asset('assets/css/tutorial.css') }}?v=4.0">
+
     <style>
         input::-webkit-outer-spin-button,
         input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
@@ -100,14 +104,7 @@
         i[data-lucide] { display: inline-block; width: 1rem; height: 1rem; vertical-align: middle; flex-shrink: 0; }
         .sidebar-item i[data-lucide] { width: 1.25rem; height: 1.25rem; }
         
-        /* Smooth page transitions */
-        #appMainContent { 
-            transition: opacity 0.15s ease-in-out, transform 0.15s ease-in-out; 
-        }
-        .page-transitioning #appMainContent {
-            opacity: 0.7;
-            transform: scale(0.995);
-        }
+        /* Smooth page transitions are handled by instant swap after fetch now. No fade/blanking. */
         
         /* Prevent sidebar flicker during navigation on desktop only */
         @media (min-width: 768px) {
@@ -188,8 +185,46 @@
     <link href="{{ asset('assets/app.css') }}?v=1.8" rel="stylesheet">
     @stack('styles')
 
+    <!-- Scripts -->
+    @vite(['resources/css/app.css', 'resources/js/app.js'])
+    
+    <style>
+        .card-hover:hover {
+            transform: none !important;
+            box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05) !important;
+        }
+        @media print {
+            @page {
+                margin: 0;
+            }
+            body {
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+            }
+        }
+    </style>
+
     <!-- Custom JS -->
     <script src="{{ asset('assets/app.js') }}?v=1.8"></script>
+    <script>
+        function printInHiddenIframe(url) {
+            const iframe = document.createElement('iframe');
+            iframe.style.position = 'absolute';
+            iframe.style.top = '-9999px';
+            iframe.style.left = '-9999px';
+            iframe.style.width = '0';
+            iframe.style.height = '0';
+            iframe.src = url;
+            document.body.appendChild(iframe);
+            // The loaded page should call window.print() on load
+            // Cleanup iframe after some time
+            setTimeout(() => {
+                if (document.body.contains(iframe)) {
+                    document.body.removeChild(iframe);
+                }
+            }, 60000); // 60 seconds is enough for the print dialog to open
+        }
+    </script>
 
     <!-- Chart.js for Dashboard (Local) -->
     <script src="{{ asset('assets/chart.min.js') }}"></script>
@@ -198,7 +233,7 @@
     @auth
         @php
             $user = auth()->user();
-            $cacheKey = 'header_notifs_' . $user->id;
+            $cacheKey = 'header_notifs_' . $user->uuid;
             
             $notificationService = app(\App\Services\NotificationService::class);
             $headerNotifications = $notificationService->getGlobalNotifications();
@@ -221,13 +256,16 @@
                     } elseif (is_array($readData)) {
                         $nowMs = time() * 1000;
                         foreach ($readData as $id => $timestamp) {
-                            if ($nowMs - $timestamp < 1800000) { // 30 minutes in milliseconds
+                            if ($nowMs - $timestamp < 2592000000) { // 30 days in milliseconds
                                 $readNotifIds[] = (string)$id;
                             }
                         }
                     }
                 } catch (\Exception $e) {}
             }
+            
+            file_put_contents(storage_path('logs/notif_debug.log'), "Time: " . date('Y-m-d H:i:s') . "\nCookie: " . (isset($_COOKIE['read_notifs']) ? $_COOKIE['read_notifs'] : 'NULL') . "\nParsed IDs: " . json_encode($readNotifIds) . "\n", FILE_APPEND);
+
             
             // Filter out ALL read notifications across all categories
             $headerNotifications = array_filter($headerNotifications, function($n) use ($readNotifIds) {
@@ -377,11 +415,21 @@
                         @endif
 
                         @if(auth()->user()->hasAccessTo('maintenance.*'))
-                        <a href="{{ route('maintenance.index') }}"
-                            class="sidebar-item flex items-center justify-start md:justify-center lg:justify-start gap-2.5 px-4 md:px-0 lg:px-4 py-1.5 md:py-2 rounded-lg text-gray-700 hover:bg-yellow-50 hover:text-yellow-700 {{ request()->routeIs('maintenance.*') ? 'bg-yellow-50 text-yellow-700 font-semibold' : '' }}">
-                            <i data-lucide="wrench" class="w-5 md:w-5 lg:w-4 h-5 md:h-5 lg:h-4"></i>
-                            <span class="text-sm block md:hidden lg:block">Maintenance</span>
-                        </a>
+                        <div class="relative group w-full">
+                            <a href="{{ route('maintenance.index') }}"
+                                class="sidebar-item flex items-center justify-start md:justify-center lg:justify-start gap-2.5 px-4 md:px-0 lg:px-4 py-1.5 md:py-2 rounded-lg text-gray-700 hover:bg-yellow-50 hover:text-yellow-700 {{ request()->routeIs('maintenance.*') && !request()->has('open_inventory') ? 'bg-yellow-50 text-yellow-700 font-semibold' : '' }}">
+                                <i data-lucide="wrench" class="w-5 md:w-5 lg:w-4 h-5 md:h-5 lg:h-4"></i>
+                                <span class="text-sm block md:hidden lg:block flex-1 whitespace-nowrap">Maintenance</span>
+                                <i data-lucide="chevron-down" class="w-3 h-3 text-gray-400 group-hover:text-yellow-700 hidden lg:block transition-transform duration-200 group-hover:rotate-180"></i>
+                            </a>
+                            {{-- Dropdown Sub-menu on Hover --}}
+                            <div class="hidden group-hover:block lg:pl-10 pl-0 space-y-1 mt-1 transition-all duration-300">
+                                <a href="{{ route('inventory.manage') }}" class="{{ request()->routeIs('inventory.manage') ? 'text-blue-600 font-bold bg-blue-50/50 block rounded-xl py-2 px-3' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50 block rounded-xl py-2 px-3' }} flex items-center gap-2">
+                                    <i data-lucide="package" class="w-3.5 h-3.5 {{ request()->routeIs('inventory.manage') ? 'text-blue-600' : 'text-slate-400' }}"></i> 
+                                    <span class="text-[10px] uppercase tracking-wider font-bold">Manage Inventory</span>
+                                </a>
+                            </div>
+                        </div>
                         @endif
 
                         @if(auth()->user()->hasAccessTo('coding.*'))
@@ -393,11 +441,30 @@
                         @endif
 
                         @if(auth()->user()->hasAccessTo('driver-behavior.*'))
-                        <a href="{{ route('driver-behavior.index') }}"
-                            class="sidebar-item flex items-center justify-start md:justify-center lg:justify-start gap-2.5 px-4 md:px-0 lg:px-4 py-1.5 md:py-2 rounded-lg text-gray-700 hover:bg-yellow-50 hover:text-yellow-700 {{ request()->routeIs('driver-behavior.*') ? 'bg-yellow-50 text-yellow-700 font-semibold' : '' }}">
-                            <i data-lucide="alert-triangle" class="w-5 md:w-5 lg:w-4 h-5 md:h-5 lg:h-4"></i>
-                            <span class="text-sm block md:hidden lg:block">Driver Behavior</span>
-                        </a>
+                        <div class="relative group w-full">
+                            <a href="{{ route('driver-behavior.incidents') }}"
+                                class="sidebar-item flex items-center justify-start md:justify-center lg:justify-start gap-2.5 px-4 md:px-0 lg:px-4 py-1.5 md:py-2 rounded-lg text-gray-700 hover:bg-yellow-50 hover:text-yellow-700 {{ request()->routeIs('driver-behavior.*') && !request()->routeIs('driver-behavior.incentives') && !request()->routeIs('driver-behavior.performance') && !request()->routeIs('driver-behavior.accidents') ? 'bg-yellow-50 text-yellow-700 font-semibold' : '' }}">
+                                <i data-lucide="alert-triangle" class="w-5 md:w-5 lg:w-4 h-5 md:h-5 lg:h-4"></i>
+                                <span class="text-sm block md:hidden lg:block flex-1 whitespace-nowrap">Driver Behavior</span>
+                                <i data-lucide="chevron-down" class="w-3 h-3 text-gray-400 group-hover:text-yellow-700 hidden lg:block transition-transform duration-200 group-hover:rotate-180"></i>
+                            </a>
+                            
+                            {{-- Dropdown Sub-menu on Hover --}}
+                            <div class="hidden group-hover:block lg:pl-10 pl-0 space-y-1 mt-1 transition-all duration-300">
+                                <a href="{{ route('driver-behavior.incentives') }}" class="{{ request()->routeIs('driver-behavior.incentives') ? 'text-green-600 font-bold bg-green-50/50 block rounded-xl py-2 px-3' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50 block rounded-xl py-2 px-3' }} flex items-center gap-2">
+                                    <i data-lucide="award" class="w-3.5 h-3.5 {{ request()->routeIs('driver-behavior.incentives') ? 'text-green-600' : 'text-slate-400' }}"></i> 
+                                    <span class="text-[10px] uppercase tracking-wider font-bold">Weekly Incentives</span>
+                                </a>
+                                <a href="{{ route('driver-behavior.performance') }}" class="{{ request()->routeIs('driver-behavior.performance') ? 'text-blue-600 font-bold bg-blue-50/50 block rounded-xl py-2 px-3' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50 block rounded-xl py-2 px-3' }} flex items-center gap-2">
+                                    <i data-lucide="bar-chart-2" class="w-3.5 h-3.5 {{ request()->routeIs('driver-behavior.performance') ? 'text-blue-600' : 'text-slate-400' }}"></i> 
+                                    <span class="text-[10px] uppercase tracking-wider font-bold">Performance Summary</span>
+                                </a>
+                                <a href="{{ route('driver-behavior.accidents') }}" class="{{ request()->routeIs('driver-behavior.accidents') ? 'text-red-600 font-bold bg-red-50/50 block rounded-xl py-2 px-3' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50 block rounded-xl py-2 px-3' }} flex items-center gap-2">
+                                    <i data-lucide="alert-octagon" class="w-3.5 h-3.5 {{ request()->routeIs('driver-behavior.accidents') ? 'text-red-600' : 'text-slate-400' }}"></i> 
+                                    <span class="text-[10px] uppercase tracking-wider font-bold">Accident Reports</span>
+                                </a>
+                            </div>
+                        </div>
                         @endif
 
                         @if(auth()->user()->hasAccessTo('office-expenses.*'))
@@ -417,19 +484,22 @@
                         @endif
 
                         @if(auth()->user()->hasAccessTo('analytics.*'))
-                        <a href="{{ route('analytics.index') }}"
-                            class="sidebar-item flex items-center justify-start md:justify-center lg:justify-start gap-2.5 px-4 md:px-0 lg:px-4 py-1.5 md:py-2 rounded-lg text-gray-700 hover:bg-yellow-50 hover:text-yellow-700 {{ request()->routeIs('analytics.*') ? 'bg-yellow-50 text-yellow-700 font-semibold' : '' }}">
-                            <i data-lucide="bar-chart" class="w-4 md:w-5 lg:w-4 h-4 md:h-5 lg:h-4"></i>
-                            <span class="text-sm block md:hidden lg:block">Analytics</span>
-                        </a>
-                        @endif
-
-                        @if(auth()->user()->hasAccessTo('activity-logs.*'))
-                        <a href="{{ route('activity-logs.index') }}"
-                            class="sidebar-item flex items-center justify-start md:justify-center lg:justify-start gap-2.5 px-4 md:px-0 lg:px-4 py-1.5 md:py-2 rounded-lg text-gray-700 hover:bg-yellow-50 hover:text-yellow-700 {{ request()->routeIs('activity-logs.*') ? 'bg-yellow-50 text-yellow-700 font-semibold' : '' }}">
-                            <i data-lucide="history" class="w-5 md:w-5 lg:w-4 h-5 md:h-5 lg:h-4"></i>
-                            <span class="text-sm block md:hidden lg:block">History Logs</span>
-                        </a>
+                        <div class="relative group w-full">
+                            <a href="{{ route('analytics.index') }}"
+                                class="sidebar-item flex items-center justify-start md:justify-center lg:justify-start gap-2.5 px-4 md:px-0 lg:px-4 py-1.5 md:py-2 rounded-lg text-gray-700 hover:bg-yellow-50 hover:text-yellow-700 {{ request()->routeIs('analytics.*') ? 'bg-yellow-50 text-yellow-700 font-semibold' : '' }}">
+                                <i data-lucide="bar-chart" class="w-4 md:w-5 lg:w-4 h-4 md:h-5 lg:h-4"></i>
+                                <span class="text-sm block md:hidden lg:block flex-1 whitespace-nowrap">Analytics</span>
+                                <i data-lucide="chevron-down" class="w-3 h-3 text-gray-400 group-hover:text-yellow-700 hidden lg:block transition-transform duration-200 group-hover:rotate-180"></i>
+                            </a>
+                            
+                            {{-- Dropdown Sub-menu on Hover --}}
+                            <div class="hidden group-hover:block lg:pl-10 pl-0 space-y-1 mt-1 transition-all duration-300">
+                                <a href="{{ route('analytics.history') }}" class="{{ request()->routeIs('analytics.history') ? 'text-indigo-600 font-bold bg-indigo-50/50 block rounded-xl py-2 px-3' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50 block rounded-xl py-2 px-3' }} flex items-center gap-2">
+                                    <i data-lucide="history" class="w-3.5 h-3.5 {{ request()->routeIs('analytics.history') ? 'text-indigo-600' : 'text-slate-400' }}"></i> 
+                                    <span class="text-[10px] uppercase tracking-wider font-bold">Daily Ledger</span>
+                                </a>
+                            </div>
+                        </div>
                         @endif
 
                         @if(auth()->user()->hasAccessTo('unit-profitability.*'))
@@ -441,11 +511,25 @@
                         @endif
 
                         @if(auth()->user()->hasAccessTo('staff.*'))
-                        <a href="{{ route('staff.index') }}"
-                            class="sidebar-item flex items-center justify-start md:justify-center lg:justify-start gap-2.5 px-4 md:px-0 lg:px-4 py-1.5 md:py-2 rounded-lg text-gray-700 hover:bg-yellow-50 hover:text-yellow-700 {{ request()->routeIs('staff.*') ? 'bg-yellow-50 text-yellow-700 font-semibold' : '' }}">
-                            <i data-lucide="user-cog" class="w-5 md:w-5 lg:w-4 h-5 md:h-5 lg:h-4"></i>
-                            <span class="text-sm block md:hidden lg:block">Staff Records</span>
-                        </a>
+                        <div class="relative group w-full">
+                            <a href="{{ route('staff.index') }}"
+                                class="sidebar-item flex items-center justify-start md:justify-center lg:justify-start gap-2.5 px-4 md:px-0 lg:px-4 py-1.5 md:py-2 rounded-lg text-gray-700 hover:bg-yellow-50 hover:text-yellow-700 {{ request()->routeIs('staff.*') ? 'bg-yellow-50 text-yellow-700 font-semibold' : '' }}">
+                                <i data-lucide="user-cog" class="w-5 md:w-5 lg:w-5 h-5 md:h-5 lg:h-5"></i>
+                                <span class="text-sm block md:hidden lg:block flex-1 whitespace-nowrap">General Staff Records</span>
+                                <i data-lucide="chevron-down" class="w-3 h-3 text-gray-400 group-hover:text-yellow-700 hidden lg:block transition-transform duration-200 group-hover:rotate-180"></i>
+                            </a>
+                            {{-- Dropdown Sub-menu on Hover --}}
+                            <div class="hidden group-hover:block lg:pl-10 pl-0 space-y-1 mt-1 transition-all duration-300">
+                                <a href="{{ route('staff.admin') }}" class="{{ request()->routeIs('staff.admin') ? 'text-blue-600 font-bold bg-blue-50/50 block rounded-xl py-2 px-3' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50 block rounded-xl py-2 px-3' }} flex items-center gap-2">
+                                    <i data-lucide="shield-check" class="w-3.5 h-3.5 {{ request()->routeIs('staff.admin') ? 'text-blue-600' : 'text-slate-400' }}"></i> 
+                                    <span class="text-[10px] uppercase tracking-wider font-bold">Admin Staff</span>
+                                </a>
+                                <a href="{{ route('staff.drivers') }}" class="{{ request()->routeIs('staff.drivers') ? 'text-green-600 font-bold bg-green-50/50 block rounded-xl py-2 px-3' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50 block rounded-xl py-2 px-3' }} flex items-center gap-2">
+                                    <i data-lucide="smartphone" class="w-3.5 h-3.5 {{ request()->routeIs('staff.drivers') ? 'text-green-600' : 'text-slate-400' }}"></i> 
+                                    <span class="text-[10px] uppercase tracking-wider font-bold">Mobile App Drivers</span>
+                                </a>
+                            </div>
+                        </div>
                         @endif
 
                         <hr class="my-2 border-gray-100 block md:hidden lg:block">
@@ -463,6 +547,14 @@
                             class="sidebar-item flex items-center justify-start md:justify-center lg:justify-start gap-2.5 px-4 md:px-0 lg:px-4 py-1.5 md:py-2 rounded-lg text-gray-700 hover:bg-yellow-50 hover:text-yellow-700 {{ request()->routeIs('announcements.*') ? 'bg-yellow-50 text-yellow-700 font-semibold' : '' }}">
                             <i data-lucide="megaphone" class="w-5 md:w-5 lg:w-4 h-5 md:h-5 lg:h-4"></i>
                             <span class="text-sm block md:hidden lg:block">Announcements</span>
+                        </a>
+                        @endif
+
+                        @if(auth()->user()->hasAccessTo('activity-logs.*'))
+                        <a href="{{ route('activity-logs.index') }}"
+                            class="sidebar-item flex items-center justify-start md:justify-center lg:justify-start gap-2.5 px-4 md:px-0 lg:px-4 py-1.5 md:py-2 rounded-lg text-gray-700 hover:bg-yellow-50 hover:text-yellow-700 {{ request()->routeIs('activity-logs.*') ? 'bg-yellow-50 text-yellow-700 font-semibold' : '' }}">
+                            <i data-lucide="history" class="w-5 md:w-5 lg:w-4 h-5 md:h-5 lg:h-4"></i>
+                            <span class="text-sm block md:hidden lg:block">History Logs</span>
                         </a>
                         @endif
 
@@ -484,9 +576,8 @@
                                 @if(auth()->user()->profile_image)
                                     @php
                                         $imagePath = str_replace('resources/', '', auth()->user()->profile_image);
-                                        $isIcon = str_contains($imagePath, 'image/') && !str_contains($imagePath, 'storage/');
                                     @endphp
-                                    @if($isIcon)
+                                    @if(str_contains(auth()->user()->profile_image, 'resources/assets/') || str_starts_with(auth()->user()->profile_image, 'image/'))
                                         <img src="{{ asset($imagePath) }}" alt="Profile" class="w-full h-full object-cover">
                                     @else
                                         <img src="{{ asset('storage/' . auth()->user()->profile_image) }}" alt="Profile" class="w-full h-full object-cover">
@@ -502,6 +593,14 @@
                             <i data-lucide="chevron-right" class="w-4 h-4 text-gray-400 group-hover:text-yellow-600 transition-colors hidden lg:block"></i>
                         </a>
                         
+                        <!-- Take the Tour Again -->
+                        <button type="button"
+                            onclick="if(window.TutorialManager) window.TutorialManager.restart();"
+                            class="flex items-center justify-start md:justify-center lg:justify-start gap-2 px-3 md:px-1 lg:px-3 py-2 mb-1 text-sm text-blue-600 hover:bg-blue-50 rounded-lg w-full transition-colors">
+                            <i data-lucide="help-circle" class="w-4 h-4"></i>
+                            <span class="block md:hidden lg:block font-semibold">Take the Tour Again</span>
+                        </button>
+                        
                         <!-- Logout Form -->
                         <form id="logout-form" action="{{ route('logout') }}" method="GET" class="hidden"></form>
                         
@@ -516,7 +615,7 @@
             </aside>
 
             <!-- Main Content -->
-            <main id="appMainContent" class="flex-1 flex flex-col min-h-0">
+            <main id="appMainContent" class="flex-1 flex flex-col min-h-0 min-w-0">
                 <!-- Top Bar -->
                 <header class="bg-white shadow-sm border-b px-4 md:px-6 py-2">
                     <div class="flex items-center justify-between">
@@ -536,12 +635,6 @@
                         <div class="flex items-center gap-4">
                             {{-- Consolidating all notifications into the Main Bell --}}
 
-                            <!-- Test App Chime Button -->
-                            <button onclick="triggerTestNotificationBroadcast()" id="test-chime-broadcast-btn"
-                                class="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-yellow-500 to-amber-500 hover:from-yellow-600 hover:to-amber-600 text-white font-extrabold text-[10px] uppercase tracking-wider rounded-xl shadow-md hover:shadow-lg transition-all duration-300 transform active:scale-95 flex-shrink-0">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-volume-2 animate-bounce"><path d="M11 5 6 9H2v6h4l5 4V5z"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>
-                                <span>📢 Test Chime</span>
-                            </button>
 
                             <!-- Main Notification Bell -->
                             <div class="relative">
@@ -599,18 +692,28 @@
                                                         <div class="mt-0.5 flex-shrink-0">
                                                             @if($n['type'] === 'case_expiry')
                                                                 <i data-lucide="file-warning" class="w-4 h-4 text-yellow-600"></i>
-                                                            @elseif($n['type'] === 'coding_today')
+                                                            @elseif($n['type'] === 'coding_today' || $n['type'] === 'coding_notice' || str_contains(strtolower($n['title']), 'coding'))
                                                                 <i data-lucide="car-front" class="w-4 h-4 text-blue-600"></i>
-                                                            @elseif($n['type'] === 'violation_alert')
+                                                            @elseif($n['type'] === 'violation_alert' || str_contains(strtolower($n['title']), 'violation'))
                                                                 <i data-lucide="shield-alert" class="w-4 h-4 text-red-600"></i>
+                                                            @elseif($n['type'] === 'missing_unit' || str_contains(strtolower($n['title']), 'missing unit'))
+                                                                <i data-lucide="map-pin-off" class="w-4 h-4 text-red-500"></i>
                                                             @elseif($n['type'] === 'low_stock')
                                                                 <i data-lucide="package-search" class="w-4 h-4 text-orange-500"></i>
                                                             @elseif($n['type'] === 'license_expiry')
                                                                 <i data-lucide="id-card" class="w-4 h-4 text-rose-500"></i>
                                                             @elseif($n['type'] === 'odo_maint_due')
                                                                 <i data-lucide="settings-2" class="w-4 h-4 text-orange-600"></i>
-                                                            @else
+                                                            @elseif(str_contains(strtolower($n['title']), 'payment') || str_contains(strtolower($n['title']), 'remit'))
+                                                                <i data-lucide="credit-card" class="w-4 h-4 text-emerald-600"></i>
+                                                            @elseif(str_contains(strtolower($n['title']), 'broadcast') || str_contains(strtolower($n['title']), 'chime') || str_contains(strtolower($n['title']), 'sound') || $n['type'] === 'push_broadcast')
+                                                                <i data-lucide="volume-2" class="w-4 h-4 text-indigo-500"></i>
+                                                            @elseif(str_contains(strtolower($n['title']), 'success') || str_contains(strtolower($n['title']), 'approved'))
+                                                                <i data-lucide="check-circle" class="w-4 h-4 text-emerald-500"></i>
+                                                            @elseif(str_contains(strtolower($n['title']), 'alert') || str_contains(strtolower($n['title']), 'warning') || str_contains(strtolower($n['title']), 'failed') || str_contains(strtolower($n['title']), 'error'))
                                                                 <i data-lucide="alert-circle" class="w-4 h-4 text-red-600"></i>
+                                                            @else
+                                                                <i data-lucide="bell" class="w-4 h-4 text-blue-500"></i>
                                                             @endif
                                                         </div>
                                                         <div class="flex-1 min-w-0">
@@ -630,6 +733,40 @@
                                                     </button>
                                                 </div>
                                             @endforeach
+                                            <script>
+                                                (function() {
+                                                    try {
+                                                        const readNotifs = JSON.parse(localStorage.getItem('read_notifs') || '{}');
+                                                        const items = document.querySelectorAll('.notification-item');
+                                                        let sysCnt = 0; let partCnt = 0;
+                                                        items.forEach(i => {
+                                                            const id = i.dataset.notifId;
+                                                            if (id && readNotifs[id]) {
+                                                                i.style.display = 'none';
+                                                                i.classList.remove('unread-notif');
+                                                                i.style.backgroundColor = 'transparent';
+                                                            } else if (i.classList.contains('unread-notif') && i.style.display !== 'none') {
+                                                                if(i.dataset.type === 'low_stock') partCnt++;
+                                                                else sysCnt++;
+                                                            }
+                                                        });
+                                                        const total = sysCnt + partCnt;
+                                                        const badge = document.getElementById('main-nav-notif-badge');
+                                                        if (badge) {
+                                                            badge.textContent = total;
+                                                            if (total > 0) badge.classList.remove('hidden'); else badge.classList.add('hidden');
+                                                        }
+                                                        const subtitle = document.getElementById('notif-dropdown-subtitle');
+                                                        if (subtitle) subtitle.textContent = total + ' item(s)';
+                                                        
+                                                        const sysBadge = document.getElementById('badge-filter-system');
+                                                        if(sysBadge) { sysBadge.textContent = sysCnt; if(sysCnt > 0) sysBadge.classList.remove('hidden'); else sysBadge.classList.add('hidden'); }
+                                                        
+                                                        const partsBadge = document.getElementById('badge-filter-parts');
+                                                        if(partsBadge) { partsBadge.textContent = partCnt; if(partCnt > 0) partsBadge.classList.remove('hidden'); else partsBadge.classList.add('hidden'); }
+                                                    } catch(e) {}
+                                                })();
+                                            </script>
                                         @endif
                                     </div>
                                 </div>
@@ -645,7 +782,7 @@
                 </header>
 
                 <!-- Page Content -->
-                <div id="appContentArea" class="flex-1 overflow-y-auto @yield('main-padding', 'p-4')">
+                <div id="appContentArea" class="flex-1 overflow-y-auto overflow-x-hidden @yield('main-padding', 'p-4')">
                     {{-- Flash Messages --}}
                     @foreach(['success', 'error', 'warning', 'info'] as $type)
                         @if(session($type))
@@ -1042,7 +1179,13 @@
             tryInitCapacitorPush();
 
             // Restore Read States
-            let readNotifs = JSON.parse(localStorage.getItem('read_notifs') || '{}');
+            let readNotifs = {};
+            try {
+                readNotifs = JSON.parse(localStorage.getItem('read_notifs') || '{}');
+            } catch (e) {
+                readNotifs = {};
+                localStorage.removeItem('read_notifs');
+            }
             
             // Migrate legacy array to object format
             if (Array.isArray(readNotifs)) {
@@ -1054,10 +1197,10 @@
             let needsCleanup = false;
 
             Object.keys(readNotifs).forEach(id => {
-                if (nowMs - readNotifs[id] < 1800000) { // Still within 30 minutes
+                if (nowMs - readNotifs[id] < 2592000000) { // Still within 30 days
                     const el = document.getElementById('notif-' + id);
                     if (el) {
-                        el.style.backgroundColor = 'transparent';
+                        el.style.display = 'none';
                         el.classList.remove('unread-notif');
                     }
                 } else {
@@ -1106,7 +1249,12 @@
 
         function markAsRead(id) {
             id = String(id);
-            let readNotifs = JSON.parse(localStorage.getItem('read_notifs') || '{}');
+            let readNotifs = {};
+            try {
+                readNotifs = JSON.parse(localStorage.getItem('read_notifs') || '{}');
+            } catch (e) {
+                readNotifs = {};
+            }
             if (Array.isArray(readNotifs)) readNotifs = {};
 
             readNotifs[id] = Date.now();
@@ -1114,7 +1262,7 @@
             // Cleanup expired entries
             const now = Date.now();
             for (const key in readNotifs) {
-                if (now - readNotifs[key] >= 1800000) {
+                if (now - readNotifs[key] >= 2592000000) {
                     delete readNotifs[key];
                 }
             }
@@ -1125,34 +1273,55 @@
             
             const el = document.getElementById('notif-' + id);
             if (el) {
-                el.style.backgroundColor = 'transparent';
+                el.style.display = 'none';
                 el.classList.remove('unread-notif');
                 // Decrement badge count
                 if (typeof updateNotificationCount === 'function') {
                     updateNotificationCount();
                 }
             }
+
+            // PERMANENT FIX: Tell the backend to resolve this notification so it never returns!
+            fetch('/notifications/dismiss', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+                },
+                body: 'id=' + encodeURIComponent(id)
+            }).catch(err => console.error('Failed to mark as read in DB:', err));
         }
 
         function markAllAsRead() {
             const items = document.querySelectorAll('.notification-item');
-            let readNotifs = JSON.parse(localStorage.getItem('read_notifs') || '{}');
+            let readNotifs = {};
+            try {
+                readNotifs = JSON.parse(localStorage.getItem('read_notifs') || '{}');
+            } catch (e) {
+                readNotifs = {};
+            }
             if (Array.isArray(readNotifs)) readNotifs = {};
             
             const now = Date.now();
             
             items.forEach(item => {
+                // Do not bulk mark 'low_stock' / important items as read
+                if (item.dataset.type === 'low_stock') {
+                    return;
+                }
+
                 const id = String(item.dataset.notifId);
                 if (id) {
                     readNotifs[id] = now;
                 }
-                item.style.backgroundColor = 'transparent';
+                item.style.display = 'none';
                 item.classList.remove('unread-notif');
             });
 
             // Cleanup expired entries
             for (const key in readNotifs) {
-                if (now - readNotifs[key] >= 1800000) {
+                if (now - readNotifs[key] >= 2592000000) { // 30 days
                     delete readNotifs[key];
                 }
             }
@@ -1165,6 +1334,16 @@
             if (typeof updateNotificationCount === 'function') {
                 updateNotificationCount();
             }
+
+            // PERMANENT FIX: Tell the backend to resolve all these notifications so they never return!
+            fetch('/notifications/mark-all-read', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+                }
+            }).catch(err => console.error('Failed to mark all as read in DB:', err));
         }
 
         function updateNotificationCount() {
@@ -1298,6 +1477,24 @@
         let pollInterval = null;
 
         function updateNotificationUI(data) {
+            // BULLETPROOF FIX: Check local storage for read notifications and filter the server response
+            // This prevents flickering if the browser drops the 'read_notifs' cookie because it got too big.
+            let readNotifsObj = {};
+            try {
+                readNotifsObj = JSON.parse(localStorage.getItem('read_notifs')) || {};
+            } catch(e) {}
+            const readNotifIds = Object.keys(readNotifsObj);
+
+            if (data && data.notifications) {
+                // Filter out notifications that the frontend already knows are read
+                data.notifications = data.notifications.filter(n => !readNotifIds.includes(String(n.id)));
+                
+                // Recalculate totals
+                data.total = data.notifications.length;
+                data.parts_count = data.notifications.filter(n => n.type === 'low_stock').length;
+                data.system_count = data.total - data.parts_count;
+            }
+
             // Track new notification IDs to play chime and show in-app banner
             if (data && data.notifications) {
                 if (!window.notifiedIds) {
@@ -1564,31 +1761,28 @@
             
             // Update page content without reload
             async function navigateToPage(url) {
-                // Add loading state
-                document.body.classList.add('page-transitioning');
-                
                 try {
                     const pageData = await fetchPage(url);
-                    
-                    if (pageData.mainContent) {
-                        // Update main content
+
+                    if (pageData && pageData.mainContent) {
+                        // Swap content ONLY after fetch is done — no blank screen, no fade
                         const mainContent = document.querySelector('#appMainContent');
                         mainContent.innerHTML = pageData.mainContent.innerHTML;
-                        
+
                         // Update page title
                         if (pageData.pageTitle) {
                             document.title = pageData.pageTitle;
                         }
-                        
+
                         // Update URL without reload
                         history.pushState({}, '', url);
-                        
+
                         // Re-initialize Lucide icons in new content
-                        if(window.lucide) {
+                        if (window.lucide) {
                             window.lucide.createIcons();
                         }
-                        
-                        // Re-run any scripts in the new content
+
+                        // Re-run inline scripts in the new content
                         const scripts = mainContent.querySelectorAll('script');
                         scripts.forEach(script => {
                             const newScript = document.createElement('script');
@@ -1600,20 +1794,18 @@
                             document.head.appendChild(newScript);
                         });
 
-                        // Dispatch custom event for child pages to know they are loaded via AJAX
+                        // Notify child pages they were loaded via AJAX
                         document.dispatchEvent(new CustomEvent('page:loaded', { detail: { url: url } }));
+                    } else if (!pageData) {
+                        // fetchPage already did window.location.href fallback, just return
+                        return;
                     }
                 } catch (error) {
                     console.error('Navigation error:', error);
-                    window.location.href = url; // Fallback
+                    window.location.href = url;
                 } finally {
-                    // Remove loading state
-                    setTimeout(() => {
-                        document.body.classList.remove('page-transitioning');
-                        document.querySelectorAll('.nav-loading').forEach(el => {
-                            el.classList.remove('nav-loading');
-                        });
-                    }, 100);
+                    // Always clear loading states from the sidebar links
+                    document.querySelectorAll('.nav-loading').forEach(el => el.classList.remove('nav-loading'));
                 }
             }
             
@@ -1954,7 +2146,7 @@
                     if (data.success) {
                         hideSosAlert();
                         // Redirect to the Accident Reports tab
-                        window.location.href = '/driver-behavior?tab=accidents';
+                        window.location.href = '{{ route("driver-behavior.accidents") }}';
                     } else {
                         alert('Failed to acknowledge alert.');
                     }
@@ -1971,6 +2163,40 @@
             setTimeout(pollSosAlerts, 2000); // Initial check
         })();
     </script>
+    
+    @auth
+    <script>
+        // Heartbeat Auto-Offline Tracker
+        (function() {
+            function sendHeartbeat() {
+                fetch('{{ route("heartbeat") }}', {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                        'Accept': 'application/json'
+                    }
+                }).catch(e => console.error('Heartbeat failed:', e));
+            }
+            
+            // Send heartbeat every 60 seconds
+            setInterval(sendHeartbeat, 60000);
+            
+            // Send one immediately on load
+            setTimeout(sendHeartbeat, 2000);
+        })();
+    </script>
+    
+    <!-- Interactive Tutorial System -->
+    <script src="https://cdn.jsdelivr.net/npm/driver.js@1.3.1/dist/driver.js.iife.js"></script>
+    <script src="{{ asset('assets/js/tutorial.js') }}?v=3.9"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            if (typeof window.TutorialManager !== 'undefined') {
+                window.TutorialManager.init({{ auth()->user()->tutorial_completed ? 'true' : 'false' }});
+            }
+        });
+    </script>
+    @endauth
 </body>
 
 </html>

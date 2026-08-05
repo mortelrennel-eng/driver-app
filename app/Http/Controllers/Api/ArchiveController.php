@@ -20,32 +20,32 @@ class ArchiveController extends Controller
     public function index()
     {
         $data = [
-            'units' => Unit::onlyTrashed()->orderByDesc('deleted_at')->get()->map(fn($u) => [
+            'units' => Unit::onlyTrashed()->get()->map(fn($u) => [
                 'id' => $u->id,
                 'name' => $u->plate_number,
                 'archived_at' => $u->deleted_at->format('M d, Y h:i A')
             ]),
-            'drivers' => Driver::onlyTrashed()->orderByDesc('deleted_at')->get()->map(fn($d) => [
+            'drivers' => Driver::onlyTrashed()->get()->map(fn($d) => [
                 'id' => $d->id,
                 'name' => trim($d->first_name . ' ' . $d->last_name),
                 'archived_at' => $d->deleted_at->format('M d, Y h:i A')
             ]),
-            'expenses' => Expense::onlyTrashed()->orderByDesc('deleted_at')->get()->map(fn($e) => [
+            'expenses' => Expense::onlyTrashed()->get()->map(fn($e) => [
                 'id' => $e->id,
                 'name' => $e->description . ' (₱' . number_format($e->amount, 2) . ')',
                 'archived_at' => $e->deleted_at->format('M d, Y h:i A')
             ]),
-            'maintenance' => Maintenance::with('unit')->onlyTrashed()->orderByDesc('deleted_at')->get()->map(fn($m) => [
+            'maintenance' => Maintenance::with('unit')->onlyTrashed()->get()->map(fn($m) => [
                 'id' => $m->id,
                 'name' => ($m->unit->plate_number ?? 'Unknown') . ' - ' . $m->maintenance_type,
                 'archived_at' => $m->deleted_at->format('M d, Y h:i A')
             ]),
-            'boundaries' => Boundary::onlyTrashed()->orderByDesc('deleted_at')->get()->map(fn($b) => [
+            'boundaries' => Boundary::onlyTrashed()->get()->map(fn($b) => [
                 'id' => $b->id,
                 'name' => 'Date: ' . $b->date . ' (₱' . number_format($b->actual_boundary, 2) . ')',
                 'archived_at' => $b->deleted_at->format('M d, Y h:i A')
             ]),
-            'staff' => Staff::onlyTrashed()->orderByDesc('deleted_at')->get()->map(fn($s) => [
+            'staff' => Staff::onlyTrashed()->get()->map(fn($s) => [
                 'id' => $s->id,
                 'name' => trim($s->first_name . ' ' . $s->last_name),
                 'archived_at' => $s->deleted_at->format('M d, Y h:i A')
@@ -57,17 +57,17 @@ class ArchiveController extends Controller
                     'driver_behavior.*',
                     'u.plate_number',
                     DB::raw("TRIM(CONCAT(COALESCE(d.first_name,''), ' ', COALESCE(d.last_name,''))) as driver_name")
-                )->orderByDesc('driver_behavior.deleted_at')->get()->map(fn($i) => [
+                )->get()->map(fn($i) => [
                     'id' => $i->id,
                     'name' => ($i->plate_number ?? 'Unknown') . ' - ' . ($i->driver_name ?? 'Unknown'),
                     'archived_at' => $i->deleted_at->format('M d, Y h:i A')
                 ]),
-            'pricing_rules' => BoundaryRule::onlyTrashed()->orderByDesc('deleted_at')->get()->map(fn($pr) => [
+            'pricing_rules' => BoundaryRule::onlyTrashed()->get()->map(fn($pr) => [
                 'id' => $pr->id,
                 'name' => $pr->name,
                 'archived_at' => $pr->deleted_at->format('M d, Y h:i A')
             ]),
-            'suppliers' => Supplier::onlyTrashed()->orderByDesc('deleted_at')->get()->map(fn($sup) => [
+            'suppliers' => Supplier::onlyTrashed()->get()->map(fn($sup) => [
                 'id' => $sup->id,
                 'name' => $sup->name,
                 'archived_at' => $sup->deleted_at->format('M d, Y h:i A')
@@ -85,7 +85,7 @@ class ArchiveController extends Controller
         $model = $this->getModelByType($type);
         if (!$model) return response()->json(['success' => false, 'message' => 'Invalid type.'], 400);
 
-        $item = $model::withTrashed()->find($id);
+        $item = $model::withTrashed()->where('id', $id)->first();
         if (!$item) return response()->json(['success' => false, 'message' => 'Item not found.'], 404);
 
         $item->restore();
@@ -102,7 +102,7 @@ class ArchiveController extends Controller
         $model = $this->getModelByType($type);
         if (!$model) return response()->json(['success' => false, 'message' => 'Invalid type.'], 400);
 
-        $item = $model::withTrashed()->find($id);
+        $item = $model::withTrashed()->where('id', $id)->first();
         if (!$item) return response()->json(['success' => false, 'message' => 'Item not found.'], 404);
 
         $item->forceDelete();
@@ -125,3 +125,4 @@ class ArchiveController extends Controller
         };
     }
 }
+

@@ -705,13 +705,27 @@ function closeDocPreviewModal() {
 
 function printDocPreview() {
     const content = document.getElementById('docPreviewContent').innerHTML;
-    const win = window.open('', '_blank');
-    win.document.write(`<!DOCTYPE html><html><head><title>Franchise Document</title>
-    <style>body{margin:0;padding:0;font-family:'Times New Roman',serif;} @media print{body{margin:0;}}</style>
+    
+    const iframe = document.createElement('iframe');
+    iframe.style.position = 'absolute';
+    iframe.style.top = '-9999px';
+    iframe.style.left = '-9999px';
+    iframe.style.width = '0';
+    iframe.style.height = '0';
+    document.body.appendChild(iframe);
+
+    const doc = iframe.contentWindow.document;
+    doc.open();
+    doc.write(`<!DOCTYPE html><html><head><title>Franchise Document</title>
+    <style>@page{margin:0;size:auto;} body{margin:0;padding:20px;font-family:'Times New Roman',serif;} img{max-width:100%;} @media print{body{margin:0;padding:20px;}}</style>
     </head><body>${content}</body></html>`);
-    win.document.close();
-    win.focus();
-    setTimeout(() => { win.print(); }, 300);
+    doc.close();
+
+    setTimeout(() => {
+        iframe.contentWindow.focus();
+        iframe.contentWindow.print();
+        setTimeout(() => { document.body.removeChild(iframe); }, 1000);
+    }, 300);
 }
 
 document.getElementById('docPreviewModal').addEventListener('click', function(e) {

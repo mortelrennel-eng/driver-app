@@ -26,14 +26,18 @@ import {
   alertCircleOutline,
   megaphoneOutline,
   timeOutline,
-  cameraOutline
+  cameraOutline,
+  documentTextOutline
 } from 'ionicons/icons';
 import { useHistory } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
+import { useTutorial } from '../context/TutorialContext';
+
 // import { useGpsTracking } from '../hooks/useGpsTracking';
-import axios from 'axios';
+
 import { endpoints } from '../config/api';
+import { cachedGet } from '../utils/cachedGet';
 
 interface PerformanceData {
   driver_name: string;
@@ -80,10 +84,13 @@ interface DriverNotification {
   icon: string;
 }
 
+
+
 const Dashboard: FC = () => {
   const { user, logout, refreshUser } = useAuth();
   const { t, isDark } = useTheme();
   const history = useHistory();
+  const { startTutorial, hasCompletedBefore } = useTutorial();
   const [data, setData] = useState<PerformanceData | null>(null);
   const [apiError, setApiError] = useState<string | null>(null);
   const [_isLoadingData, setIsLoadingData] = useState(true);
@@ -110,7 +117,7 @@ const Dashboard: FC = () => {
 
   const fetchLatestAnnouncement = async () => {
     try {
-      const response = await axios.get(endpoints.latestAnnouncement);
+      const response = await cachedGet(endpoints.latestAnnouncement);
       if (response.data.success) {
         setAnnouncement(response.data.announcement);
       }
@@ -122,7 +129,7 @@ const Dashboard: FC = () => {
   const fetchNotifications = async () => {
     setNotifLoading(true);
     try {
-      const response = await axios.get(endpoints.notifications);
+      const response = await cachedGet(endpoints.notifications);
       if (response.data.success) {
         setNotifications(response.data.notifications);
       }
@@ -157,7 +164,7 @@ const Dashboard: FC = () => {
     const message = (notif.message || '').toLowerCase();
 
     if (type === 'remittance') return '/history';
-    if (type === 'incident') return '/incidents';
+    if (type === 'incident') return '/violations';
     
     // Smart Routing: Check type OR keywords in title/message
     if (
@@ -190,12 +197,19 @@ const Dashboard: FC = () => {
     refreshUser();
     fetchPerformance();
     fetchLatestAnnouncement();
+    // Auto-start tutorial on first time
+    if (!hasCompletedBefore()) {
+      const t = setTimeout(() => {
+        startTutorial();
+      }, 500);
+      return () => clearTimeout(t);
+    }
     const interval = setInterval(() => {
       fetchPerformance();
       fetchLatestAnnouncement();
     }, 5 * 60 * 1000);
     return () => clearInterval(interval);
-  }, []);
+  }, [hasCompletedBefore, startTutorial]);
 
   // ─── SOS Handlers ───
   const handleSosPressStart = () => {
@@ -312,7 +326,7 @@ const Dashboard: FC = () => {
     try {
       setApiError(null);
       refreshUser();
-      const response = await axios.get(endpoints.driverPerformance);
+      const response = await cachedGet(endpoints.driverPerformance);
       if (response.data.success) {
         const newData = response.data.data;
         setData(newData);
@@ -383,7 +397,7 @@ const Dashboard: FC = () => {
     <IonPage>
       <IonHeader className="ion-no-border">
         <IonToolbar style={{ '--background': t.bg, '--padding-top': '8px', '--padding-bottom': '4px' }}>
-          <div style={{ padding: '8px 20px', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+        <div id="dash-greeting" style={{ padding: '8px 20px', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
               <div style={{ width: '48px', height: '48px', borderRadius: '16px', background: t.goldGrad, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: `0 6px 20px ${isDark ? 'rgba(234,179,8,0.25)' : 'rgba(202,138,4,0.2)'}` }}>
                 <span style={{ fontSize: '20px', fontWeight: '900', color: isDark ? '#0a0e1a' : '#fff' }}>{(user?.name || 'D')[0].toUpperCase()}</span>
@@ -394,7 +408,8 @@ const Dashboard: FC = () => {
               </div>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <button 
+              <button
+                id="dash-notif-btn"
                 onClick={() => { setShowNotifModal(true); fetchNotifications(); }} 
                 style={{ background: t.backBtnBg, border: t.borderSubtle, borderRadius: '14px', padding: '10px', cursor: 'pointer', position: 'relative' }}
               >
@@ -573,7 +588,7 @@ const Dashboard: FC = () => {
           {/* ── Coding Banner ── */}
           {data && (
             data.has_unit !== false ? (
-              <div style={{ margin: '0 20px 16px', padding: '20px 18px', borderRadius: '20px', background: data.is_coding ? (isDark ? 'linear-gradient(135deg, rgba(239,68,68,0.2) 0%, rgba(239,68,68,0.1) 100%)' : 'linear-gradient(135deg, rgba(239,68,68,0.12) 0%, rgba(239,68,68,0.05) 100%)') : (isDark ? 'linear-gradient(135deg, rgba(34,197,94,0.15) 0%, rgba(34,197,94,0.05) 100%)' : 'linear-gradient(135deg, rgba(34,197,94,0.12) 0%, rgba(34,197,94,0.04) 100%)'), border: `1px solid ${data.is_coding ? 'rgba(239,68,68,0.4)' : 'rgba(34,197,94,0.3)'}`, display: 'flex', alignItems: 'center', gap: '14px', boxShadow: '0 4px 12px rgba(0,0,0,0.06)' }}>
+              <div id="dash-coding-status" style={{ margin: '0 20px 16px', padding: '20px 18px', borderRadius: '20px', background: data.is_coding ? (isDark ? 'linear-gradient(135deg, rgba(239,68,68,0.2) 0%, rgba(239,68,68,0.1) 100%)' : 'linear-gradient(135deg, rgba(239,68,68,0.12) 0%, rgba(239,68,68,0.05) 100%)') : (isDark ? 'linear-gradient(135deg, rgba(34,197,94,0.15) 0%, rgba(34,197,94,0.05) 100%)' : 'linear-gradient(135deg, rgba(34,197,94,0.12) 0%, rgba(34,197,94,0.04) 100%)'), border: `1px solid ${data.is_coding ? 'rgba(239,68,68,0.4)' : 'rgba(34,197,94,0.3)'}`, display: 'flex', alignItems: 'center', gap: '14px', boxShadow: '0 4px 12px rgba(0,0,0,0.06)' }}>
                 <div style={{ width: '12px', height: '12px', borderRadius: '50%', background: data.is_coding ? '#ef4444' : '#22c55e', boxShadow: `0 0 12px ${data.is_coding ? '#ef4444' : '#22c55e'}`, animation: 'pulse 2s infinite' }}></div>
                 <div style={{ flex: 1 }}>
                   <div style={{ fontSize: '15px', fontWeight: '800', color: data.is_coding ? (isDark ? '#fca5a5' : '#b91c1c') : (isDark ? '#86efac' : '#15803d'), letterSpacing: '0.3px' }}>
@@ -603,7 +618,7 @@ const Dashboard: FC = () => {
           )}
 
           {/* ── Boundary Progress Hero ── */}
-          <div style={{ margin: '0 20px 16px', padding: '24px 20px', background: t.card, ...t.glass, border: t.border, borderRadius: '20px', boxShadow: t.shadow }}>
+          <div id="dash-boundary-card" style={{ margin: '0 20px 16px', padding: '24px 20px', background: t.card, ...t.glass, border: t.border, borderRadius: '20px', boxShadow: t.shadow }}>
             {data && data.has_unit === false ? (
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '12px 0', gap: '12px' }}>
                 <div style={{ width: '48px', height: '48px', borderRadius: '50%', background: 'rgba(239,68,68,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -718,16 +733,18 @@ const Dashboard: FC = () => {
           </div>
 
           {/* ── Driver Tools (GCash-style Icon Grid) ── */}
-          <div style={{ margin: '0 20px 8px' }}>
+          <div id="dash-toolbox" style={{ margin: '0 20px 8px' }}>
              <h3 style={{ fontSize: '11px', fontWeight: '800', color: t.textMuted, textTransform: 'uppercase', letterSpacing: '1.5px', marginBottom: '10px', paddingLeft: '4px' }}>Driver Toolbox</h3>
-             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px', padding: '8px 0' }}>
+             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px', padding: '8px 0' }}>
                 {[
                   { label: 'Stats', icon: statsChartOutline, color: '#8b5cf6', bg: '#8b5cf6', route: '/performance' },
                   { label: 'Vehicle', icon: carSportOutline, color: '#06b6d4', bg: '#06b6d4', route: '/vehicle' },
                   { label: 'History', icon: cashOutline, color: '#22c55e', bg: '#22c55e', route: '/history' },
-                  { label: 'Incidents', icon: alertCircle, color: '#ef4444', bg: '#ef4444', route: '/incidents' },
-                  { label: 'Charges', icon: ribbonOutline, color: '#f59e0b', bg: '#f59e0b', route: '/charges' },
-                  { label: 'Announcement', icon: megaphoneOutline, color: '#ea580c', bg: '#ea580c', route: '/announcements' }
+                  { label: 'Violations', icon: warningOutline, color: '#ef4444', bg: '#ef4444', route: '/violations' },
+                  { label: 'Accidents', icon: megaphoneOutline, color: '#f97316', bg: '#f97316', route: '/accidents' },
+                  { label: 'Debts', icon: alertCircle, color: '#f59e0b', bg: '#f59e0b', route: '/debts' },
+                  { label: 'Incentives', icon: ribbonOutline, color: '#eab308', bg: '#eab308', route: '/incentives' },
+                  { label: 'News', icon: documentTextOutline, color: '#ea580c', bg: '#ea580c', route: '/announcements' }
                 ].map((item, i) => (
                   <div key={i} onClick={() => history.push(item.route)} style={{
                     display: 'flex',
@@ -754,6 +771,7 @@ const Dashboard: FC = () => {
              {/* ── Emergency Button ── */}
              <div style={{ marginTop: '80px', width: '100%' }}>
                <div 
+                 id="dash-sos-btn"
                  onTouchStart={handleSosPressStart}
                  onTouchEnd={handleSosPressEnd}
                  onMouseDown={handleSosPressStart}

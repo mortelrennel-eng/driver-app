@@ -16,17 +16,29 @@ use App\Models\SystemAlert;
 use App\Models\FranchiseCase;
 use App\Models\DriverBehavior;
 use App\Traits\CalculatesDriverPerformance;
+use App\Traits\CalculatesBoundary;
 use App\Services\NotificationService;
 use Carbon\Carbon;
 
 class DashboardController extends Controller
 {
-    use CalculatesDriverPerformance;
+    use CalculatesDriverPerformance, CalculatesBoundary;
     protected $notificationService;
 
     public function __construct(NotificationService $notificationService)
     {
         $this->notificationService = $notificationService;
+    }
+
+    public function completeTutorial(Request $request)
+    {
+        $user = \Illuminate\Support\Facades\Auth::user();
+        if ($user) {
+            $user->tutorial_completed = true;
+            $user->save();
+            return response()->json(['success' => true]);
+        }
+        return response()->json(['success' => false], 401);
     }
 
     public function index(Request $request)
@@ -36,6 +48,13 @@ class DashboardController extends Controller
         if (!Cache::has($cacheKey)) {
             $this->notificationService->dispatchDailyCodingNotifications();
             Cache::put($cacheKey, true, now()->endOfDay());
+        }
+
+        // AUTO-TRIGGER: Daily Missed Boundary Charges
+        $autoChargeKey = 'daily_missed_boundary_charged_' . now()->toDateString();
+        if (!Cache::has($autoChargeKey)) {
+            $this->dispatchDailyMissedBoundaryCharge();
+            Cache::put($autoChargeKey, true, now()->endOfDay());
         }
 
         // Get dashboard statistics using centralized method
@@ -176,12 +195,13 @@ class DashboardController extends Controller
 
             // 1. Get units with essential joined data and aggregate subqueries to avoid N+1
             $units = DB::table('units as u')
-                ->leftJoin('drivers as d', 'u.driver_id', '=', 'd.id')
+                ->leftJoin('drivers as d1', 'u.driver_id', '=', 'd1.id')
+                ->leftJoin('drivers as d2', 'u.secondary_driver_id', '=', 'd2.id')
                 ->whereNull('u.deleted_at')
                 ->select([
-                    'u.id', 'u.status', 'u.boundary_rate', 'u.purchase_cost', 'u.plate_number', 'u.driver_id',
-                    DB::raw("TRIM(CONCAT(COALESCE(d.first_name, ''), ' ', COALESCE(d.last_name, ''))) as driver_full_name"),
-                    'd.nickname as driver_nickname',
+                    'u.id', 'u.status', 'u.boundary_rate', 'u.purchase_cost', 'u.plate_number', 'u.driver_id', 'u.secondary_driver_id',
+                    DB::raw("TRIM(CONCAT(COALESCE(d1.first_name, ''), ' ', COALESCE(d1.last_name, ''))) as driver1_name"),
+                    DB::raw("TRIM(CONCAT(COALESCE(d2.first_name, ''), ' ', COALESCE(d2.last_name, ''))) as driver2_name"),
                     // Total Boundary
                     DB::raw("(SELECT SUM(actual_boundary) FROM boundaries WHERE unit_id = u.id AND deleted_at IS NULL) as total_boundary"),
                     // Today's Boundary
@@ -204,6 +224,13 @@ class DashboardController extends Controller
                 ->map(function($unit) use ($todayDay) {
                     $displayStatus = strtolower($unit->status);
                     
+                    // Auto-correct Vacant/Active status based on assigned drivers
+                    if (($unit->driver_id || $unit->secondary_driver_id) && $displayStatus === 'vacant') {
+                        $displayStatus = 'active';
+                    } elseif (!$unit->driver_id && !$unit->secondary_driver_id && $displayStatus === 'active') {
+                        $displayStatus = 'vacant';
+                    }
+                    
                     // Automation: Identify if it should be coding based on plate number
                     $plateCodingDay = $this->getCodingDay($unit->plate_number);
                     $shouldBeCodingToday = ($plateCodingDay === $todayDay);
@@ -224,8 +251,8 @@ class DashboardController extends Controller
                     }
                     
                     // Driver name logic
-                    $driverName = $unit->driver_full_name ?: ($unit->driver_nickname ?: 'No Driver');
-                    if (!$unit->driver_id) $driverName = 'No Driver';
+                    $driverName = $unit->driver1_name ?: ($unit->driver2_name ?: 'No Driver');
+                    if (!$unit->driver_id && !$unit->secondary_driver_id) $driverName = 'No Driver';
                     
                     // Days to ROI calculation logic (optimized)
                     $daysToROI = 0;
@@ -255,7 +282,10 @@ class DashboardController extends Controller
                         'today_boundary' => (float)($unit->today_boundary ?? 0),
                         'purchase_cost' => (float) $unit->purchase_cost,
                         'driver_name' => $driverName,
+                        'driver1_name' => $unit->driver1_name,
+                        'driver2_name' => $unit->driver2_name,
                         'driver_id' => $unit->driver_id,
+                        'secondary_driver_id' => $unit->secondary_driver_id,
                         'roi_percentage' => $roiPercentage,
                         'roi_achieved' => $roiPercentage >= 100,
                         'days_to_roi' => $daysToROI,
@@ -267,8 +297,8 @@ class DashboardController extends Controller
             // Calculate real stats from actual data
             $stats = [
                 'total_units' => $units->count(),
-                'vacant_units' => $units->whereNull('driver_id')->count(),
-                'active_units' => $units->whereNotNull('driver_id')->where('status', '!=', 'missing')->count(),
+                'vacant_units' => $units->whereNull('driver_id')->whereNull('secondary_driver_id')->count(),
+                'active_units' => $units->filter(function($u) { return !is_null($u['driver_id']) || !is_null($u['secondary_driver_id']); })->where('status', '!=', 'missing')->count(),
                 'coding_units' => $units->where('status', 'coding')->count(),
                 'missing_units' => $units->where('status', 'missing')->count(),
                 'roi_units' => $units->where('roi_achieved', true)->count(),
@@ -466,7 +496,7 @@ class DashboardController extends Controller
                             'type' => 'expense',
                             'description' => $item->description ?: $item->expense_type,
                             'category' => $item->expense_type,
-                            'amount' => (float) $item->amount,
+                            'amount' => abs((float) $item->amount),
                             'date' => $item->date,
                             'source' => $item->user_name ?: 'Office / System',
                             'reference' => 'Expense #' . $item->id,
@@ -493,7 +523,7 @@ class DashboardController extends Controller
                         'type' => 'maintenance',
                         'description' => 'Unit ' . $item->plate_number . ' - ' . ($item->maintenance_type ?: 'Maintenance'),
                         'category' => 'Maintenance',
-                        'amount' => (float) $item->cost,
+                        'amount' => abs((float) $item->cost),
                         'date' => $item->date_started,
                         'source' => $item->mechanic_name ?: 'Workshop',
                         'reference' => 'MNT-#' . $item->id,
@@ -514,7 +544,7 @@ class DashboardController extends Controller
                         'type' => 'coding',
                         'description' => 'Unit ' . $item->plate_number . ' - Coding Fee',
                         'category' => 'Coding',
-                        'amount' => (float) $item->cost,
+                        'amount' => abs((float) $item->cost),
                         'date' => $item->date,
                         'source' => 'System',
                         'reference' => 'COD-#' . $item->id,
@@ -539,7 +569,7 @@ class DashboardController extends Controller
                         'type' => 'salary',
                         'description' => 'Salary Payment - ' . $item->employee_name,
                         'category' => 'Payroll',
-                        'amount' => (float) $item->total_salary,
+                        'amount' => abs((float) $item->total_salary),
                         'date' => $item->pay_date,
                         'source' => 'Finance',
                         'reference' => 'SAL-#' . $item->id,
@@ -658,6 +688,7 @@ class DashboardController extends Controller
                 'm.date_completed as end_date',
                 'm.status as maintenance_status',
                 'm.cost as maintenance_cost',
+                'm.mechanic_name',
             ];
 
             $maintenanceUnits = $unitsQuery
@@ -680,9 +711,11 @@ class DashboardController extends Controller
                         'description' => $unit->description ?: 'No description available',
                         'start_date' => $startDate,
                         'end_date' => $endDate,
-                        'estimated_completion' => $endDate ?: 'Not specified',
+                        'estimated_completion' => $endDate,
                         'maintenance_status' => $unit->maintenance_status ?: 'Ongoing',
                         'maintenance_cost' => (float) ($unit->maintenance_cost ?? 0),
+                        'maintenance_id' => $unit->maintenance_id,
+                        'mechanic_name' => $unit->mechanic_name ?: 'Unknown',
                         'purchase_cost' => (float) ($unit->purchase_cost ?? 0),
                         'boundary_rate' => (float) ($unit->boundary_rate ?? 0)
                     ];
@@ -755,37 +788,22 @@ class DashboardController extends Controller
                 'd.user_id',
                 DB::raw("CONCAT(COALESCE(d.first_name,''), ' ', COALESCE(d.last_name,'')) as name"),
                 DB::raw('NULL as email'),
-                DB::raw('COUNT(DISTINCT unit.id) as assigned_units'),
-                DB::raw('COALESCE(SUM(b.actual_boundary), 0) as total_boundary'),
-                DB::raw('COALESCE(AVG(b.actual_boundary), 0) as avg_boundary'),
-                DB::raw('GROUP_CONCAT(DISTINCT unit.plate_number) as plate_numbers'),
+                DB::raw('(SELECT COUNT(id) FROM units WHERE (driver_id = d.id OR secondary_driver_id = d.id) AND deleted_at IS NULL) as assigned_units'),
+                DB::raw('(SELECT COALESCE(SUM(actual_boundary), 0) FROM boundaries WHERE driver_id = d.id AND deleted_at IS NULL) as total_boundary'),
+                DB::raw('(SELECT COALESCE(AVG(actual_boundary), 0) FROM boundaries WHERE driver_id = d.id AND deleted_at IS NULL) as avg_boundary'),
+                DB::raw('(SELECT GROUP_CONCAT(DISTINCT plate_number) FROM units WHERE (driver_id = d.id OR secondary_driver_id = d.id) AND deleted_at IS NULL) as plate_numbers'),
                 'd.hire_date',
                 'd.license_number',
                 'd.contact_number as phone',
                 'd.address'
             ];
-            
-            $groupBy = [
-                'd.id', 'd.user_id', 'd.first_name', 'd.last_name',
-                'd.hire_date', 'd.license_number', 'd.contact_number', 'd.address'
-            ];
 
             $query = DB::table('drivers as d')
-                ->leftJoin('units as unit', function($join) {
-                    $join->on('d.id', '=', 'unit.driver_id')
-                         ->orOn('d.id', '=', 'unit.secondary_driver_id')
-                         ->whereNull('unit.deleted_at');
-                })
-                ->leftJoin('boundaries as b', function($join) {
-                    $join->on('unit.id', '=', 'b.unit_id')
-                         ->whereNull('b.deleted_at');
-                })
                 ->select($select)
                 ->whereNull('d.deleted_at')
                 ->whereIn('d.driver_status', ['available', 'assigned', 'active']);
 
             $activeDrivers = $query
-                ->groupBy($groupBy)
                 ->orderBy('d.first_name', 'asc')
                 ->get()
                 ->map(function($driver) {
@@ -860,7 +878,8 @@ class DashboardController extends Controller
             $unitsQuery = DB::table('units as u')->whereNull('u.deleted_at');
             $today = now()->format('l');
 
-            $unitsQuery->leftJoin('drivers as d', 'u.driver_id', '=', 'd.id');
+            $unitsQuery->leftJoin('drivers as d1', 'u.driver_id', '=', 'd1.id');
+            $unitsQuery->leftJoin('drivers as d2', 'u.secondary_driver_id', '=', 'd2.id');
 
             $latestC = DB::table('coding_records')
                 ->select('unit_id', DB::raw('MAX(id) as latest_id'))
@@ -878,7 +897,8 @@ class DashboardController extends Controller
                 'u.purchase_cost',
                 'u.boundary_rate',
                 'u.created_at',
-                DB::raw("CONCAT(COALESCE(d.first_name,''), ' ', COALESCE(d.last_name,'')) as driver_name"),
+                DB::raw("TRIM(CONCAT(COALESCE(d1.first_name, ''), ' ', COALESCE(d1.last_name, ''))) as driver1_name"),
+                DB::raw("TRIM(CONCAT(COALESCE(d2.first_name, ''), ' ', COALESCE(d2.last_name, ''))) as driver2_name"),
                 'c.id as coding_id',
                 DB::raw("'Coding' as coding_type"),
                 'c.description',
@@ -890,11 +910,7 @@ class DashboardController extends Controller
 
             $allUnits = $unitsQuery->select($select)->get();
             
-            $codingUnits = $allUnits->filter(function($unit) use ($today) {
-                $plateCodingDay = $this->getCodingDay($unit->plate_number);
-                $isManualCoding = ($unit->status === 'coding' || ($unit->coding_id && $unit->coding_status !== 'completed'));
-                return ($plateCodingDay === $today || $isManualCoding);
-            })->values();
+            $codingUnits = $allUnits;
 
             $codingUnits = $codingUnits->map(function($unit) {
                     $startDate = data_get($unit, 'start_date');
@@ -907,13 +923,14 @@ class DashboardController extends Controller
                         'id' => $unit->id,
                         'plate_number' => $unit->plate_number,
                         'status' => $unit->status,
-                        'driver_name' => $unit->driver_name,
+                        'driver1_name' => $unit->driver1_name,
+                        'driver2_name' => $unit->driver2_name,
                         'coding_type' => $unit->coding_type ?: 'Coding',
                         'coding_day' => $codingDay,
                         'description' => $unit->description ?: 'No description available',
                         'start_date' => $startDate,
                         'end_date' => $endDate,
-                        'estimated_completion' => $endDate ?: 'Not specified',
+                        'estimated_completion' => $endDate,
                         'coding_status' => $unit->coding_status ?: 'Ongoing',
                         'coding_cost' => (float) ($unit->coding_cost ?? 0),
                         'purchase_cost' => (float) ($unit->purchase_cost ?? 0),
@@ -1035,7 +1052,7 @@ class DashboardController extends Controller
             $salExToday = DB::table('salaries')->whereDate('pay_date', $today)->sum('total_salary') ?? 0;
             $mntExToday = DB::table('maintenance')->whereNull('deleted_at')->whereDate('date_started', $today)->where('status', '!=', 'cancelled')->sum('cost') ?? 0;
             
-            $stats['total_expenses_today'] = $genExToday + $salExToday + $mntExToday;
+            $stats['total_expenses_today'] = abs($genExToday) + abs($salExToday) + abs($mntExToday);
             $stats['net_income'] = $stats['today_boundary'] - $stats['total_expenses_today'];
 
             // 6. Financials (This Month)
@@ -1052,7 +1069,7 @@ class DashboardController extends Controller
             $salExMonth = DB::table('salaries')->whereMonth('pay_date', $month)->whereYear('pay_date', $year)->sum('total_salary') ?? 0;
             $mntExMonth = DB::table('maintenance')->whereNull('deleted_at')->whereMonth('date_started', $month)->whereYear('date_started', $year)->where('status', '!=', 'cancelled')->sum('cost') ?? 0;
             
-            $stats['total_expenses_month'] = $genExMonth + $salExMonth + $mntExMonth;
+            $stats['total_expenses_month'] = abs($genExMonth) + abs($salExMonth) + abs($mntExMonth);
             $stats['net_income_month'] = $stats['month_boundary'] - $stats['total_expenses_month'];
 
             $stats['roi_achieved'] = $stats['roi_units']; // Harmonize for JS
@@ -1150,7 +1167,10 @@ class DashboardController extends Controller
             $driverName = $unit->first_name ? trim($unit->first_name . ' ' . $unit->last_name) : 'Unknown Driver';
             
             $alertTitle = "🚨 Missing Unit: {$unit->plate_number}";
-            $existingAlert = DB::table('system_alerts')->where('type', 'missing_unit')->where('title', $alertTitle)->where('is_resolved', false)->first();
+            $existingAlert = DB::table('system_alerts')->where('type', 'missing_unit')->where('title', $alertTitle)->where(function($q) {
+                $q->where('is_resolved', false)
+                  ->orWhereDate('created_at', today());
+            })->first();
             $msg = "Unit {$unit->plate_number} has not remitted a boundary for {$diffDays} day(s). The last driver on record is {$driverName}.";
 
             if (!$existingAlert) {
@@ -1188,7 +1208,7 @@ class DashboardController extends Controller
         return collect(range(6, 0))->map(function ($daysAgo) {
             $date = now()->subDays($daysAgo)->toDateString();
             $boundary = DB::table('boundaries')->whereNull('deleted_at')->whereDate('date', $date)->sum('actual_boundary') ?? 0;
-            $expenses = DB::table('expenses')->whereNull('deleted_at')->whereDate('date', $date)->sum('amount') ?? 0;
+            $expenses = abs((float)(DB::table('expenses')->whereNull('deleted_at')->whereDate('date', $date)->sum('amount') ?? 0));
             return [
                 'day'      => now()->subDays($daysAgo)->format('D'),
                 'boundary' => (float) $boundary,
@@ -1242,10 +1262,14 @@ class DashboardController extends Controller
 
     private function getUnitPerformanceData()
     {
+        $thirtyDaysAgo = now()->subDays(30)->toDateString();
+
         return DB::table('units as u')
             ->whereNull('u.deleted_at')
-            ->leftJoin('boundaries as b', function($join) {
-                $join->on('u.id', '=', 'b.unit_id')->whereNull('b.deleted_at');
+            ->leftJoin('boundaries as b', function($join) use ($thirtyDaysAgo) {
+                $join->on('u.id', '=', 'b.unit_id')
+                     ->whereNull('b.deleted_at')
+                     ->where('b.date', '>=', $thirtyDaysAgo);
             })
             ->select('u.plate_number', DB::raw('COALESCE(SUM(b.actual_boundary), 0) as total_boundary'), 'u.boundary_rate')
             ->where('u.status', 'active')
@@ -1335,5 +1359,68 @@ class DashboardController extends Controller
         }
         return $data;
     }
-}
 
+    private function dispatchDailyMissedBoundaryCharge()
+    {
+        try {
+            $rules = DB::table('boundary_rules')->get();
+            $units = DB::table('units')
+                ->whereNull('deleted_at')
+                ->whereNotNull('shift_deadline_at')
+                ->whereNotIn('status', ['retired', 'maintenance'])
+                ->get();
+
+            $now = Carbon::now();
+
+            foreach ($units as $unit) {
+                $deadline = Carbon::parse($unit->shift_deadline_at);
+                if ($deadline->isPast()) {
+                    $diffHours = $deadline->diffInHours($now);
+                    $diffDays = floor($diffHours / 24);
+                    
+                    if ($diffDays >= 1) {
+                        $driverId = $unit->current_turn_driver_id ?: $unit->driver_id;
+                        
+                        if ($driverId) {
+                            for ($i = 1; $i <= $diffDays; $i++) {
+                                $missedDate = $deadline->copy()->addDays($i)->toDateString();
+                                
+                                $pricing = $this->getCurrentPricing($unit, $rules, $missedDate);
+                                $targetRate = $pricing['rate'];
+                                
+                                if ($targetRate > 0) {
+                                    $exists = DB::table('driver_behavior')
+                                        ->where('driver_id', $driverId)
+                                        ->where('incident_type', 'Missed Boundary')
+                                        ->where('incident_date', $missedDate)
+                                        ->exists();
+                                        
+                                    if (!$exists) {
+                                        DB::table('driver_behavior')->insert([
+                                            'unit_id' => $unit->id,
+                                        'driver_id' => $driverId,
+                                        'incident_type' => 'Missed Boundary',
+                                        'severity' => 'high',
+                                        'description' => "Auto-logged [Missed Boundary]: Unit not returned on $missedDate.",
+                                        'incident_date' => $missedDate,
+                                        'timestamp' => Carbon::parse($missedDate),
+                                        'total_charge_to_driver' => $targetRate,
+                                        'remaining_balance' => $targetRate,
+                                        'charge_status' => 'pending',
+                                        'created_at' => now(),
+                                        'updated_at' => now(),
+                                    ]);
+                                    // Send push notification to the driver
+                                    \App\Services\NotificationService::sendMissingBoundaryNotification($driverId, $missedDate);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            }
+        } catch (\Exception $e) {
+            Log::error('Error in dispatchDailyMissedBoundaryCharge: ' . $e->getMessage());
+        }
+    }
+}

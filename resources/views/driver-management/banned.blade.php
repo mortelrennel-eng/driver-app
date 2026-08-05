@@ -119,7 +119,7 @@
             <div class="banned-profile-card bg-white rounded-[2rem] border border-gray-100 shadow-sm overflow-hidden flex flex-col cursor-pointer"
                  id="driver-card-{{ $driver->id }}"
                  data-status="{{ $driver->driver_status }}"
-                 data-search-terms="{{ strtolower($driver->full_name . ' ' . $driver->license_number . ' ' . $driver->contact_number) }}"
+                 data-search-terms="{{ strtolower($driver->full_name . ' ' . ($driver->license_number ?? '') . ' ' . ($driver->contact_number ?? '')) }}"
                  onclick="openDriverDetails({{ $driver->id }})">
                 
                 {{-- Card Header --}}
@@ -823,3 +823,4 @@ document.addEventListener('DOMContentLoaded', () => {
 
 @include('driver-management.partials._driver_details_modal')
 @endsection
+

@@ -3,8 +3,9 @@ import type { FC } from 'react';
 import { IonContent, IonPage, IonIcon, IonSpinner, IonHeader, IonToolbar } from '@ionic/react';
 import { arrowBackOutline, carSportOutline } from 'ionicons/icons';
 import { useHistory } from 'react-router-dom';
-import axios from 'axios';
+
 import { endpoints } from '../config/api';
+import { cachedGet } from '../utils/cachedGet';
 import { useTheme } from '../context/ThemeContext';
 
 interface VehicleData {
@@ -43,7 +44,7 @@ const Vehicle: FC = () => {
     }
 
     // 2. Fetch fresh data in background
-    axios.get(endpoints.driverVehicle)
+    cachedGet(endpoints.driverVehicle)
       .then(r => { 
         if (r.data.success) {
           setVehicle(r.data.data); 

@@ -34,10 +34,14 @@ import React, { useState } from 'react';
 import type { FC } from 'react';
 import axios from 'axios';
 import { endpoints } from '../config/api';
+import { cachedGet } from '../utils/cachedGet';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
+import { useTutorial } from '../context/TutorialContext';
+
 
 /* ── Shared Styles moved inside component ── */
+
 
 const Settings: FC = () => {
   const [presentToast] = useIonToast();
@@ -45,6 +49,7 @@ const Settings: FC = () => {
   const location = useLocation<{ openView?: string }>();
   const { refreshUser, logout } = useAuth();
   const { t, isDark, toggleTheme } = useTheme();
+  const { startTutorial } = useTutorial();
 
   /* ── Dynamic Theme Styles ── */
   const styles = {
@@ -150,7 +155,7 @@ const Settings: FC = () => {
   React.useEffect(() => {
     const fetchProfile = async () => {
       try {
-        const response = await axios.get(endpoints.getProfile);
+        const response = await cachedGet(endpoints.getProfile);
         if (response.data.success) {
           const profile = response.data.data;
           setName(profile.name || '');
@@ -435,7 +440,7 @@ const Settings: FC = () => {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                   
                   {/* Account Identity Card */}
-                  <div style={{ ...styles.sectionCard, background: t.sectionCardBg, border: t.border, boxShadow: t.cardShadow, textAlign: 'center', padding: '40px 20px' }}>
+                  <div id="settings-profile" style={{ ...styles.sectionCard, background: t.sectionCardBg, border: t.border, boxShadow: t.cardShadow, textAlign: 'center', padding: '40px 20px' }}>
                     <div style={{ 
                       width: '84px', height: '84px', borderRadius: '50%', 
                       background: t.goldGrad,
@@ -520,6 +525,19 @@ const Settings: FC = () => {
                       <div style={menuBtnInner}>
                         <div style={{ ...menuBtnIconWrap, background: t.goldBg, color: t.gold }}><IonIcon icon={documentTextOutline} /></div>
                         <span style={{ ...menuBtnText, color: t.textPrimary }}>Terms & Conditions</span>
+                        <IonIcon icon={chevronForwardOutline} style={{ fontSize: '18px', opacity: 0.4 }} />
+                      </div>
+                    </IonButton>
+
+                    <IonButton 
+                      id="settings-replay-tut"
+                      expand="block" fill="clear"
+                      onClick={() => startTutorial()}
+                      style={{ ...menuItemStyle, '--background': t.menuBg, '--border-color': t.menuBorder } as any}
+                    >
+                      <div style={menuBtnInner}>
+                        <div style={{ ...menuBtnIconWrap, background: t.goldBg, color: t.gold }}>🎓</div>
+                        <span style={{ ...menuBtnText, color: t.textPrimary }}>Replay Tutorial</span>
                         <IonIcon icon={chevronForwardOutline} style={{ fontSize: '18px', opacity: 0.4 }} />
                       </div>
                     </IonButton>

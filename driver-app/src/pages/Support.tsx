@@ -30,6 +30,7 @@ import {
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
 import axios from 'axios';
 import { endpoints, API_BASE_URL } from '../config/api';
+import { cachedGet } from '../utils/cachedGet';
 import { useTheme } from '../context/ThemeContext';
 
 interface SupportMessage {
@@ -77,7 +78,7 @@ const Support: FC = () => {
 
   const fetchMessages = async () => {
     try {
-      const response = await axios.get(endpoints.supportMessages);
+      const response = await cachedGet(endpoints.supportMessages);
       if (response.data.success) {
         setMessages(response.data.messages);
         localStorage.setItem('cached_support_messages', JSON.stringify(response.data.messages));

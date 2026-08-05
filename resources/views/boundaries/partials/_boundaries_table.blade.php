@@ -9,13 +9,12 @@
                     <th class="px-4 py-3 text-left text-[10px] font-black text-gray-400 uppercase tracking-widest">Target</th>
                     <th class="px-4 py-3 text-left text-[10px] font-black text-gray-400 uppercase tracking-widest">Actual</th>
                     <th class="px-4 py-3 text-left text-[10px] font-black text-gray-400 uppercase tracking-widest">Status</th>
-                    <th class="px-4 py-3 text-right text-[10px] font-black text-gray-400 uppercase tracking-widest">Action</th>
                 </tr>
             </thead>
             <tbody class="bg-white divide-y divide-gray-100">
                 @if (empty($boundaries))
                     <tr>
-                        <td colspan="7" class="px-6 py-12 text-center text-gray-400 font-bold uppercase tracking-widest italic">No boundary records found.</td>
+                        <td colspan="6" class="px-6 py-12 text-center text-gray-400 font-bold uppercase tracking-widest italic">No boundary records found.</td>
                     </tr>
                 @else
                     @foreach ($boundaries as $boundary)
@@ -89,16 +88,6 @@
                                         <div class="text-[9px] font-black text-blue-600 tracking-tighter">+{{ formatCurrency($boundary['excess']) }}</div>
                                     @endif
                                 </div>
-                            </td>
-                            <td class="px-4 py-3 whitespace-nowrap text-right" onclick="event.stopPropagation()">
-                                <button
-                                    type="button"
-                                    onclick="editBoundary({{ $boundary['id'] }})"
-                                    class="p-1.5 text-gray-400 hover:text-yellow-600 hover:bg-yellow-50 rounded-lg transition"
-                                    title="Edit Boundary"
-                                >
-                                    <i data-lucide="edit-3" class="w-4 h-4"></i>
-                                </button>
                             </td>
                         </tr>
                     @endforeach

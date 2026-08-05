@@ -69,7 +69,7 @@ class DashboardController extends Controller
             $genEx  = (float)(DB::table('expenses')->whereNull('deleted_at')->whereDate('date', $today)->sum('amount') ?? 0);
             $salEx  = (float)(DB::table('salaries')->whereDate('pay_date', $today)->sum('total_salary') ?? 0);
             $mntEx  = (float)(DB::table('maintenance')->whereNull('deleted_at')->whereDate('date_started', $today)->where('status', '!=', 'cancelled')->sum('cost') ?? 0);
-            $stats['total_expenses_today'] = $genEx + $salEx + $mntEx;
+            $stats['total_expenses_today'] = abs($genEx) + abs($salEx) + abs($mntEx);
             $stats['today_expenses']       = $stats['total_expenses_today'];
             $stats['expense_general']      = $genEx;
             $stats['expense_salary']       = $salEx;
@@ -79,7 +79,7 @@ class DashboardController extends Controller
             $mGenEx = (float)(DB::table('expenses')->whereNull('deleted_at')->whereMonth('date', $month)->whereYear('date', $year)->sum('amount') ?? 0);
             $mSalEx = (float)(DB::table('salaries')->whereMonth('pay_date', $month)->whereYear('pay_date', $year)->sum('total_salary') ?? 0);
             $mMntEx = (float)(DB::table('maintenance')->whereNull('deleted_at')->whereMonth('date_started', $month)->whereYear('date_started', $year)->where('status', '!=', 'cancelled')->sum('cost') ?? 0);
-            $stats['total_expenses_month'] = $mGenEx + $mSalEx + $mMntEx;
+            $stats['total_expenses_month'] = abs($mGenEx) + abs($mSalEx) + abs($mMntEx);
 
             // 3. Expense Breakdown (Detailed Categories from Web)
             $genExpenses = DB::table('expenses')
@@ -125,7 +125,7 @@ class DashboardController extends Controller
             for ($i = $days - 1; $i >= 0; $i--) {
                 $d    = now()->timezone('Asia/Manila')->subDays($i)->toDateString();
                 $rev  = (float)(DB::table('boundaries')->whereNull('deleted_at')->whereDate('date', $d)->sum('actual_boundary') ?? 0);
-                $gx   = (float)(DB::table('expenses')->whereNull('deleted_at')->whereDate('date', $d)->sum('amount') ?? 0);
+                $gx   = abs((float)(DB::table('expenses')->whereNull('deleted_at')->whereDate('date', $d)->sum('amount') ?? 0));
 
                 $label = ($days <= 30)
                     ? now()->timezone('Asia/Manila')->subDays($i)->format('M d')
@@ -380,12 +380,12 @@ class DashboardController extends Controller
 
                 $financialBreakdown[$key] = [
                     'total_revenue'  => $rev,
-                    'total_expenses' => $gx + $sx + $mx,
+                    'total_expenses' => abs($gx) + abs($sx) + abs($mx),
                     // Boundaries: no limit — matches web (fetches all, filters client-side)
                     'boundaries'     => DB::table('boundaries as b')
                                         ->join('units as u', 'b.unit_id', '=', 'u.id')
                                         ->leftJoin('drivers as d', 'b.driver_id', '=', 'd.id')
-                                        ->select('b.id', 'b.actual_boundary', 'b.date', 'u.plate_number', DB::raw("CONCAT(COALESCE(d.first_name,''), ' ', COALESCE(d.last_name,'')) as driver_name"))
+                                        ->select('b.id', 'b.uuid', 'b.actual_boundary', 'b.date', 'u.plate_number', DB::raw("CONCAT(COALESCE(d.first_name,''), ' ', COALESCE(d.last_name,'')) as driver_name"))
                                         ->whereNull('b.deleted_at')
                                         ->whereBetween('b.date', [$start, $end])
                                         ->orderByDesc('b.date')
@@ -393,7 +393,7 @@ class DashboardController extends Controller
                     // Maintenance: no limit — same structure as web renderExpensesReport
                     'maintenance'    => DB::table('maintenance as m')
                                         ->join('units as u', 'm.unit_id', '=', 'u.id')
-                                        ->select('m.id', 'm.maintenance_type as type', 'm.cost', 'm.description', 'm.date_started as date', 'u.plate_number')
+                                        ->select('m.id', 'm.uuid', 'm.maintenance_type as type', 'm.cost', 'm.description', 'm.date_started as date', 'u.plate_number')
                                         ->whereNull('m.deleted_at')
                                         ->whereBetween('m.date_started', [$start, $end])
                                         ->where('m.status', '!=', 'cancelled')
@@ -464,3 +464,4 @@ class DashboardController extends Controller
         return 'Unknown';
     }
 }
+

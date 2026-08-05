@@ -82,7 +82,7 @@
         </div>
     </div>
     
-    <div onclick="openPlatesModal('remitted')" class="bg-gradient-to-br from-green-500 to-emerald-600 rounded-2xl shadow-lg shadow-green-500/20 p-5 flex flex-col justify-center relative overflow-hidden text-white cursor-pointer hover:scale-[1.02] transition-transform active:scale-95">
+    <div onclick="openPlatesModal('remitted')" class="bg-gradient-to-br from-green-500 to-emerald-600 rounded-2xl shadow-lg shadow-green-500/20 p-5 flex flex-col justify-center relative overflow-hidden text-white cursor-pointer">
         <div class="absolute right-0 top-0 w-32 h-32 bg-white/10 rounded-full -mr-10 -mt-10 pointer-events-none"></div>
         <div class="flex justify-between items-start relative z-10 mb-1">
             <span class="text-[10px] font-black text-green-100 uppercase tracking-widest">Remitted Boundary Today</span>
@@ -94,7 +94,7 @@
         </div>
     </div>
     
-    <div onclick="openPlatesModal('vacant')" class="bg-gradient-to-br from-red-500 to-rose-600 rounded-2xl shadow-lg shadow-red-500/20 p-5 flex flex-col justify-center relative overflow-hidden text-white cursor-pointer hover:scale-[1.02] transition-transform active:scale-95">
+    <div onclick="openPlatesModal('vacant')" class="bg-gradient-to-br from-red-500 to-rose-600 rounded-2xl shadow-lg shadow-red-500/20 p-5 flex flex-col justify-center relative overflow-hidden text-white cursor-pointer">
         <div class="absolute right-0 top-0 w-32 h-32 bg-white/10 rounded-full -mr-10 -mt-10 pointer-events-none"></div>
         <div class="flex justify-between items-start relative z-10 mb-1">
             <span class="text-[10px] font-black text-red-100 uppercase tracking-widest">Unremitted</span>
@@ -220,7 +220,8 @@
                                              data-plate="{{ $driver['current_plate'] }}"
                                              data-shortage="{{ $driver['net_shortage'] ?? 0 }}"
                                              data-has-accident-debt="{{ ($driver['has_accident_debt'] ?? 0) > 0 ? 'true' : 'false' }}"
-                                             data-accident-debt-amount="{{ $driver['total_accident_debt'] ?? 0 }}">
+                                             data-accident-debt-amount="{{ $driver['total_accident_debt'] ?? 0 }}"
+                                             data-debts="{{ json_encode($driver['pending_debts']) }}">
                                             <div class="font-black text-sm text-gray-900">{{ $driver['name'] }}</div>
                                             <div class="text-[11px] font-bold text-gray-500">{{ $driver['current_plate'] }}</div>
                                         </div>
@@ -238,21 +239,6 @@
                         <p class="text-sm font-black text-orange-800">Extra Driver Detected</p>
                         <p class="text-xs font-medium text-orange-700 mt-0.5">This driver is not regularly assigned to this unit. The record will be marked as <strong>Extra Driver</strong>.</p>
                     </div>
-                </div>
-
-                <div id="shortageBalanceAlert" class="hidden px-4 py-3 bg-red-50 border border-red-200 rounded-xl shadow-sm">
-                    <div class="flex items-start gap-3 mb-3">
-                        <span class="text-red-500 mt-0.5"><i data-lucide="alert-circle" class="w-5 h-5"></i></span>
-                        <div class="flex-1">
-                            <p class="text-sm font-black text-red-800">Past Balance Due</p>
-                            <p class="text-xs font-medium text-red-700 mt-0.5">This driver has an unpaid balance of <strong id="shortageBalanceAmount" class="font-black">₱0.00</strong> from previous shortages.</p>
-                        </div>
-                    </div>
-                    <button type="button" onclick="payFullBalance()" 
-                            class="w-full py-2 bg-red-600 hover:bg-red-700 text-white text-xs font-black uppercase tracking-widest rounded-lg transition-colors shadow-sm focus:ring-2 focus:ring-red-500 focus:ring-offset-1">
-                        Pay Full Balance & Clear Debt
-                    </button>
-                    <input type="hidden" id="rawShortageAmount" value="0">
                 </div>
 
                 {{-- Shift Status --}}
@@ -275,6 +261,8 @@
                         <p id="shiftExtraText" class="text-xs text-orange-800 font-bold leading-snug pt-0.5"></p>
                     </div>
                 </div>
+
+
 
                 {{-- Three-Column Grid for Date, Target, Actual --}}
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
@@ -315,13 +303,15 @@
                     <div class="flex items-center justify-between gap-2 mb-3">
                         <div class="flex items-center gap-2">
                             <i data-lucide="shield-alert" class="w-4 h-4 text-red-600"></i>
-                            <span class="text-xs font-black text-red-800 uppercase tracking-widest">Damage/Incident Payment</span>
+                            <span class="text-xs font-black text-red-800 uppercase tracking-widest">Outstanding Liabilities</span>
                         </div>
                         <div class="text-right">
                             <div class="text-[10px] text-red-500 font-bold uppercase tracking-widest">Outstanding Debt</div>
                             <div id="damageDebtTotalDisplay" class="text-sm font-black text-red-700">₱0.00</div>
                         </div>
                     </div>
+                    
+                    <div id="driverDebtsList" class="mb-3 hidden space-y-1.5 max-h-36 overflow-y-auto pr-1"></div>
                     <div class="relative mb-2">
                         <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
                             <span class="text-red-600 font-black">₱</span>
@@ -332,7 +322,7 @@
                                placeholder="0.00">
                     </div>
                     <div class="flex justify-between items-center px-1">
-                        <p class="text-[10px] text-red-600 font-bold italic leading-tight">Enter amount paid toward damage debt today.</p>
+                        <p class="text-[10px] text-red-600 font-bold italic leading-tight">Enter amount paid toward outstanding liabilities today.</p>
                         <div class="text-right shrink-0 ml-3">
                             <div class="text-[10px] text-red-500 font-bold uppercase tracking-widest">Remaining After Payment</div>
                             <div id="damageRemainingDisplay" class="text-sm font-black text-red-700">₱0.00</div>
@@ -941,6 +931,7 @@ function initializeUnitDropdown() {
                 if (alertBox) alertBox.classList.add('hidden');
                 document.getElementById('driverId').value = '';
                 document.getElementById('driverDisplay').value = '';
+                updateDriverDebtDisplay(null);
 
                 // Source of Truth: Get the smart rate
                 const suggestedRate = getSmartTargetRate(year, plate, customRate, document.getElementById('date').value);
@@ -1108,42 +1099,10 @@ function initializeDriverDropdown() {
                     extraAlert.classList.add('hidden');
                 }
 
-                // Handle Shortage Balance Alert
-                const shortageAlert = document.getElementById('shortageBalanceAlert');
-                const shortageAmountSpan = document.getElementById('shortageBalanceAmount');
-                const rawShortageInput = document.getElementById('rawShortageAmount');
-
-                if (shortage > 0) {
-                    shortageAlert.classList.remove('hidden');
-                    shortageAmountSpan.textContent = "₱" + shortage.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
-                    rawShortageInput.value = shortage;
-                } else {
-                    shortageAlert.classList.add('hidden');
-                    rawShortageInput.value = 0;
-                }
+                // Handle Shortage Balance Alert (Legacy logic removed)
 
                 // Toggle Damage Payment field visibility based on accident debt
-                const hasAccidentDebt = this.getAttribute('data-has-accident-debt') === 'true';
-                const accidentDebtAmount = parseFloat(this.getAttribute('data-accident-debt-amount') || 0);
-                const damageContainer = document.getElementById('damagePaymentContainer');
-                const debtLabel = document.getElementById('accidentDebtBalanceLabel');
-
-                if (hasAccidentDebt && accidentDebtAmount > 0) {
-                    damageContainer.classList.remove('hidden');
-                    // Populate the outstanding debt display
-                    const fmt = (n) => '₱' + n.toLocaleString('en-PH', { minimumFractionDigits: 2 });
-                    const debtDisplay = document.getElementById('damageDebtTotalDisplay');
-                    const remainDisplay = document.getElementById('damageRemainingDisplay');
-                    if (debtDisplay) {
-                        debtDisplay.textContent = fmt(accidentDebtAmount);
-                        debtDisplay.dataset.rawDebt = accidentDebtAmount;
-                    }
-                    if (remainDisplay) remainDisplay.textContent = fmt(accidentDebtAmount);
-                    if (debtLabel) debtLabel.textContent = fmt(accidentDebtAmount);
-                } else {
-                    damageContainer.classList.add('hidden');
-                    document.getElementById('damage_payment').value = 0;
-                }
+                updateDriverDebtDisplay(driverId);
 
                 document.getElementById('driverId').dispatchEvent(new Event('change'));
 
@@ -1156,18 +1115,107 @@ function initializeDriverDropdown() {
     }
 }
 
-function payFullBalance() {
-    const dailyTarget = parseFloat(document.getElementById('boundaryAmount').value || 0);
-    const pastShortage = parseFloat(document.getElementById('rawShortageAmount').value || 0);
-    const actualCollectedInput = document.getElementById('actualBoundary');
+function updateDriverDebtDisplay(driverId, savedPayment = 0) {
+    const damageContainer = document.getElementById('damagePaymentContainer');
+    if (!damageContainer) return;
 
-    const totalToPay = dailyTarget + pastShortage;
-    actualCollectedInput.value = totalToPay.toFixed(2);
-    
-    // Visual feedback/confirmation
-    actualCollectedInput.classList.add('ring-4', 'ring-green-400');
-    setTimeout(() => actualCollectedInput.classList.remove('ring-4', 'ring-green-400'), 1000);
+    if (!driverId || driverId === '0' || driverId === 'all') {
+        damageContainer.classList.add('hidden');
+        document.getElementById('damage_payment').value = '';
+        renderDriverDebtsList(null);
+        return;
+    }
+
+    const driverOption = document.querySelector(`.driver-option[data-id="${driverId}"]`);
+    const hasAccidentDebt = driverOption && driverOption.getAttribute('data-has-accident-debt') === 'true';
+    const accidentDebtAmount = driverOption ? parseFloat(driverOption.getAttribute('data-accident-debt-amount') || 0) : 0;
+    const debtLabel = document.getElementById('accidentDebtBalanceLabel');
+
+    const totalDebt = (accidentDebtAmount > 0) ? accidentDebtAmount : parseFloat(savedPayment || 0);
+
+    if (hasAccidentDebt || parseFloat(savedPayment || 0) > 0) {
+        damageContainer.classList.remove('hidden');
+        const fmt = (n) => '₱' + n.toLocaleString('en-PH', { minimumFractionDigits: 2 });
+        const debtDisplay = document.getElementById('damageDebtTotalDisplay');
+        const remainDisplay = document.getElementById('damageRemainingDisplay');
+        if (debtDisplay) {
+            debtDisplay.textContent = fmt(totalDebt);
+            debtDisplay.dataset.rawDebt = totalDebt;
+        }
+        
+        const currentPaymentInput = document.getElementById('damage_payment');
+        const currentPayment = parseFloat(currentPaymentInput.value || 0);
+        const remaining = Math.max(0, totalDebt - currentPayment);
+        
+        if (remainDisplay) remainDisplay.textContent = fmt(remaining);
+        if (debtLabel) debtLabel.textContent = fmt(totalDebt);
+        renderDriverDebtsList(driverOption);
+    } else {
+        damageContainer.classList.add('hidden');
+        document.getElementById('damage_payment').value = '';
+        renderDriverDebtsList(null);
+    }
 }
+
+function renderDriverDebtsList(optionEl) {
+    const debtsListContainer = document.getElementById('driverDebtsList');
+    if (!debtsListContainer) return;
+
+    if (!optionEl) {
+        debtsListContainer.innerHTML = '';
+        debtsListContainer.classList.add('hidden');
+        return;
+    }
+
+    const debtsJson = optionEl.getAttribute('data-debts') || '[]';
+    let debts = [];
+    try {
+        debts = JSON.parse(debtsJson);
+    } catch(e) {
+        console.error("Failed to parse debts JSON", e);
+    }
+
+    if (debts.length > 0) {
+        let listHtml = '<div class="space-y-1.5">';
+        debts.forEach((debt) => {
+            const balance = parseFloat(debt.remaining_balance || 0);
+            const type = debt.incident_type || 'General Liability';
+            const desc = debt.description || '';
+            const dateStr = debt.incident_date ? new Date(debt.incident_date).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' }) : '';
+            
+            let badgeClass = 'bg-slate-100 text-slate-600 border-slate-200';
+            if (type === 'Short Boundary') {
+                badgeClass = 'bg-rose-50 text-rose-600 border-rose-200';
+            } else if (type === 'Vehicle Damage') {
+                badgeClass = 'bg-orange-50 text-orange-600 border-orange-200';
+            }
+
+            listHtml += `
+                <div class="flex items-center justify-between p-2.5 bg-white border border-red-100/60 rounded-lg shadow-sm">
+                    <div class="min-w-0 flex-1 pr-2">
+                        <div class="flex items-center gap-1.5 flex-wrap">
+                            <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-wider border ${badgeClass}">
+                                ${type}
+                            </span>
+                            <span class="text-[9px] font-bold text-gray-400">${dateStr}</span>
+                        </div>
+                        <p class="text-xs font-bold text-gray-800 truncate mt-0.5">${desc}</p>
+                    </div>
+                    <div class="text-right shrink-0">
+                        <span class="text-xs font-black text-red-600">₱${balance.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
+                    </div>
+                </div>
+            `;
+        });
+        listHtml += '</div>';
+        debtsListContainer.innerHTML = listHtml;
+        debtsListContainer.classList.remove('hidden');
+    } else {
+        debtsListContainer.innerHTML = '';
+        debtsListContainer.classList.add('hidden');
+    }
+}
+
 
 // Actual Collected must NOT exceed the target boundary
 function validateActualCollected() {
@@ -1321,10 +1369,9 @@ function addBoundary() {
     // Hide alerts on fresh open
     const extraAlert = document.getElementById('extraDriverAlert');
     const shortageAlert = document.getElementById('shortageBalanceAlert');
-    const damageContainer = document.getElementById('damagePaymentContainer');
     if (extraAlert) extraAlert.classList.add('hidden');
     if (shortageAlert) shortageAlert.classList.add('hidden');
-    if (damageContainer) damageContainer.classList.add('hidden');
+    updateDriverDebtDisplay(null);
 
     document.getElementById('date').value = new Date().toLocaleDateString('en-CA');
 
@@ -1360,33 +1407,11 @@ function editBoundary(id) {
         document.getElementById('notes').value = boundary.notes || '';
         
         // Handle Damage Payment Visibility for Edit
-        const damageContainer = document.getElementById('damagePaymentContainer');
-        const driverOption = document.querySelector(`.driver-option[data-id="${boundary.driver_id}"]`);
-        const hasAccidentDebt = driverOption && driverOption.getAttribute('data-has-accident-debt') === 'true';
-        const accidentDebtAmount = driverOption ? parseFloat(driverOption.getAttribute('data-accident-debt-amount') || 0) : 0;
-        
-        if (hasAccidentDebt || savedDamagePayment > 0) {
-            if (damageContainer) damageContainer.classList.remove('hidden');
-            // Populate Outstanding Debt display
-            const fmt = (n) => '₱' + n.toLocaleString('en-PH', { minimumFractionDigits: 2 });
-            const debtDisplay = document.getElementById('damageDebtTotalDisplay');
-            const remainDisplay = document.getElementById('damageRemainingDisplay');
-            const totalDebt = accidentDebtAmount > 0 ? accidentDebtAmount : savedDamagePayment;
-            if (debtDisplay) {
-                debtDisplay.textContent = fmt(totalDebt);
-                debtDisplay.dataset.rawDebt = totalDebt;
-            }
-            const remaining = Math.max(0, totalDebt - savedDamagePayment);
-            if (remainDisplay) remainDisplay.textContent = fmt(remaining);
-        } else {
-            if (damageContainer) damageContainer.classList.add('hidden');
-        }
+        updateDriverDebtDisplay(boundary.driver_id, savedDamagePayment);
         
         // Hide alerts on fresh open
         const extraAlert = document.getElementById('extraDriverAlert');
-        const shortageAlert = document.getElementById('shortageBalanceAlert');
         if (extraAlert) extraAlert.classList.add('hidden');
-        if (shortageAlert) shortageAlert.classList.add('hidden');
 
         // Set Unit Display (guaranteed to fill required field even if inactive)
         const unitDisplay = document.getElementById('unitDisplay');
@@ -1517,6 +1542,9 @@ function updateShiftInfo(unitElement) {
         document.getElementById('driverDisplay').value = expectedName;
         const shortage = parseFloat(driverOption ? driverOption.getAttribute('data-shortage') : 0);
         if (typeof triggerDriverAlerts === 'function') triggerDriverAlerts(expectedId, shortage);
+        updateDriverDebtDisplay(expectedId);
+    } else {
+        updateDriverDebtDisplay(null);
     }
 
     // --- NEW: Smart Integration for Existing Absences ---
@@ -1589,6 +1617,8 @@ function updateShiftInfo(unitElement) {
             shiftInfoGroup.className = shiftInfoGroup.className.replace(/border-\S+/g, '').trim();
             shiftInfoGroup.classList.add(borderColor, bgColor);
             badgeContainer.innerHTML = badgeHtml;
+
+
         } else {
             // Shift still active
             mainLabel.textContent = expectedName ? `${expectedName} — On Shift` : 'Driver On Shift';
@@ -1599,6 +1629,9 @@ function updateShiftInfo(unitElement) {
             shiftInfoGroup.className = shiftInfoGroup.className.replace(/border-\S+/g, '').trim();
             shiftInfoGroup.classList.add('border-green-200', 'bg-green-50/20');
             badgeContainer.innerHTML = '<span class="px-1.5 py-0.5 bg-green-100 text-green-700 text-[9px] font-bold rounded-full border border-green-300 uppercase tracking-tighter shadow-sm">Incentive Eligible</span>';
+            
+            const missedChargeContainer = document.getElementById('chargeMissedDaysContainer');
+            if (missedChargeContainer) missedChargeContainer.classList.add('hidden');
         }
     } else {
         // No deadline set — first time or schedule cleared

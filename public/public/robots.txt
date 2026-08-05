@@ -1,0 +1,13 @@
+User-agent: *
+Allow: /
+
+# Sitemap
+Sitemap: https://www.eurotaxisystem.site/sitemap.xml
+
+# Block common non-content files
+Disallow: /storage/
+Disallow: /vendor/
+Disallow: /.env
+Disallow: /composer.json
+Disallow: /package.json
+Disallow: /webpack.mix.js

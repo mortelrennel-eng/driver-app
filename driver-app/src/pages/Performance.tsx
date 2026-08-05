@@ -19,8 +19,9 @@ import {
   calendarOutline,
   starOutline
 } from 'ionicons/icons';
-import axios from 'axios';
+
 import { endpoints } from '../config/api';
+import { cachedGet } from '../utils/cachedGet';
 import { useTheme } from '../context/ThemeContext';
 
 interface PerformanceHistory {
@@ -46,15 +47,18 @@ const g = {
   radius: '24px',
 };
 
+
+
 const Performance: FC = () => {
   const { t } = useTheme();
+
   const [performanceHistory, setPerformanceHistory] = useState<PerformanceHistory[]>([]);
   const [performanceRating, setPerformanceRating] = useState<PerformanceRating | null>(null);
   const [loading, setLoading] = useState(true);
 
   const fetchHistory = async () => {
     try {
-      const response = await axios.get(endpoints.performanceHistory);
+      const response = await cachedGet(endpoints.performanceHistory);
       if (response.data.success) {
         setPerformanceHistory(response.data.history);
         localStorage.setItem('cached_performance_history', JSON.stringify(response.data.history));
@@ -238,7 +242,7 @@ const Performance: FC = () => {
           ) : (
             <>
               {/* Chart Section */}
-              <div style={{ padding: '20px', background: t.card, ...t.glass, border: t.border, borderRadius: g.radius, marginBottom: '20px' }}>
+              <div id="perf-chart" style={{ padding: '20px', background: t.card, ...t.glass, border: t.border, borderRadius: g.radius, marginBottom: '20px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '20px' }}>
                   <IonIcon icon={statsChartOutline} style={{ fontSize: '18px', color: t.gold }} />
                   <span style={{ fontSize: '12px', fontWeight: '800', color: t.gold, textTransform: 'uppercase', letterSpacing: '1.5px' }}>Boundary Trend</span>
@@ -274,7 +278,7 @@ const Performance: FC = () => {
               </div>
 
               {/* Daily List */}
-              <div style={{ padding: '20px', background: t.card, ...t.glass, border: t.border, borderRadius: g.radius }}>
+              <div id="perf-list" style={{ padding: '20px', background: t.card, ...t.glass, border: t.border, borderRadius: g.radius }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '20px' }}>
                   <IonIcon icon={calendarOutline} style={{ fontSize: '18px', color: t.gold }} />
                   <span style={{ fontSize: '12px', fontWeight: '800', color: t.gold, textTransform: 'uppercase', letterSpacing: '1.5px' }}>Daily Breakdown</span>

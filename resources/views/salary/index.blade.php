@@ -9,31 +9,25 @@
     {{-- Page Header with Action Buttons & Filters --}}
     <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-6">
         <form id="filterForm" action="{{ route('salary.index') }}" method="GET" class="flex flex-wrap items-center gap-3">
-            <div class="relative min-w-[140px]">
+            <div class="relative">
                 <i data-lucide="calendar" class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400"></i>
-                <select name="month" onchange="this.form.submit()" class="w-full pl-10 pr-4 py-2 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:outline-none font-bold text-sm text-gray-700 appearance-none shadow-sm">
-                    @for($i = 1; $i <= 12; $i++)
-                        <option value="{{ $i }}" {{ $month == $i ? 'selected' : '' }}>{{ date('F', mktime(0, 0, 0, $i, 1)) }}</option>
-                    @endfor
-                </select>
-                <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-gray-500">
-                    <i data-lucide="chevron-down" class="w-3 h-3"></i>
-                </div>
+                <input type="date" name="date_from" value="{{ $date_from }}" onchange="this.form.submit()" 
+                    class="pl-10 pr-4 py-2 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:outline-none font-bold text-sm text-gray-700 shadow-sm" title="Date From">
             </div>
-            <div class="relative min-w-[100px]">
+            <span class="text-gray-400 font-bold">-</span>
+            <div class="relative">
                 <i data-lucide="calendar" class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400"></i>
-                <select name="year" onchange="this.form.submit()" class="w-full pl-10 pr-4 py-2 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:outline-none font-bold text-sm text-gray-700 appearance-none shadow-sm">
-                    @for($i = 2024; $i <= 2030; $i++)
-                        <option value="{{ $i }}" {{ $year == $i ? 'selected' : '' }}>{{ $i }}</option>
-                    @endfor
-                </select>
-                <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-gray-500">
-                    <i data-lucide="chevron-down" class="w-3 h-3"></i>
-                </div>
+                <input type="date" name="date_to" value="{{ $date_to }}" onchange="this.form.submit()" 
+                    class="pl-10 pr-4 py-2 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:outline-none font-bold text-sm text-gray-700 shadow-sm" title="Date To">
             </div>
-            @if($search)
-                <input type="hidden" name="search" value="{{ $search }}">
-            @endif
+            <div class="relative min-w-[200px]">
+                <input type="search" name="search" id="employeeSearchInput" value="{{ $search ?? '' }}"
+                    class="block w-full pl-9 pr-3 py-2 border border-gray-200 rounded-lg font-bold text-sm text-gray-700 shadow-sm focus:ring-2 focus:ring-yellow-500 focus:outline-none"
+                    placeholder="Search employee..." autocomplete="off">
+                <button type="submit" class="absolute inset-y-0 left-0 pl-3 flex items-center text-gray-400 hover:text-yellow-600">
+                    <i data-lucide="search" class="w-4 h-4"></i>
+                </button>
+            </div>
         </form>
 
         <div class="flex gap-3">
@@ -74,7 +68,7 @@
                 <div class="min-w-0">
                     <div class="text-xl font-black text-gray-900 tracking-tight truncate tabular-nums">{{ formatCurrency($summary['total_salaries'] ?? 0) }}</div>
                     <div class="text-[10px] font-black text-green-400 uppercase tracking-widest truncate">Total Salaries</div>
-                    <div class="text-[9px] text-green-300 truncate font-medium">{{ date('F', mktime(0, 0, 0, $month, 1)) }} {{ $year }}</div>
+                    <div class="text-[9px] text-green-300 truncate font-medium">{{ \Carbon\Carbon::parse($date_from)->format('M d') }} - {{ \Carbon\Carbon::parse($date_to)->format('M d, Y') }}</div>
                 </div>
             </div>
             <i data-lucide="philippine-peso" class="absolute -right-3 -bottom-3 w-24 h-24 text-green-400 opacity-[0.12] -rotate-12 z-0 pointer-events-none"></i>
@@ -94,7 +88,7 @@
                         {{ formatCurrency($net) }}
                     </div>
                     <div class="text-[10px] font-black {{ $net >= 0 ? 'text-emerald-400' : 'text-red-400' }} uppercase tracking-widest truncate">Net Profit</div>
-                    <div class="text-[9px] {{ $net >= 0 ? 'text-emerald-300' : 'text-red-300' }} truncate font-medium">After payroll for {{ date('M', mktime(0, 0, 0, $month, 1)) }}</div>
+                    <div class="text-[9px] {{ $net >= 0 ? 'text-emerald-300' : 'text-red-300' }} truncate font-medium">After payroll</div>
                 </div>
             </div>
             <i data-lucide="{{ $net >= 0 ? 'trending-up' : 'trending-down' }}" class="absolute -right-3 -bottom-3 w-24 h-24 {{ $net >= 0 ? 'text-emerald-400' : 'text-red-400' }} opacity-[0.12] -rotate-12 z-0 pointer-events-none"></i>
@@ -132,10 +126,9 @@
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Overtime</th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Total</th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Pay Date</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
                     </tr>
                 </thead>
-                <tbody class="bg-white divide-y divide-gray-200">
+                <tbody id="salariesTableBody" class="bg-white divide-y divide-gray-200">
                     @forelse($salaries as $salary)
                         <tr class="hover:bg-gray-50">
                             <td class="px-6 py-4 whitespace-nowrap">
@@ -157,22 +150,10 @@
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                                 {{ isset($salary->pay_date) ? \Carbon\Carbon::parse($salary->pay_date)->format('M d, Y') : '-' }}
                             </td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                                <button type="button" onclick="openEditSalaryModal({{ $salary->id }})" class="text-blue-600 hover:text-blue-900 mr-2">
-                                    <i data-lucide="edit" class="w-4 h-4"></i>
-                                </button>
-                                <form method="POST" action="{{ route('salaries.destroy', $salary->id) }}" class="inline"
-                                    onsubmit="return confirm('Archive this salary record?')">
-                                    @csrf @method('DELETE')
-                                    <button type="submit" class="text-rose-500 hover:text-rose-700 transition-colors">
-                                        <i data-lucide="archive" class="w-4 h-4"></i>
-                                    </button>
-                                </form>
-                            </td>
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="7" class="px-6 py-10 text-center text-gray-500">
+                            <td colspan="6" class="px-6 py-10 text-center text-gray-500">
                                 <i data-lucide="users" class="w-10 h-10 mx-auto mb-3 text-gray-300"></i>
                                 <p>No salary records found.</p>
                             </td>
@@ -408,12 +389,133 @@
                 <button onclick="closeMonthlyReport()" class="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 text-sm font-bold transition-all">
                     Close
                 </button>
-                <button onclick="window.print()" class="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm font-bold shadow-lg shadow-green-200/50 transition-all flex items-center gap-2">
+                <button onclick="printSalaryReport()" class="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm font-bold shadow-lg shadow-green-200/50 transition-all flex items-center gap-2">
                     <i data-lucide="printer" class="w-4 h-4"></i> Print Report
                 </button>
             </div>
         </div>
     </div>
+
+@push('styles')
+<style>
+    @media print {
+        @page {
+            size: A4 portrait;
+            margin: 0;
+        }
+        /* Hide EVERYTHING on the page */
+        * {
+            visibility: hidden !important;
+        }
+        /* Show only our report and its children */
+        #printableReportContainer,
+        #printableReportContainer * {
+            visibility: visible !important;
+        }
+        /* Position report to cover full page with manual padding as margins */
+        #printableReportContainer {
+            position: fixed !important;
+            top: 0 !important;
+            left: 0 !important;
+            width: 100% !important;
+            height: auto !important;
+            margin: 0 !important;
+            padding: 1.5cm 2cm !important;
+            background: white !important;
+            color: black !important;
+            z-index: 99999 !important;
+            box-sizing: border-box !important;
+            overflow: visible !important;
+        }
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
+</style>
+@endpush
+
+
+<!-- Hidden Printable Report -->
+<div id="printableReportContainer" class="hidden" style="font-family: Arial, sans-serif; font-size: 12px; background: white; color: black;">
+
+    {{-- HEADER --}}
+    <div style="text-align:center; border-bottom: 2px solid #000; padding-bottom: 14px; margin-bottom: 14px;">
+        <img src="{{ asset('uploads/logo.png') }}" alt="Euro Taxi System" style="height:60px; display:block; margin:0 auto 8px auto; object-fit:contain;" onerror="this.style.display='none'">
+        <div style="font-size:15px; font-weight:900; letter-spacing:3px; text-transform:uppercase; color:#000; margin-bottom:3px;">Monthly Salary Report</div>
+        <div style="font-size:11px; color:#555;">Period: {{ \Carbon\Carbon::parse($date_from)->format('F d, Y') }} &mdash; {{ \Carbon\Carbon::parse($date_to)->format('F d, Y') }}</div>
+    </div>
+
+    {{-- META INFO --}}
+    <table style="width:100%; font-size:11px; margin-bottom:14px; border-collapse:collapse;">
+        <tr>
+            <td style="width:50%; vertical-align:top; padding: 0 0 6px 0;">
+                <strong>Generated By:</strong> {{ auth()->user()->full_name ?? 'Admin' }}<br>
+                <strong>Date Generated:</strong> {{ date('F d, Y h:i A') }}
+            </td>
+            <td style="width:50%; vertical-align:top; text-align:right; padding: 0 0 6px 0;">
+                <strong>Total Employees:</strong> {{ $summary['total_employees'] ?? 0 }}<br>
+                <strong>Net Profit (After Payroll):</strong> {{ formatCurrency($summary['net_profit'] ?? 0) }}
+            </td>
+        </tr>
+    </table>
+
+    {{-- SALARY TABLE --}}
+    <table style="width:100%; border-collapse:collapse; font-size:11px; margin-bottom:20px; table-layout:fixed;">
+        <colgroup>
+            <col style="width:28%;">
+            <col style="width:14%;">
+            <col style="width:19%;">
+            <col style="width:16%;">
+            <col style="width:23%;">
+        </colgroup>
+        <thead>
+            <tr style="background:#eeeeee; border-top:2px solid #000; border-bottom:2px solid #000;">
+                <th style="padding:7px 5px; text-align:left; font-weight:bold; text-transform:uppercase; font-size:10px; word-wrap:break-word;">Employee</th>
+                <th style="padding:7px 5px; text-align:left; font-weight:bold; text-transform:uppercase; font-size:10px;">Type</th>
+                <th style="padding:7px 5px; text-align:right; font-weight:bold; text-transform:uppercase; font-size:10px;">Basic Salary</th>
+                <th style="padding:7px 5px; text-align:right; font-weight:bold; text-transform:uppercase; font-size:10px;">Overtime</th>
+                <th style="padding:7px 5px; text-align:right; font-weight:bold; text-transform:uppercase; font-size:10px;">Net Total</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach($salaries as $i => $salary)
+            <tr style="border-bottom:1px solid #ddd; background:{{ $i % 2 === 0 ? '#fff' : '#f9f9f9' }};">
+                <td style="padding:5px 5px; word-wrap:break-word; overflow-wrap:break-word;">
+                    <span style="font-weight:bold; display:block;">{{ $salary->employee_name }}</span>
+                    <span style="font-size:10px; color:#555;">{{ $salary->position ?? '' }}</span>
+                </td>
+                <td style="padding:5px 5px;">{{ ucfirst($salary->salary_type ?? 'Monthly') }}</td>
+                <td style="padding:5px 5px; text-align:right;">{{ formatCurrency($salary->basic_salary) }}</td>
+                <td style="padding:5px 5px; text-align:right;">{{ formatCurrency($salary->overtime_pay ?? 0) }}</td>
+                <td style="padding:5px 5px; text-align:right; font-weight:bold;">{{ formatCurrency($salary->total_pay ?? $salary->basic_salary) }}</td>
+            </tr>
+            @endforeach
+        </tbody>
+        <tfoot>
+            <tr style="border-top:3px solid #000; background:#e8e8e8;">
+                <td colspan="2" style="padding:8px 5px; text-align:right; font-weight:900; text-transform:uppercase; font-size:11px;">Grand Total</td>
+                <td style="padding:8px 5px; text-align:right; font-weight:900;">{{ formatCurrency($salaries->sum('basic_salary')) }}</td>
+                <td style="padding:8px 5px; text-align:right; font-weight:900;">{{ formatCurrency($salaries->sum('overtime_pay')) }}</td>
+                <td style="padding:8px 5px; text-align:right; font-weight:900; font-size:13px;">{{ formatCurrency($summary['total_salaries'] ?? 0) }}</td>
+            </tr>
+        </tfoot>
+    </table>
+
+    {{-- SIGNATURE SECTION --}}
+    <table style="width:100%; margin-top:70px; font-size:11px; text-align:center; border-collapse:collapse;">
+        <tr>
+            <td style="width:33%; padding: 0 20px;">
+                <div style="border-top:1px solid #000; padding-top:6px; font-weight:bold; text-transform:uppercase; letter-spacing:1px;">Prepared By</div>
+            </td>
+            <td style="width:33%; padding: 0 20px;">
+                <div style="border-top:1px solid #000; padding-top:6px; font-weight:bold; text-transform:uppercase; letter-spacing:1px;">Approved By</div>
+            </td>
+            <td style="width:33%; padding: 0 20px;">
+                <div style="border-top:1px solid #000; padding-top:6px; font-weight:bold; text-transform:uppercase; letter-spacing:1px;">Received By</div>
+            </td>
+        </tr>
+    </table>
+
+</div>
 
 
 
@@ -423,7 +525,11 @@ function openAddSalaryModal() {
     document.getElementById('salaryModalTitle').textContent = 'Add Salary';
     document.getElementById('salaryMethod').value = 'POST';
     document.getElementById('salaryForm').action = '{{ route('salaries.store') }}';
-    document.getElementById('salaryEmployee').value = '';
+    
+    const empSelect = document.getElementById('salaryEmployee');
+    empSelect.value = '';
+    empSelect.style.pointerEvents = 'auto';
+    
     document.getElementById('salaryType').value = '';
     document.getElementById('salaryBasic').value = '';
     document.getElementById('salaryOvertime').value = '';
@@ -431,8 +537,11 @@ function openAddSalaryModal() {
     document.getElementById('salaryNight').value = '';
     document.getElementById('salaryAllowance').value = '';
     document.getElementById('salaryPayDate').value = '{{ date('Y-m-d') }}';
-    document.getElementById('salaryMonth').value = '{{ date('m') }}';
-    document.getElementById('salaryYear').value = '{{ date('Y') }}';
+    
+    if (document.getElementById('salaryMonth')) {
+        document.getElementById('salaryMonth').value = '{{ date('m') }}';
+        document.getElementById('salaryYear').value = '{{ date('Y') }}';
+    }
     
     const modal = document.getElementById('addSalaryModal');
     modal.classList.remove('hidden');
@@ -445,14 +554,36 @@ function openAddSalaryModal() {
 function updateMonthYear(dateString) {
     if (!dateString) return;
     const date = new Date(dateString);
-    document.getElementById('salaryMonth').value = date.getMonth() + 1;
-    document.getElementById('salaryYear').value = date.getFullYear();
+    if (document.getElementById('salaryMonth')) {
+        document.getElementById('salaryMonth').value = date.getMonth() + 1;
+        document.getElementById('salaryYear').value = date.getFullYear();
+    }
 }
 
-function openEditSalaryModal(id) {
+function openEditSalaryModal(salary) {
     document.getElementById('salaryModalTitle').textContent = 'Edit Salary Details';
     document.getElementById('salaryMethod').value = 'PUT';
-    document.getElementById('salaryForm').action = '{{ url('salaries') }}/' + id;
+    document.getElementById('salaryForm').action = '{{ url('salaries') }}/' + salary.id;
+    
+    const empSelect = document.getElementById('salaryEmployee');
+    empSelect.value = salary.source + '_' + salary.employee_id;
+    empSelect.style.pointerEvents = 'none';
+
+    document.getElementById('salaryType').value = salary.employee_type || '';
+    document.getElementById('salaryBasic').value = salary.basic_salary || '';
+    document.getElementById('salaryOvertime').value = salary.overtime_pay || '';
+    document.getElementById('salaryHoliday').value = salary.holiday_pay || '';
+    document.getElementById('salaryNight').value = salary.night_differential || '';
+    document.getElementById('salaryAllowance').value = salary.allowance || '';
+    
+    if (salary.pay_date) {
+        document.getElementById('salaryPayDate').value = salary.pay_date;
+    }
+
+    if (document.getElementById('salaryMonth')) {
+        document.getElementById('salaryMonth').value = salary.month;
+        document.getElementById('salaryYear').value = salary.year;
+    }
     
     const modal = document.getElementById('addSalaryModal');
     modal.classList.remove('hidden');
@@ -487,11 +618,42 @@ function closeMonthlyReport() {
     }, 150);
 }
 
+document.getElementById('employeeSearchInput').addEventListener('input', function(e) {
+    const searchTerm = e.target.value.toLowerCase();
+    const rows = document.querySelectorAll('#salariesTableBody tr');
+    
+    rows.forEach(row => {
+        if (row.querySelector('td[colspan]')) return; // Skip empty row message
+        const text = row.textContent.toLowerCase();
+        row.style.display = text.includes(searchTerm) ? '' : 'none';
+    });
+});
+
+document.getElementById('employeeSearchInput').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') {
+        e.preventDefault();
+    }
+});
+
 // Auto-fill Employee Type based on selected Employee
 document.getElementById('salaryEmployee').addEventListener('change', function() {
     const selectedOption = this.options[this.selectedIndex];
     const role = selectedOption.getAttribute('data-role') || '';
     document.getElementById('salaryType').value = role;
 });
+
+function printSalaryReport() {
+    const container = document.getElementById('printableReportContainer');
+
+    // Make visible before printing
+    container.classList.remove('hidden');
+    container.style.display = 'block';
+
+    window.print();
+
+    // Restore after printing dialog closes
+    container.style.display = '';
+    container.classList.add('hidden');
+}
 </script>
 @endsection

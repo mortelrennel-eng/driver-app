@@ -23,7 +23,7 @@ class MyAccountController extends Controller
             $user->update([
                 'profile_image' => $request->icon_path
             ]);
-            return redirect()->route('my-account')->with('success', 'Profile icon updated successfully!');
+            return back()->with('success', 'Profile icon updated successfully!');
         }
 
         if ($request->hasFile('profile_image')) {
@@ -42,10 +42,10 @@ class MyAccountController extends Controller
                 'profile_image' => $path
             ]);
 
-            return redirect()->route('my-account')->with('success', 'Profile image uploaded successfully!');
+            return back()->with('success', 'Profile image uploaded successfully!');
         }
 
-        return redirect()->route('my-account')->with('error', 'No image or icon selected.');
+        return back()->with('error', 'No image or icon selected.');
     }
     public function index()
     {
@@ -91,7 +91,7 @@ class MyAccountController extends Controller
             'full_name' => trim($request->first_name . ' ' . $request->last_name),
         ]);
 
-        return redirect()->route('my-account')
+        return back()
             ->with('success', 'Profile updated successfully!');
     }
 
@@ -114,7 +114,7 @@ class MyAccountController extends Controller
             'password' => Hash::make($request->password),
         ]);
 
-        return redirect()->route('my-account')
+        return back()
             ->with('success', 'Password changed successfully!');
     }
 
@@ -126,7 +126,7 @@ class MyAccountController extends Controller
 
         // For now, just show a message
         // In production, you would implement password reset functionality
-        return redirect()->route('my-account')
+        return back()
             ->with('info', 'Password reset link has been sent to your email.');
     }
 
@@ -160,7 +160,7 @@ class MyAccountController extends Controller
         // Actually, the email I sent to OLD email (EmailChangeRequested) should contain the link if that's the "accept" step.
         // Let's modify EmailChangeRequested to include the link.
         
-        return redirect()->route('my-account')->with('success', 'Email change request sent! Please check your CURRENT email (' . $user->email . ') to authorize the change.');
+        return back()->with('success', 'Email change request sent! Please check your CURRENT email (' . $user->email . ') to authorize the change.');
     }
 
     public function verifyEmailChange($token)
@@ -176,6 +176,7 @@ class MyAccountController extends Controller
             'email_change_token' => null
         ]);
 
-        return redirect()->route('my-account')->with('success', 'Email address successfully updated from ' . $oldEmail . ' to ' . $newEmail . '!');
+        return back()->with('success', 'Email address successfully updated from ' . $oldEmail . ' to ' . $newEmail . '!');
     }
 }
+

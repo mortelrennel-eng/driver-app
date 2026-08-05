@@ -21,11 +21,6 @@
 
             {{-- Action Buttons --}}
             <div class="flex flex-wrap items-center gap-2">
-                <a href="{{ route('analytics.history') }}"
-                   class="flex items-center gap-1.5 px-4 py-2.5 bg-indigo-600 text-white text-xs font-black rounded-xl hover:bg-indigo-700 shadow-md shadow-indigo-200/50 transition-all">
-                    <i data-lucide="history" class="w-4 h-4"></i> Daily History Ledger
-                </a>
-                <span class="w-px h-6 bg-slate-200 mx-1 hidden lg:block"></span>
                 <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest hidden sm:block">Quick Export:</span>
                 <a href="{{ route('analytics.export.csv', ['type' => 'revenue', 'date_from' => $date_from, 'date_to' => $date_to]) }}"
                    class="flex items-center gap-1.5 px-3 py-2 bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-bold rounded-xl hover:bg-emerald-100 transition-all">
@@ -82,12 +77,14 @@
                     <span class="text-[10px] font-black text-indigo-600 bg-indigo-50 px-2.5 py-1 rounded-full uppercase tracking-widest">Real-time</span>
                 </div>
                 <h3 class="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-1">Fleet Utilization</h3>
-                <div class="flex items-end gap-2 mb-2">
-                    <span class="text-3xl font-black text-slate-800 leading-none">{{ $fleet_utilization }}%</span>
-                    <span class="text-xs font-bold text-slate-500 pb-0.5">Active Now</span>
+                <div class="flex items-end gap-2 mb-2 cursor-pointer group/modal" onclick="document.getElementById('utilizationModal').classList.remove('hidden')">
+                    @php $total_fleet = array_sum($fleet_pulse); @endphp
+                    <span class="text-3xl font-black text-slate-800 leading-none animate-number" data-value="{{ $fleet_pulse['active_units'] ?? 0 }}" data-is-int="true">0</span>
+                    <span class="text-xl font-bold text-slate-400 leading-none pb-0.5">/ <span class="animate-number" data-value="{{ $total_fleet }}" data-is-int="true">0</span></span>
+                    <span class="text-[10px] font-bold text-indigo-500 pb-0.5 ml-1 bg-indigo-50 px-2 rounded-md group-hover/modal:bg-indigo-100 transition-colors flex items-center gap-1" title="Click to view percentage breakdown"><i data-lucide="info" class="w-3 h-3"></i> Details</span>
                 </div>
                 <div class="h-2 bg-slate-100 rounded-full overflow-hidden p-0.5 border border-slate-200/30">
-                    <div class="h-full bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 rounded-full transition-all duration-1000 shadow-[0_0_8px_rgba(99,102,241,0.5)]" style="width: {{ $fleet_utilization }}%"></div>
+                    <div class="animate-width h-full bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 rounded-full transition-all duration-[1500ms] ease-out shadow-[0_0_8px_rgba(99,102,241,0.5)]" data-width="{{ $fleet_utilization }}%" style="width: 0%"></div>
                 </div>
                 <p class="text-[10px] text-slate-500 mt-3 leading-relaxed">
                     Percentage of units currently generating revenue versus idle or in maintenance.
@@ -103,8 +100,9 @@
                     <span class="text-[10px] font-black text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-full uppercase tracking-widest">Net Pulse</span>
                 </div>
                 <h3 class="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-1">Net Margin</h3>
-                <div class="flex items-end gap-2 mb-2">
-                    <span class="text-3xl font-black text-slate-800 leading-none">{{ formatCurrency($net_income) }}</span>
+                <div class="flex items-end gap-2 mb-2 cursor-pointer group/modal" onclick="document.getElementById('netMarginModal').classList.remove('hidden')">
+                    <span class="text-3xl font-black text-slate-800 leading-none animate-number" data-value="{{ $net_income }}" data-is-currency="true">₱0.00</span>
+                    <span class="text-[10px] font-bold text-emerald-500 pb-0.5 ml-1 bg-emerald-50 px-2 rounded-md group-hover/modal:bg-emerald-100 transition-colors flex items-center gap-1" title="Click to view breakdown"><i data-lucide="info" class="w-3 h-3"></i> Details</span>
                 </div>
                 <p class="text-[10px] text-slate-500 mt-3 leading-relaxed">
                     Total boundary collections minus all operating expenses for the selected period.
@@ -120,9 +118,10 @@
                     <span class="text-[10px] font-black text-rose-600 bg-rose-50 px-2.5 py-1 rounded-full uppercase tracking-widest">Risk Factor</span>
                 </div>
                 <h3 class="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-1">Revenue Leakage</h3>
-                <div class="flex items-end gap-2 mb-2">
-                    <span class="text-3xl font-black text-slate-800 leading-none">{{ $revenue_leakage_pct }}%</span>
-                    <span class="text-xs font-bold text-rose-500 pb-0.5">Shortage</span>
+                <div class="flex items-end gap-2 mb-2 cursor-pointer group/modal" onclick="document.getElementById('leakageModal').classList.remove('hidden')">
+                    <span class="text-3xl font-black text-slate-800 leading-none animate-number" data-value="{{ $total_shortage }}" data-is-currency="true">₱0.00</span>
+                    <span class="text-xs font-bold text-slate-500 pb-0.5">Shortage</span>
+                    <span class="text-[10px] font-bold text-rose-500 pb-0.5 ml-1 bg-rose-50 px-2 rounded-md group-hover/modal:bg-rose-100 transition-colors flex items-center gap-1" title="Click to view percentage breakdown"><i data-lucide="info" class="w-3 h-3"></i> Details</span>
                 </div>
                 <p class="text-[10px] text-slate-500 mt-3 leading-relaxed">
                     Uncollected boundary revenue (shortages) relative to total expected revenue.
@@ -138,9 +137,10 @@
                     <span class="text-[10px] font-black text-amber-600 bg-amber-50 px-2.5 py-1 rounded-full uppercase tracking-widest">KPI Target</span>
                 </div>
                 <h3 class="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-1">Break-even Cycle</h3>
-                <div class="flex items-end gap-2 mb-2">
-                    <span class="text-3xl font-black text-slate-800 leading-none">{{ $break_even_days }}</span>
+                <div class="flex items-end gap-2 mb-2 cursor-pointer group/modal" onclick="document.getElementById('breakEvenModal').classList.remove('hidden')">
+                    <span class="text-3xl font-black text-slate-800 leading-none animate-number" data-value="{{ $break_even_days }}" data-is-int="true">0</span>
                     <span class="text-xs font-bold text-slate-500 pb-0.5">Oper. Days</span>
+                    <span class="text-[10px] font-bold text-amber-500 pb-0.5 ml-1 bg-amber-50 px-2 rounded-md group-hover/modal:bg-amber-100 transition-colors flex items-center gap-1" title="Click to view breakdown"><i data-lucide="info" class="w-3 h-3"></i> Details</span>
                 </div>
                 <p class="text-[10px] text-slate-500 mt-3 leading-relaxed">
                     Estimated number of full-revenue days needed each month to cover all fixed expenses.
@@ -182,38 +182,38 @@
                     @endphp
                     <div class="flex h-10 w-full rounded-3xl overflow-hidden shadow-inner border border-slate-200/40 p-1 bg-slate-50 gap-1 mb-8">
                         @if($actPct > 0)
-                            <div class="h-full bg-gradient-to-r from-emerald-400 to-emerald-500 rounded-l-2xl transition-all hover:scale-[1.01] hover:brightness-105 cursor-help" style="width: {{ $actPct }}%" title="Active: {{ $fleet_pulse['active_units'] }}"></div>
+                            <div class="animate-width h-full bg-gradient-to-r from-emerald-400 to-emerald-500 rounded-l-2xl transition-all duration-[1500ms] ease-out hover:scale-[1.01] hover:brightness-105 cursor-help" data-width="{{ $actPct }}%" style="width: 0%" title="Active: {{ $fleet_pulse['active_units'] }}"></div>
                         @endif
                         @if($idlPct > 0)
-                            <div class="h-full bg-gradient-to-r from-slate-300 to-slate-400 transition-all hover:scale-[1.01] hover:brightness-105 cursor-help" style="width: {{ $idlPct }}%" title="Idle: {{ $fleet_pulse['idle_units'] }}"></div>
+                            <div class="animate-width h-full bg-gradient-to-r from-slate-300 to-slate-400 transition-all duration-[1500ms] ease-out hover:scale-[1.01] hover:brightness-105 cursor-help" data-width="{{ $idlPct }}%" style="width: 0%" title="Idle: {{ $fleet_pulse['idle_units'] }}"></div>
                         @endif
                         @if($mntPct > 0)
-                            <div class="h-full bg-gradient-to-r from-amber-400 to-amber-500 transition-all hover:scale-[1.01] hover:brightness-105 cursor-help" style="width: {{ $mntPct }}%" title="Maintenance: {{ $fleet_pulse['maintenance'] }}"></div>
+                            <div class="animate-width h-full bg-gradient-to-r from-amber-400 to-amber-500 transition-all duration-[1500ms] ease-out hover:scale-[1.01] hover:brightness-105 cursor-help" data-width="{{ $mntPct }}%" style="width: 0%" title="Maintenance: {{ $fleet_pulse['maintenance'] }}"></div>
                         @endif
                         @if($surPct > 0)
-                            <div class="h-full bg-gradient-to-r from-rose-400 to-rose-500 rounded-r-2xl transition-all hover:scale-[1.01] hover:brightness-105 cursor-help" style="width: {{ $surPct }}%" title="Surveillance: {{ $fleet_pulse['surveillance'] }}"></div>
+                            <div class="animate-width h-full bg-gradient-to-r from-rose-400 to-rose-500 rounded-r-2xl transition-all duration-[1500ms] ease-out hover:scale-[1.01] hover:brightness-105 cursor-help" data-width="{{ $surPct }}%" style="width: 0%" title="Surveillance: {{ $fleet_pulse['surveillance'] }}"></div>
                         @endif
                     </div>
 
                     <div class="grid grid-cols-2 sm:grid-cols-4 gap-6">
                         <div class="space-y-1">
                             <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest block">Active Fleet</span>
-                            <p class="text-2xl font-black text-emerald-600">{{ $fleet_pulse['active_units'] }}</p>
+                            <p class="text-2xl font-black text-emerald-600 animate-number" data-value="{{ $fleet_pulse['active_units'] }}" data-is-int="true">0</p>
                             <p class="text-[10px] text-slate-500 leading-tight">Units currently assigned to drivers and on the road.</p>
                         </div>
                         <div class="space-y-1">
                             <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest block">Awaiting Drivers</span>
-                            <p class="text-2xl font-black text-slate-600">{{ $fleet_pulse['idle_units'] }}</p>
+                            <p class="text-2xl font-black text-slate-600 animate-number" data-value="{{ $fleet_pulse['idle_units'] }}" data-is-int="true">0</p>
                             <p class="text-[10px] text-slate-500 leading-tight">Functional units parked due to lack of available drivers.</p>
                         </div>
                         <div class="space-y-1">
                             <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest block">Under Repair</span>
-                            <p class="text-2xl font-black text-amber-600">{{ $fleet_pulse['maintenance'] }}</p>
+                            <p class="text-2xl font-black text-amber-600 animate-number" data-value="{{ $fleet_pulse['maintenance'] }}" data-is-int="true">0</p>
                             <p class="text-[10px] text-slate-500 leading-tight">Units in the garage for scheduled or emergency service.</p>
                         </div>
                         <div class="space-y-1">
                             <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest block">Under Watch</span>
-                            <p class="text-2xl font-black text-rose-600">{{ $fleet_pulse['surveillance'] }}</p>
+                            <p class="text-2xl font-black text-rose-600 animate-number" data-value="{{ $fleet_pulse['surveillance'] }}" data-is-int="true">0</p>
                             <p class="text-[10px] text-slate-500 leading-tight">Units flagged for suspicious activity or non-payment.</p>
                         </div>
                     </div>
@@ -232,7 +232,7 @@
                                 <i data-lucide="info" class="w-4 h-4 text-indigo-300"></i>
                             </div>
                             <p class="text-sm text-indigo-100/90 leading-relaxed">
-                                Your fleet is operating at <span class="text-white font-bold">{{ $fleet_utilization }}% capacity</span>. 
+                                Your fleet currently has <span class="text-white font-bold">{{ $fleet_pulse['active_units'] ?? 0 }} active units out of {{ array_sum($fleet_pulse) }}</span>. 
                                 @if($fleet_utilization < 80)
                                     @php
                                         $lostRevenue = ($fleet_pulse['idle_units'] + $fleet_pulse['maintenance'] + $fleet_pulse['surveillance']) * 1200;
@@ -249,7 +249,7 @@
                             </div>
                             <p class="text-sm text-indigo-100/90 leading-relaxed">
                                 Financial health is <span class="text-white font-bold">{{ $net_income > 0 ? 'Stable' : 'At Risk' }}</span>. 
-                                Current shortage leakage is <span class="text-rose-300 font-bold">{{ $revenue_leakage_pct }}%</span>. Reducing this to < 3% would add <span class="text-emerald-300 font-bold">₱{{ number_format($total_shortage * 0.5) }}</span> to your bottom line.
+                                Current shortage leakage is <span class="text-rose-300 font-bold">₱{{ number_format($total_shortage, 2) }}</span>. Reducing this by half would add <span class="text-emerald-300 font-bold">₱{{ number_format($total_shortage * 0.5, 2) }}</span> to your bottom line.
                             </p>
                         </div>
                     </div>
@@ -758,7 +758,7 @@
                 <div class="relative w-48 h-48 mb-6">
                     <canvas id="healthGaugeCanvas" width="192" height="192"></canvas>
                     <div class="absolute inset-0 flex flex-col items-center justify-center">
-                        <span class="text-5xl font-black text-slate-800">{{ $healthScore }}</span>
+                        <span id="healthScoreDisplay" class="text-5xl font-black text-slate-800">0</span>
                         <span class="text-xs font-bold text-slate-400">/ 100</span>
                     </div>
                 </div>
@@ -872,10 +872,14 @@
                             </div>
                             <h4 class="text-sm font-black text-slate-800">Expected Collections (Boundary)</h4>
                         </div>
-                        <p class="text-xs text-slate-600 leading-relaxed">
+                        <p class="text-xs text-slate-600 leading-relaxed mb-3">
                             We calculate the <strong>average boundary collected across the past 6 months</strong>. More recent months carry higher weights to reflect recent fleet productivity and trends accurately.
                         </p>
-                        <div class="mt-3 flex items-center gap-2 text-[10px] font-bold text-emerald-600">
+                        <div class="p-3 bg-white rounded-xl border border-emerald-100 mb-3 shadow-sm">
+                            <p class="text-[10px] font-bold text-slate-400 mb-1">COMPUTATION:</p>
+                            <p class="text-sm font-black text-slate-700">6-Month WMA = <span class="text-emerald-600">{{ formatCurrency($forecast_predicted['predicted_boundary'] ?? 0) }}</span></p>
+                        </div>
+                        <div class="mt-auto flex items-center gap-2 text-[10px] font-bold text-emerald-600">
                             <i data-lucide="database" class="w-3 h-3"></i>
                             Source: Boundary Management System
                         </div>
@@ -889,10 +893,14 @@
                             </div>
                             <h4 class="text-sm font-black text-slate-800">Expected Expenses (Office Expenses)</h4>
                         </div>
-                        <p class="text-xs text-slate-600 leading-relaxed">
+                        <p class="text-xs text-slate-600 leading-relaxed mb-3">
                             We analyze the <strong>recurring patterns in monthly office expenses</strong> — including utility bills, office supplies, and administrative fees, calculating the trend line.
                         </p>
-                        <div class="mt-3 flex items-center gap-2 text-[10px] font-bold text-rose-600">
+                        <div class="p-3 bg-white rounded-xl border border-rose-100 mb-3 shadow-sm">
+                            <p class="text-[10px] font-bold text-slate-400 mb-1">COMPUTATION:</p>
+                            <p class="text-sm font-black text-slate-700">6-Month WMA = <span class="text-rose-600">{{ formatCurrency($forecast_predicted['predicted_expenses'] ?? 0) }}</span></p>
+                        </div>
+                        <div class="mt-auto flex items-center gap-2 text-[10px] font-bold text-rose-600">
                             <i data-lucide="database" class="w-3 h-3"></i>
                             Source: Office Expenses Module
                         </div>
@@ -906,10 +914,14 @@
                             </div>
                             <h4 class="text-sm font-black text-slate-800">Expected Repairs (Maintenance)</h4>
                         </div>
-                        <p class="text-xs text-slate-600 leading-relaxed">
+                        <p class="text-xs text-slate-600 leading-relaxed mb-3">
                             Based on <strong>maintenance logs from all active vehicles</strong>, we average the monthly repair costs (parts, labor, and emergency servicing), adjusted by vehicle age.
                         </p>
-                        <div class="mt-3 flex items-center gap-2 text-[10px] font-bold text-amber-600">
+                        <div class="p-3 bg-white rounded-xl border border-amber-100 mb-3 shadow-sm">
+                            <p class="text-[10px] font-bold text-slate-400 mb-1">COMPUTATION:</p>
+                            <p class="text-sm font-black text-slate-700">6-Month WMA = <span class="text-amber-600">{{ formatCurrency($forecast_predicted['predicted_maintenance'] ?? 0) }}</span></p>
+                        </div>
+                        <div class="mt-auto flex items-center gap-2 text-[10px] font-bold text-amber-600">
                             <i data-lucide="database" class="w-3 h-3"></i>
                             Source: Maintenance & Parts Records
                         </div>
@@ -923,10 +935,14 @@
                             </div>
                             <h4 class="text-sm font-black text-slate-800">Expected Salaries (Salaries)</h4>
                         </div>
-                        <p class="text-xs text-slate-600 leading-relaxed">
+                        <p class="text-xs text-slate-600 leading-relaxed mb-3">
                             We compile the <strong>payroll metrics over the past 6 months</strong> — including fixed base salaries, overtime pay, and adjustments, computing a reliable forward average.
                         </p>
-                        <div class="mt-3 flex items-center gap-2 text-[10px] font-bold text-indigo-600">
+                        <div class="p-3 bg-white rounded-xl border border-indigo-100 mb-3 shadow-sm">
+                            <p class="text-[10px] font-bold text-slate-400 mb-1">COMPUTATION:</p>
+                            <p class="text-sm font-black text-slate-700">6-Month WMA = <span class="text-indigo-600">{{ formatCurrency($forecast_predicted['predicted_salaries'] ?? 0) }}</span></p>
+                        </div>
+                        <div class="mt-auto flex items-center gap-2 text-[10px] font-bold text-indigo-600">
                             <i data-lucide="database" class="w-3 h-3"></i>
                             Source: Salary & Payroll Module
                         </div>
@@ -939,9 +955,23 @@
                         <i data-lucide="calculator" class="w-5 h-5 text-indigo-600 flex-shrink-0 mt-0.5"></i>
                         <div>
                             <p class="text-[11px] font-black text-indigo-700 uppercase tracking-widest mb-2">Simple Formula</p>
-                            <p class="text-sm font-bold text-slate-700 mb-2">
+                            <p class="text-sm font-bold text-slate-700 mb-3">
                                 Net Income = Expected Collections − Expected Expenses − Expected Repairs − Expected Salaries
                             </p>
+                            <div class="p-3 bg-white rounded-xl border border-indigo-100 mb-3 shadow-sm inline-block w-full">
+                                <p class="text-[10px] font-bold text-slate-400 mb-1">EXACT CALCULATION:</p>
+                                <div class="flex flex-wrap items-center gap-2 text-sm font-black text-slate-700">
+                                    <span class="text-emerald-600">{{ formatCurrency($forecast_predicted['predicted_boundary'] ?? 0) }}</span>
+                                    <span class="text-slate-400">-</span> 
+                                    <span class="text-rose-600">{{ formatCurrency($forecast_predicted['predicted_expenses'] ?? 0) }}</span>
+                                    <span class="text-slate-400">-</span> 
+                                    <span class="text-amber-600">{{ formatCurrency($forecast_predicted['predicted_maintenance'] ?? 0) }}</span>
+                                    <span class="text-slate-400">-</span> 
+                                    <span class="text-indigo-600">{{ formatCurrency($forecast_predicted['predicted_salaries'] ?? 0) }}</span>
+                                    <span class="text-slate-400">=</span> 
+                                    <span class="text-lg {{ ($forecast_predicted['net_income'] ?? 0) >= 0 ? 'text-emerald-600' : 'text-rose-600' }}">{{ formatCurrency($forecast_predicted['net_income'] ?? 0) }}</span>
+                                </div>
+                            </div>
                             <p class="text-xs text-slate-500 leading-relaxed">
                                 Each component is computed using a <strong>weighted moving average</strong> of the last 6 months, prioritizing recent performance. Best/Worst Case represents a ±15% margin based on historical fleet volatility.
                             </p>
@@ -951,182 +981,6 @@
             </div>
         </div>
 
-        {{-- ┌─────────────────────────────────────────────────────────────────────┐
-             │  TOP PERFORMERS – Top 10 Highest Earning Units                     │
-             └─────────────────────────────────────────────────────────────────────┘ --}}
-        <div class="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
-            {{-- Header --}}
-            <div class="px-8 py-6 border-b border-slate-100 bg-gradient-to-r from-amber-50/60 to-white flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <div class="flex items-center gap-4">
-                    <div class="w-12 h-12 bg-gradient-to-br from-amber-400 to-orange-500 rounded-2xl flex items-center justify-center shadow-lg shadow-amber-200">
-                        <i data-lucide="trophy" class="w-6 h-6 text-white"></i>
-                    </div>
-                    <div>
-                        <h3 class="text-lg font-black text-slate-800 flex items-center gap-2">
-                            Top 10 Highest Earning Units
-                        </h3>
-                        <p class="text-[11px] text-slate-500 mt-0.5">
-                            Based on average daily boundary collections over the past <strong>90 days</strong> — active units only
-                        </p>
-                    </div>
-                </div>
-                <div class="flex items-center gap-2 shrink-0">
-                    <span class="px-3 py-1.5 bg-amber-100 text-amber-700 text-[10px] font-black rounded-full uppercase tracking-widest border border-amber-200">
-                        📊 90-Day Average
-                    </span>
-                </div>
-            </div>
-
-            {{-- Unit Profitability Cards --}}
-            <div class="p-6">
-                @if(count($forecast_unit_profits) > 0)
-                    {{-- Top 3 Podium --}}
-                    @php $topThree = array_slice($forecast_unit_profits, 0, 3); @endphp
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                        @foreach($topThree as $idx => $unit)
-                        @php
-                            $rank = $idx + 1;
-                            $podiumColors = [
-                                1 => ['bg' => 'from-amber-400 to-yellow-500', 'border' => 'border-amber-300', 'bg_light' => 'bg-amber-50', 'text' => 'text-amber-700', 'icon' => '🥇'],
-                                2 => ['bg' => 'from-slate-300 to-slate-400', 'border' => 'border-slate-300', 'bg_light' => 'bg-slate-50', 'text' => 'text-slate-600', 'icon' => '🥈'],
-                                3 => ['bg' => 'from-orange-300 to-amber-400', 'border' => 'border-orange-200', 'bg_light' => 'bg-orange-50', 'text' => 'text-orange-700', 'icon' => '🥉'],
-                            ];
-                            $pc = $podiumColors[$rank];
-                            $monthlyProfit = $unit['monthly_profit'] ?? 0;
-                            $dailyProfit = $unit['daily_profit'] ?? 0;
-                            $avgDaily = $unit['avg_daily_boundary'] ?? 0;
-                            $opDays = $unit['operating_days_90d'] ?? 0;
-                            $avgMaint = $unit['avg_daily_maint'] ?? 0;
-                        @endphp
-                        <div class="relative rounded-2xl border-2 {{ $pc['border'] }} {{ $pc['bg_light'] }} p-5 overflow-hidden group hover:shadow-lg transition-all duration-300 hover:-translate-y-1">
-                            {{-- Rank Badge --}}
-                            <div class="absolute -top-3 -right-3 w-14 h-14 bg-gradient-to-br {{ $pc['bg'] }} rounded-2xl flex items-center justify-center shadow-lg transform rotate-12 group-hover:rotate-0 transition-transform duration-300">
-                                <span class="text-2xl">{{ $pc['icon'] }}</span>
-                            </div>
-
-                            {{-- Plate Number --}}
-                            <div class="mb-4 pr-8">
-                                <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Rank #{{ $rank }}</p>
-                                <h4 class="text-2xl font-black text-slate-900 tracking-tight">{{ $unit['plate'] }}</h4>
-                            </div>
-
-                            {{-- Monthly Profit (Main Metric) --}}
-                            <div class="mb-4">
-                                <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Expected Monthly Net Profit</p>
-                                <p class="text-xl font-black {{ $monthlyProfit >= 0 ? $pc['text'] : 'text-rose-600' }}">
-                                    {{ $monthlyProfit >= 0 ? '+' : '' }}₱{{ number_format($monthlyProfit) }}
-                                </p>
-                            </div>
-
-                            {{-- Stats Grid --}}
-                            <div class="grid grid-cols-2 gap-2 pt-3 border-t border-slate-200/50">
-                                <div>
-                                    <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest">Avg Daily</p>
-                                    <p class="text-xs font-black text-emerald-700">₱{{ number_format($avgDaily) }}</p>
-                                </div>
-                                <div>
-                                    <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest">Daily Profit</p>
-                                    <p class="text-xs font-black {{ $dailyProfit >= 0 ? 'text-slate-700' : 'text-rose-600' }}">{{ $dailyProfit >= 0 ? '+' : '' }}₱{{ number_format($dailyProfit) }}</p>
-                                </div>
-                                <div>
-                                    <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest">Op. Days (90d)</p>
-                                    <p class="text-xs font-black text-slate-700">{{ $opDays }} days</p>
-                                </div>
-                                <div>
-                                    <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest">Avg Daily Maint.</p>
-                                    <p class="text-xs font-black text-rose-600">₱{{ number_format($avgMaint) }}</p>
-                                </div>
-                            </div>
-
-                            {{-- Computation note --}}
-                            <div class="mt-3 p-2 bg-white/60 rounded-xl border border-white text-[9px] text-slate-500 leading-tight">
-                                <strong>Formula:</strong> (Avg Daily ₱{{ number_format($avgDaily) }} − Maint ₱{{ number_format($avgMaint) }}) × 30 days
-                            </div>
-                        </div>
-                        @endforeach
-                    </div>
-
-                    {{-- Ranks 4-10 Table --}}
-                    @if(count($forecast_unit_profits) > 3)
-                    <div class="bg-slate-50 rounded-2xl border border-slate-100 overflow-hidden">
-                        <div class="px-5 py-3 border-b border-slate-100 flex items-center gap-2">
-                            <i data-lucide="list-ordered" class="w-4 h-4 text-slate-500"></i>
-                            <h4 class="text-[11px] font-black text-slate-600 uppercase tracking-widest">Ranks 4–{{ min(10, count($forecast_unit_profits)) }} — Unit Profitability Breakdown</h4>
-                        </div>
-                        <div class="overflow-x-auto">
-                            <table class="w-full text-sm">
-                                <thead>
-                                    <tr class="border-b border-slate-200">
-                                        <th class="text-left text-[10px] font-black text-slate-400 uppercase tracking-widest py-3 px-4">Rank</th>
-                                        <th class="text-left text-[10px] font-black text-slate-400 uppercase tracking-widest py-3">Unit</th>
-                                        <th class="text-right text-[10px] font-black text-slate-400 uppercase tracking-widest py-3">Avg Daily Boundary</th>
-                                        <th class="text-right text-[10px] font-black text-slate-400 uppercase tracking-widest py-3">Avg Daily Maint.</th>
-                                        <th class="text-right text-[10px] font-black text-slate-400 uppercase tracking-widest py-3">Daily Net Profit</th>
-                                        <th class="text-right text-[10px] font-black text-slate-400 uppercase tracking-widest py-3">Monthly Projection</th>
-                                        <th class="text-right text-[10px] font-black text-slate-400 uppercase tracking-widest py-3 pr-4">Op. Days (90d)</th>
-                                    </tr>
-                                </thead>
-                                <tbody class="divide-y divide-slate-100">
-                                    @foreach(array_slice($forecast_unit_profits, 3) as $idx => $unit)
-                                    @php $rank = $idx + 4; @endphp
-                                    <tr class="hover:bg-white transition-colors">
-                                        <td class="py-3 px-4 font-black text-slate-400 text-sm">#{{ $rank }}</td>
-                                        <td class="py-3 font-black text-slate-800">{{ $unit['plate'] }}</td>
-                                        <td class="py-3 text-right font-semibold text-emerald-700">₱{{ number_format($unit['avg_daily_boundary'] ?? 0) }}</td>
-                                        <td class="py-3 text-right font-semibold text-rose-500">₱{{ number_format($unit['avg_daily_maint'] ?? 0) }}</td>
-                                        <td class="py-3 text-right font-black {{ ($unit['daily_profit'] ?? 0) >= 0 ? 'text-emerald-700' : 'text-rose-600' }}">
-                                            {{ ($unit['daily_profit'] ?? 0) >= 0 ? '+' : '' }}₱{{ number_format($unit['daily_profit'] ?? 0) }}
-                                        </td>
-                                        <td class="py-3 text-right font-black {{ ($unit['monthly_profit'] ?? 0) >= 0 ? 'text-indigo-700' : 'text-rose-600' }}">
-                                            {{ ($unit['monthly_profit'] ?? 0) >= 0 ? '+' : '' }}₱{{ number_format($unit['monthly_profit'] ?? 0) }}
-                                        </td>
-                                        <td class="py-3 text-right font-semibold text-slate-600 pr-4">{{ $unit['operating_days_90d'] ?? 0 }}d</td>
-                                    </tr>
-                                    @endforeach
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                    @endif
-
-                    {{-- Explanation Panel --}}
-                    <div class="mt-6 p-5 bg-indigo-50/60 rounded-2xl border border-indigo-100">
-                        <div class="flex items-start gap-3">
-                            <i data-lucide="info" class="w-5 h-5 text-indigo-500 flex-shrink-0 mt-0.5"></i>
-                            <div>
-                                <p class="text-[11px] font-black text-indigo-700 uppercase tracking-widest mb-2">How is the Ranking Calculated?</p>
-                                <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs text-slate-600">
-                                    <div class="flex items-start gap-2">
-                                        <span class="w-4 h-4 rounded-full bg-emerald-500 text-white text-[9px] font-black flex items-center justify-center shrink-0 mt-0.5">1</span>
-                                        <p><strong>Avg Daily Boundary</strong> — The average actual boundary collected for this unit in the last 90 days.</p>
-                                    </div>
-                                    <div class="flex items-start gap-2">
-                                        <span class="w-4 h-4 rounded-full bg-rose-500 text-white text-[9px] font-black flex items-center justify-center shrink-0 mt-0.5">2</span>
-                                        <p><strong>Avg Daily Maintenance Cost</strong> — Total repair expenses of the unit over 90 days ÷ 90.</p>
-                                    </div>
-                                    <div class="flex items-start gap-2">
-                                        <span class="w-4 h-4 rounded-full bg-amber-500 text-white text-[9px] font-black flex items-center justify-center shrink-0 mt-0.5">3</span>
-                                        <p><strong>Daily Net Profit</strong> = Avg Daily Boundary − Avg Daily Maint. Cost.</p>
-                                    </div>
-                                    <div class="flex items-start gap-2">
-                                        <span class="w-4 h-4 rounded-full bg-indigo-500 text-white text-[9px] font-black flex items-center justify-center shrink-0 mt-0.5">4</span>
-                                        <p><strong>Monthly Projection</strong> = Daily Net Profit × 30 days. This represents the unit's expected monthly profit.</p>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                @else
-                    <div class="py-16 flex flex-col items-center justify-center text-center">
-                        <div class="w-16 h-16 bg-amber-50 text-amber-400 rounded-3xl flex items-center justify-center mb-4">
-                            <i data-lucide="trophy" class="w-8 h-8"></i>
-                        </div>
-                        <h4 class="text-lg font-black text-slate-700 mb-2">No Active Unit Data</h4>
-                        <p class="text-sm text-slate-400 max-w-xs leading-relaxed">No active units with boundary records in the last 90 days.</p>
-                    </div>
-                @endif
-            </div>
-        </div>
 
         {{-- Unit ROI Scorecard --}}
         <div class="bg-white rounded-3xl border border-slate-200 shadow-sm p-6">
@@ -1319,6 +1173,131 @@
 @endsection
 
 @push('scripts')
+<!-- Modals for Percentage Details -->
+<div id="utilizationModal" class="hidden fixed inset-0 bg-slate-900/50 z-[100] flex items-center justify-center p-4 backdrop-blur-sm transition-opacity">
+    <div class="bg-white rounded-3xl p-8 max-w-sm w-full shadow-2xl relative border border-slate-100">
+        <button onclick="document.getElementById('utilizationModal').classList.add('hidden')" class="absolute top-4 right-4 p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-50 rounded-full transition-colors"><i data-lucide="x" class="w-5 h-5"></i></button>
+        
+        <div class="w-12 h-12 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center mb-6">
+            <i data-lucide="activity" class="w-6 h-6"></i>
+        </div>
+        
+        <h3 class="text-xl font-black text-slate-800 mb-2">Fleet Utilization ({{ $fleet_utilization }}%)</h3>
+        <p class="text-sm text-slate-500 mb-6 leading-relaxed">This percentage represents the portion of your total fleet that is currently on the road and generating revenue.</p>
+        
+        <div class="space-y-4 bg-slate-50 p-4 rounded-2xl border border-slate-100">
+            <div class="flex justify-between items-center">
+                <span class="text-sm font-bold text-slate-600">Active Units:</span>
+                <span class="text-sm font-black text-indigo-600">{{ $fleet_pulse['active_units'] ?? 0 }}</span>
+            </div>
+            <div class="flex justify-between items-center">
+                <span class="text-sm font-bold text-slate-600">Total Fleet:</span>
+                <span class="text-sm font-black text-slate-800">{{ array_sum($fleet_pulse) }}</span>
+            </div>
+            <div class="h-px bg-slate-200"></div>
+            <div class="flex justify-between items-center">
+                <span class="text-sm font-bold text-slate-600">Utilization Rate:</span>
+                <span class="text-lg font-black text-emerald-600">{{ $fleet_utilization }}%</span>
+            </div>
+        </div>
+        
+        <button onclick="document.getElementById('utilizationModal').classList.add('hidden')" class="w-full mt-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-bold rounded-xl transition-colors">Got it</button>
+    </div>
+</div>
+
+<div id="leakageModal" class="hidden fixed inset-0 bg-slate-900/50 z-[100] flex items-center justify-center p-4 backdrop-blur-sm transition-opacity">
+    <div class="bg-white rounded-3xl p-8 max-w-sm w-full shadow-2xl relative border border-slate-100">
+        <button onclick="document.getElementById('leakageModal').classList.add('hidden')" class="absolute top-4 right-4 p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-50 rounded-full transition-colors"><i data-lucide="x" class="w-5 h-5"></i></button>
+        
+        <div class="w-12 h-12 bg-rose-50 text-rose-600 rounded-2xl flex items-center justify-center mb-6">
+            <i data-lucide="trending-down" class="w-6 h-6"></i>
+        </div>
+        
+        <h3 class="text-xl font-black text-slate-800 mb-2">Revenue Leakage ({{ $revenue_leakage_pct }}%)</h3>
+        <p class="text-sm text-slate-500 mb-6 leading-relaxed">This percentage indicates how much of your expected boundary collections were uncollected (shortages).</p>
+        
+        <div class="space-y-4 bg-slate-50 p-4 rounded-2xl border border-slate-100">
+            <div class="flex justify-between items-center">
+                <span class="text-sm font-bold text-slate-600">Total Shortages:</span>
+                <span class="text-sm font-black text-rose-600">₱{{ number_format($total_shortage, 2) }}</span>
+            </div>
+            <div class="flex justify-between items-center">
+                <span class="text-sm font-bold text-slate-600">Actual Collections:</span>
+                <span class="text-sm font-black text-emerald-600">₱{{ number_format($total_boundary, 2) }}</span>
+            </div>
+            <div class="h-px bg-slate-200"></div>
+            <div class="flex justify-between items-center">
+                <span class="text-sm font-bold text-slate-600">Expected Total:</span>
+                <span class="text-sm font-black text-slate-800">₱{{ number_format($total_boundary + $total_shortage, 2) }}</span>
+            </div>
+        </div>
+        
+        <button onclick="document.getElementById('leakageModal').classList.add('hidden')" class="w-full mt-6 py-3 bg-rose-600 hover:bg-rose-700 text-white text-sm font-bold rounded-xl transition-colors">Understood</button>
+    </div>
+</div>
+
+<div id="netMarginModal" class="hidden fixed inset-0 bg-slate-900/50 z-[100] flex items-center justify-center p-4 backdrop-blur-sm transition-opacity">
+    <div class="bg-white rounded-3xl p-8 max-w-sm w-full shadow-2xl relative border border-slate-100">
+        <button onclick="document.getElementById('netMarginModal').classList.add('hidden')" class="absolute top-4 right-4 p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-50 rounded-full transition-colors"><i data-lucide="x" class="w-5 h-5"></i></button>
+        
+        <div class="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-2xl flex items-center justify-center mb-6">
+            <i data-lucide="wallet" class="w-6 h-6"></i>
+        </div>
+        
+        <h3 class="text-xl font-black text-slate-800 mb-2">Net Margin</h3>
+        <p class="text-sm text-slate-500 mb-6 leading-relaxed">This shows your actual profit after deducting all recorded expenses, maintenance costs, and salaries from your boundary collections.</p>
+        
+        <div class="space-y-4 bg-slate-50 p-4 rounded-2xl border border-slate-100">
+            <div class="flex justify-between items-center">
+                <span class="text-sm font-bold text-slate-600">Gross Collections:</span>
+                <span class="text-sm font-black text-emerald-600">₱{{ number_format($total_boundary, 2) }}</span>
+            </div>
+            <div class="flex justify-between items-center">
+                <span class="text-sm font-bold text-slate-600">Total Expenses:</span>
+                <span class="text-sm font-black text-rose-600">- ₱{{ number_format($total_boundary - $net_income, 2) }}</span>
+            </div>
+            <div class="h-px bg-slate-200"></div>
+            <div class="flex justify-between items-center">
+                <span class="text-sm font-bold text-slate-600">Net Profit/Loss:</span>
+                <span class="text-lg font-black {{ $net_income >= 0 ? 'text-emerald-600' : 'text-rose-600' }}">₱{{ number_format($net_income, 2) }}</span>
+            </div>
+        </div>
+        
+        <button onclick="document.getElementById('netMarginModal').classList.add('hidden')" class="w-full mt-6 py-3 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold rounded-xl transition-colors">Got it</button>
+    </div>
+</div>
+
+<div id="breakEvenModal" class="hidden fixed inset-0 bg-slate-900/50 z-[100] flex items-center justify-center p-4 backdrop-blur-sm transition-opacity">
+    <div class="bg-white rounded-3xl p-8 max-w-sm w-full shadow-2xl relative border border-slate-100">
+        <button onclick="document.getElementById('breakEvenModal').classList.add('hidden')" class="absolute top-4 right-4 p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-50 rounded-full transition-colors"><i data-lucide="x" class="w-5 h-5"></i></button>
+        
+        <div class="w-12 h-12 bg-amber-50 text-amber-600 rounded-2xl flex items-center justify-center mb-6">
+            <i data-lucide="target" class="w-6 h-6"></i>
+        </div>
+        
+        <h3 class="text-xl font-black text-slate-800 mb-2">Break-even Cycle</h3>
+        <p class="text-sm text-slate-500 mb-6 leading-relaxed">Estimated number of operational days required to cover all operating expenses based on the average daily boundary rate.</p>
+        
+        <div class="space-y-4 bg-slate-50 p-4 rounded-2xl border border-slate-100">
+            <div class="flex justify-between items-center">
+                <span class="text-sm font-bold text-slate-600">Total Expenses:</span>
+                <span class="text-sm font-black text-rose-600">₱{{ number_format($total_boundary - $net_income, 2) }}</span>
+            </div>
+            <div class="flex justify-between items-center">
+                <span class="text-sm font-bold text-slate-600">Avg. Daily Rate:</span>
+                <span class="text-sm font-black text-slate-800">₱{{ number_format(DB::table('units')->whereNull('deleted_at')->avg('boundary_rate') ?? 1000, 2) }}</span>
+            </div>
+            <div class="h-px bg-slate-200"></div>
+            <div class="flex justify-between items-center">
+                <span class="text-sm font-bold text-slate-600">Required Days:</span>
+                <span class="text-lg font-black text-amber-600">{{ $break_even_days }} Days</span>
+            </div>
+        </div>
+        
+        <button onclick="document.getElementById('breakEvenModal').classList.add('hidden')" class="w-full mt-6 py-3 bg-amber-600 hover:bg-amber-700 text-white text-sm font-bold rounded-xl transition-colors">Understood</button>
+    </div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
     // ── Tab Switching Logic ──────────────────────────────────────────────────
     function switchTab(tab) {
@@ -1459,29 +1438,61 @@
 
     // Revenue vs Expenses Chart
     const revCtx = document.getElementById('revenueChart').getContext('2d');
-    new Chart(revCtx, {
+    const revConfig = {
         type: 'line',
         data: {
             labels: monthlyRevenueData.map(d => d.month),
             datasets: [
-                { label: 'Revenue (₱)', data: monthlyRevenueData.map(d => d.boundary), borderColor: '#10b981', backgroundColor: 'rgba(16, 185, 129, 0.1)', fill: true, tension: 0.4, borderWidth: 3, pointRadius: 4, pointBackgroundColor: '#fff' },
-                { label: 'Expenses (₱)', data: monthlyRevenueData.map(d => d.expenses), borderColor: '#3b82f6', backgroundColor: 'rgba(59, 130, 246, 0.1)', fill: true, tension: 0.4, borderWidth: 3, pointRadius: 4, pointBackgroundColor: '#fff' }
+                { 
+                    label: `Revenue (₱${monthlyRevenueData.reduce((a, b) => a + parseFloat(b.boundary), 0).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})})`, 
+                    data: monthlyRevenueData.map(d => d.boundary), 
+                    borderColor: '#10b981', backgroundColor: 'rgba(16, 185, 129, 0.1)', fill: true, tension: 0.4, borderWidth: 3, pointRadius: 4, pointBackgroundColor: '#fff' 
+                },
+                { 
+                    label: `Expenses (₱${monthlyRevenueData.reduce((a, b) => a + parseFloat(b.expenses), 0).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})})`, 
+                    data: monthlyRevenueData.map(d => d.expenses), 
+                    borderColor: '#3b82f6', backgroundColor: 'rgba(59, 130, 246, 0.1)', fill: true, tension: 0.4, borderWidth: 3, pointRadius: 4, pointBackgroundColor: '#fff' 
+                }
             ]
         },
         options: {
             responsive: true,
             maintainAspectRatio: false,
+            animation: {
+                duration: 2000,
+                easing: 'easeOutQuart',
+                delay: (context) => {
+                    let delay = 0;
+                    if (context.type === 'data' && context.mode === 'default') {
+                        delay = context.dataIndex * 100 + context.datasetIndex * 100;
+                    }
+                    return delay;
+                }
+            },
             plugins: { legend: { position: 'top', labels: { usePointStyle: true, font: { weight: 'bold', size: 11 } } } },
             scales: { y: { beginAtZero: true, grid: { color: '#f1f5f9' }, ticks: { callback: v => '₱' + v.toLocaleString(), font: { size: 10 } } }, x: { grid: { display: false }, ticks: { font: { size: 10 } } } }
         }
-    });
+    };
+    
+    let revChartInst = null;
+    const revObserver = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                if (!revChartInst) {
+                    revChartInst = new Chart(revCtx, revConfig);
+                    revObserver.unobserve(entry.target);
+                }
+            }
+        });
+    }, { threshold: 0.1 });
+    if (revCtx.canvas.parentElement) revObserver.observe(revCtx.canvas.parentElement);
 
     // Expense Distribution Chart
     const expCanvas = document.getElementById('expenseChart');
     if (expCanvas) {
         if (expenseData.length > 0) {
             const expCtx = expCanvas.getContext('2d');
-            new Chart(expCtx, {
+            const expConfig = {
                 type: 'doughnut',
                 data: {
                     labels: expenseData.map(d => d.category),
@@ -1491,9 +1502,75 @@
                     responsive: true,
                     maintainAspectRatio: false,
                     cutout: '75%',
-                    plugins: { legend: { position: 'right', labels: { boxWidth: 12, padding: 20, font: { weight: 'bold', size: 11 } } } }
+                    animation: {
+                        duration: 2000,
+                        easing: 'easeOutQuart',
+                        animateScale: true,
+                        animateRotate: true
+                    },
+                    plugins: { 
+                        legend: { 
+                            position: 'right', 
+                            labels: { 
+                                boxWidth: 12, 
+                                padding: 20, 
+                                font: { weight: 'bold', size: 11 },
+                                generateLabels: function(chart) {
+                                    const data = chart.data;
+                                    if (data.labels.length && data.datasets.length) {
+                                        const expTotal = data.datasets[0].data.reduce((a, b) => parseFloat(a) + parseFloat(b), 0);
+                                        return data.labels.map(function(label, i) {
+                                            const meta = chart.getDatasetMeta(0);
+                                            const style = meta.controller.getStyle(i);
+                                            const value = parseFloat(data.datasets[0].data[i]);
+                                            let percentage = 0;
+                                            if (expTotal > 0) {
+                                                const rawPct = (value / expTotal) * 100;
+                                                percentage = rawPct % 1 === 0 ? rawPct.toFixed(0) : rawPct.toFixed(1);
+                                            }
+                                            return {
+                                                text: `${label} (${percentage}%)`,
+                                                fillStyle: style.backgroundColor,
+                                                strokeStyle: style.borderColor,
+                                                lineWidth: style.borderWidth,
+                                                hidden: isNaN(data.datasets[0].data[i]) || meta.data[i].hidden,
+                                                index: i
+                                            };
+                                        });
+                                    }
+                                    return [];
+                                }
+                            } 
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const value = parseFloat(context.raw);
+                                    const expTotal = context.dataset.data.reduce((a, b) => parseFloat(a) + parseFloat(b), 0);
+                                    let percentage = 0;
+                                    if (expTotal > 0) {
+                                        const rawPct = (value / expTotal) * 100;
+                                        percentage = rawPct % 1 === 0 ? rawPct.toFixed(0) : rawPct.toFixed(1);
+                                    }
+                                    return ` ₱${value.toLocaleString()} (${percentage}%)`;
+                                }
+                            }
+                        }
+                    }
                 }
-            });
+            };
+            let expChartInst = null;
+            const expObserver = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        if (!expChartInst) {
+                            expChartInst = new Chart(expCtx, expConfig);
+                            expObserver.unobserve(entry.target);
+                        }
+                    }
+                });
+            }, { threshold: 0.1 });
+            if (expCtx.canvas.parentElement) expObserver.observe(expCtx.canvas.parentElement);
         } else {
             const parent = expCanvas.parentElement;
             parent.innerHTML = `
@@ -1511,33 +1588,93 @@
 
     // Daily Boundary Trend Chart
     const dailyCtx = document.getElementById('dailyTrendChart').getContext('2d');
-    new Chart(dailyCtx, {
+    const dailyConfig = {
         type: 'bar',
         data: {
             labels: dailyData.map(d => d.day),
-            datasets: [{ label: 'Daily Collection (₱)', data: dailyData.map(d => d.total), backgroundColor: '#6366f1', borderRadius: 8, barThickness: 12 }]
+            datasets: [{ 
+                label: `Daily Collection (₱${dailyData.reduce((a, b) => a + parseFloat(b.total), 0).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})})`, 
+                data: dailyData.map(d => d.total), 
+                backgroundColor: '#6366f1', borderRadius: 8, barThickness: 12 
+            }]
         },
         options: {
             responsive: true,
             maintainAspectRatio: false,
+            animation: {
+                y: {
+                    duration: 2000,
+                    easing: 'easeOutQuart',
+                    delay: (context) => {
+                        let delay = 0;
+                        if (context.type === 'data' && context.mode === 'default') {
+                            delay = context.dataIndex * 50;
+                        }
+                        return delay;
+                    }
+                }
+            },
             scales: { y: { beginAtZero: true, grid: { color: '#f1f5f9' }, ticks: { callback: v => '₱' + v.toLocaleString(), font: { size: 10 } } }, x: { grid: { display: false }, ticks: { font: { size: 10 } } } }
         }
-    });
+    };
+    
+    let dailyChartInst = null;
+    const dailyObserver = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                if (!dailyChartInst) {
+                    dailyChartInst = new Chart(dailyCtx, dailyConfig);
+                    dailyObserver.unobserve(entry.target);
+                }
+            }
+        });
+    }, { threshold: 0.1 });
+    if (dailyCtx.canvas.parentElement) dailyObserver.observe(dailyCtx.canvas.parentElement);
 
     // Maintenance Cost Chart
     const maintCtx = document.getElementById('maintenanceChart').getContext('2d');
-    new Chart(maintCtx, {
+    const maintConfig = {
         type: 'bar',
         data: {
             labels: maintenanceCostData.map(d => d.unit),
-            datasets: [{ label: 'Repair Cost (₱)', data: maintenanceCostData.map(d => d.cost), backgroundColor: d => d.raw > 30000 ? '#ef4444' : '#f59e0b', borderRadius: 8 }]
+            datasets: [{ 
+                label: `Repair Cost (₱${maintenanceCostData.reduce((a, b) => a + parseFloat(b.cost), 0).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})})`, 
+                data: maintenanceCostData.map(d => d.cost), 
+                backgroundColor: d => d.raw > 30000 ? '#ef4444' : '#f59e0b', borderRadius: 8 
+            }]
         },
         options: {
             responsive: true,
             maintainAspectRatio: false,
+            animation: {
+                y: {
+                    duration: 2000,
+                    easing: 'easeOutQuart',
+                    delay: (context) => {
+                        let delay = 0;
+                        if (context.type === 'data' && context.mode === 'default') {
+                            delay = context.dataIndex * 50;
+                        }
+                        return delay;
+                    }
+                }
+            },
             scales: { y: { beginAtZero: true, grid: { color: '#f1f5f9' }, ticks: { callback: v => '₱' + v.toLocaleString(), font: { size: 10 } } }, x: { grid: { display: false }, ticks: { font: { size: 10 } } } }
         }
-    });
+    };
+    
+    let maintChartInst = null;
+    const maintObserver = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                if (!maintChartInst) {
+                    maintChartInst = new Chart(maintCtx, maintConfig);
+                    maintObserver.unobserve(entry.target);
+                }
+            }
+        });
+    }, { threshold: 0.1 });
+    if (maintCtx.canvas.parentElement) maintObserver.observe(maintCtx.canvas.parentElement);
 
     // ── AI DSS Logic ──────────────────────────────────────────────────────────
     const priorityConfig = {
@@ -1702,7 +1839,7 @@
             const barBorderWidth = histNet.map(() => 0).concat([3]);
             const barBorderDash = histNet.map(() => []).concat([[6, 4]]);
 
-            new Chart(fCtx.getContext('2d'), {
+            const forecastConfig = {
                 type: 'bar',
                 data: {
                     labels: allLabels,
@@ -1755,6 +1892,17 @@
                     responsive: true,
                     maintainAspectRatio: false,
                     interaction: { mode: 'index', intersect: false },
+                    animation: {
+                        duration: 2000,
+                        easing: 'easeOutQuart',
+                        delay: (context) => {
+                            let delay = 0;
+                            if (context.type === 'data' && context.mode === 'default') {
+                                delay = context.dataIndex * 150 + context.datasetIndex * 100;
+                            }
+                            return delay;
+                        }
+                    },
                     plugins: {
                         legend: {
                             display: true,
@@ -1794,7 +1942,20 @@
                         }
                     }
                 }
-            });
+            };
+            
+            let forecastChartInst = null;
+            const forecastObserver = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        if (!forecastChartInst) {
+                            forecastChartInst = new Chart(fCtx.getContext('2d'), forecastConfig);
+                            forecastObserver.unobserve(entry.target);
+                        }
+                    }
+                });
+            }, { threshold: 0.1 });
+            if (fCtx.parentElement) forecastObserver.observe(fCtx.parentElement);
         }
 
         // 2. Health Gauge (Canvas arc)
@@ -1825,15 +1986,34 @@
             gCtx.stroke();
 
             // Animated score arc
-            let currentAngle = startAngle;
-            const animationDuration = 1200;
-            const startTime = performance.now();
+            const animationDuration1 = 1200; // 0 to 100
+            const animationDuration2 = 800;  // 100 to actual
+            let startTime = null;
 
             function animateGauge(currentTime) {
+                if (!startTime) startTime = currentTime;
                 const elapsed = currentTime - startTime;
-                const progress = Math.min(elapsed / animationDuration, 1);
-                const eased = 1 - Math.pow(1 - progress, 3); // ease-out cubic
-                currentAngle = startAngle + (scoreAngle - startAngle) * eased;
+                let currentScore = 0;
+
+                if (elapsed < animationDuration1) {
+                    // Phase 1: 0 to 100
+                    const progress = elapsed / animationDuration1;
+                    const eased = 1 - Math.pow(1 - progress, 3); // ease-out cubic
+                    currentScore = 100 * eased;
+                } else if (elapsed < animationDuration1 + animationDuration2) {
+                    // Phase 2: 100 down to accurate score
+                    const progress = (elapsed - animationDuration1) / animationDuration2;
+                    const eased = 1 - Math.pow(1 - progress, 3); // ease-out cubic
+                    currentScore = 100 - ((100 - score) * eased);
+                } else {
+                    currentScore = score;
+                }
+
+                // Update text display
+                const displayEl = document.getElementById('healthScoreDisplay');
+                if (displayEl) displayEl.innerText = Math.round(currentScore);
+
+                const currentAngle = startAngle + (totalArc * (currentScore / 100));
 
                 // Clear and redraw
                 gCtx.clearRect(0, 0, gaugeCanvas.width, gaugeCanvas.height);
@@ -1861,7 +2041,7 @@
                 }
 
                 // Small dot at the end
-                if (progress < 1) {
+                if (elapsed < animationDuration1 + animationDuration2) {
                     requestAnimationFrame(animateGauge);
                 } else {
                     // Draw endpoint dot
@@ -1954,16 +2134,39 @@
         col.appendChild(monthLabel);
 
         // Day cells
+        let cellIndex = 0;
         w.days.forEach(d => {
             const cell = document.createElement('div');
+            // Remove initial opacity-0 and scale-50 classes here
             cell.className = `w-3 h-3 rounded-sm transition-all hover:scale-125 cursor-pointer ${d ? getColor(d.total) : 'bg-transparent'}`;
+            // Apply a base inline style for the animation state
+            cell.style.opacity = '0';
+            cell.style.transform = 'scale(0.5)';
+            cell.style.transition = `all 0.5s ease ${cellIndex * 1.5}ms`;
+            
             if (d && d.total > 0) {
                 cell.title = `${d.date}: \u20b1${d.total.toLocaleString()}`;
             }
             col.appendChild(cell);
+            cellIndex++;
         });
         grid.appendChild(col);
     });
+
+    // IntersectionObserver for Heatmap
+    const heatmapObserver = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                const cells = grid.querySelectorAll('.w-3.h-3');
+                cells.forEach(cell => {
+                    cell.style.opacity = '1';
+                    cell.style.transform = 'scale(1)';
+                });
+                heatmapObserver.unobserve(grid);
+            }
+        });
+    }, { threshold: 0.1 });
+    heatmapObserver.observe(grid);
 })();
 
 // Driver Utilization Chart
@@ -1978,7 +2181,7 @@
         'rgba(251,113,133,0.85)'
     );
 
-    new Chart(ctx, {
+    const config = {
         type: 'bar',
         data: {
             labels: utilData.map(d => d.name.split(' ')[0]), // First name only
@@ -1999,6 +2202,19 @@
         options: {
             responsive: true,
             maintainAspectRatio: false,
+            animation: {
+                y: {
+                    duration: 2000,
+                    easing: 'easeOutQuart',
+                    delay: (context) => {
+                        let delay = 0;
+                        if (context.type === 'data' && context.mode === 'default') {
+                            delay = context.dataIndex * 50 + context.datasetIndex * 100;
+                        }
+                        return delay;
+                    }
+                }
+            },
             plugins: {
                 legend: { position: 'bottom', labels: { font: { size: 11, weight: 'bold' } } },
                 tooltip: {
@@ -2015,7 +2231,73 @@
                 y: { stacked: true, max: 30, grid: { color: 'rgba(148,163,184,0.1)' }, ticks: { stepSize: 5 } }
             }
         }
-    });
+    };
+
+    let driverChart = null;
+    const chartObserver = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                if (!driverChart) {
+                    driverChart = new Chart(ctx, config);
+                    chartObserver.unobserve(entry.target);
+                }
+            }
+        });
+    }, { threshold: 0.1 });
+    
+    if (ctx.parentElement) {
+        chartObserver.observe(ctx.parentElement);
+    }
 })();
+// Animate width
+const widthObserver = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+        if (entry.isIntersecting) {
+            entry.target.style.width = entry.target.getAttribute('data-width');
+            widthObserver.unobserve(entry.target);
+        }
+    });
+}, { threshold: 0.1 });
+document.querySelectorAll('.animate-width').forEach(el => widthObserver.observe(el));
+
+// Animate numbers
+function animateNumber(el) {
+    const finalValue = parseFloat(el.getAttribute('data-value'));
+    if (isNaN(finalValue)) return;
+    const isCurrency = el.getAttribute('data-is-currency') === 'true';
+    const isPct = el.getAttribute('data-is-pct') === 'true';
+    const isInt = el.getAttribute('data-is-int') === 'true';
+    
+    let ticks = 0;
+    const maxTicks = 30; // 30 frames of random spinning
+    if (el.interval) clearInterval(el.interval);
+    
+    el.interval = setInterval(() => {
+        ticks++;
+        if (ticks >= maxTicks) {
+            clearInterval(el.interval);
+            if (isCurrency) el.innerText = '₱' + finalValue.toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2});
+            else if (isPct) el.innerText = finalValue.toFixed(1) + '%';
+            else if (isInt) el.innerText = finalValue;
+            else el.innerText = finalValue.toLocaleString();
+        } else {
+            let rand = Math.random() * finalValue * 1.5;
+            if (isCurrency) el.innerText = '₱' + rand.toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2});
+            else if (isPct) el.innerText = rand.toFixed(1) + '%';
+            else if (isInt) el.innerText = Math.floor(rand);
+            else el.innerText = Math.floor(rand).toLocaleString();
+        }
+    }, 30);
+}
+
+const numberObserver = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+        if (entry.isIntersecting) {
+            animateNumber(entry.target);
+            numberObserver.unobserve(entry.target);
+        }
+    });
+}, { threshold: 0.1 });
+document.querySelectorAll('.animate-number').forEach(el => numberObserver.observe(el));
 </script>
 @endpush

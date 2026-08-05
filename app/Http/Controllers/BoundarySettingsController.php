@@ -31,12 +31,12 @@ class BoundarySettingsController extends Controller
 
         system_log('Created Boundary Rule', "Rule: {$request->name}\nRange: {$request->start_year}-{$request->end_year}\nRegular Rate: ₱" . number_format($request->regular_rate, 2));
 
-        return redirect()->route('boundary-rules.index')->with('success', 'Pricing bracket added successfully!');
+        return back()->with('success', 'Pricing bracket added successfully!');
     }
 
     public function update(Request $request, $id)
     {
-        $rule = BoundaryRule::findOrFail($id);
+        $rule = BoundaryRule::where('id', $id)->firstOrFail();
 
         $request->validate([
             'name'           => 'required|string|max:100',
@@ -53,18 +53,20 @@ class BoundarySettingsController extends Controller
 
         system_log('Updated Boundary Rule', "Rule: {$rule->name}\nUpdated pricing configuration.");
 
-        return redirect()->route('boundary-rules.index')->with('success', 'Pricing bracket updated successfully!');
+        return back()->with('success', 'Pricing bracket updated successfully!');
     }
 
     public function destroy($id)
     {
-        $rule = BoundaryRule::findOrFail($id);
+        $rule = BoundaryRule::where('id', $id)->firstOrFail();
         $name = $rule->name;
         $rule->delete(); // soft delete
 
         system_log('Archived Boundary Rule', "Rule: {$name} was archived.");
 
         // Stay on the same page
-        return redirect()->route('boundary-rules.index')->with('success', "Pricing bracket \"{$name}\" has been archived successfully.");
+        return back()->with('success', "Pricing bracket \"{$name}\" has been archived successfully.");
     }
 }
+
+

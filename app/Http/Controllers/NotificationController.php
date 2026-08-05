@@ -21,7 +21,25 @@ class NotificationController extends Controller
             ]);
 
             \App\Http\Controllers\ActivityLogController::log('Dismissed Alert', "Alert: {$title}\nMarked as resolved by user.");
+            \Illuminate\Support\Facades\Cache::forget('global_notifications');
         }
+
+        return response()->json(['success' => true]);
+    }
+
+    public function markAllAsRead(Request $request)
+    {
+        // Resolve all system alerts EXCEPT 'low_stock' (parts stock)
+        DB::table('system_alerts')
+            ->where('is_resolved', false)
+            ->where('type', '!=', 'low_stock')
+            ->update([
+                'is_resolved' => true,
+                'updated_at' => now(),
+            ]);
+
+        \App\Http\Controllers\ActivityLogController::log('Marked All Alerts as Read', "User bulk resolved all system alerts.");
+        \Illuminate\Support\Facades\Cache::forget('global_notifications');
 
         return response()->json(['success' => true]);
     }

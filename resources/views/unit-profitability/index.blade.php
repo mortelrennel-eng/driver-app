@@ -32,7 +32,7 @@
 </style>
 
     {{-- AI Decision Support System (DSS) Section --}}
-    <div class="bg-gradient-to-br from-indigo-900 via-slate-900 to-black rounded-3xl p-8 mb-8 relative shadow-2xl border border-indigo-500/20 transition-all duration-500">
+    <div class="bg-gradient-to-br from-indigo-900 via-slate-900 to-black rounded-3xl p-8 mb-8 relative overflow-hidden shadow-2xl border border-indigo-500/20 transition-all duration-500">
         <div class="absolute top-0 right-0 w-96 h-96 bg-indigo-500/10 rounded-full blur-3xl -mr-48 -mt-48"></div>
         <div class="absolute bottom-0 left-0 w-64 h-64 bg-blue-500/10 rounded-full blur-3xl -ml-32 -mb-32"></div>
         
@@ -123,9 +123,9 @@
         </div>
         <div class="bg-white rounded-2xl shadow-sm border border-gray-100 card-hover overflow-hidden card-number-container relative">
             <div class="px-2 py-4 sm:p-6 text-center relative z-10">
-                <p class="text-[9px] sm:text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1 text-violet-600">Avg Profit Margin</p>
+                <p class="text-[9px] sm:text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1 text-violet-600">Avg Profit / Unit</p>
                 <div class="flex justify-center items-center h-10 sm:h-12">
-                    <p class="auto-scale-text font-black text-violet-600 whitespace-nowrap">{{ number_format($overview['avg_margin'] ?? 0, 1) }}%</p>
+                    <p class="auto-scale-text font-black text-violet-600 whitespace-nowrap">{{ formatCurrency($overview['avg_profit'] ?? 0) }}</p>
                 </div>
             </div>
             <div class="absolute bottom-0 left-0 w-full h-1/2 opacity-10 pointer-events-none">
@@ -134,44 +134,185 @@
         </div>
     </div>
 
-    {{-- Filters --}}
-    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-6">
-        <form method="GET" action="{{ route('unit-profitability.index') }}" class="flex flex-col md:flex-row gap-4">
-            <div class="flex-1">
-                <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-2">From Date</label>
-                <div class="relative group">
-                    <i data-lucide="calendar" class="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 group-focus-within:text-yellow-600 transition-colors"></i>
-                    <input type="date" name="date_from" value="{{ $date_from ?? date('Y-m-01') }}"
-                        onchange="this.form.submit()"
-                        class="block w-full pl-11 pr-4 py-3.5 bg-gray-50 border border-gray-100 rounded-2xl text-xs font-black shadow-sm focus:ring-4 focus:ring-yellow-500/10 focus:border-yellow-400 transition-all outline-none">
+
+    {{-- ┌─────────────────────────────────────────────────────────────────────┐
+         │  TOP PERFORMERS – Top 10 Highest Earning Units                     │
+         └─────────────────────────────────────────────────────────────────────┘ --}}
+    <div class="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden mb-6 w-full max-w-full">
+        {{-- Header --}}
+        <div class="px-8 py-6 border-b border-slate-100 bg-gradient-to-r from-amber-50/60 to-white flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div class="flex items-center gap-4">
+                <div class="w-12 h-12 bg-gradient-to-br from-amber-400 to-orange-500 rounded-2xl flex items-center justify-center shadow-lg shadow-amber-200">
+                    <i data-lucide="trophy" class="w-6 h-6 text-white"></i>
+                </div>
+                <div>
+                    <h3 class="text-lg font-black text-slate-800 flex items-center gap-2">
+                        Top 10 Highest Earning Units
+                    </h3>
+                    <p class="text-[11px] text-slate-500 mt-0.5">
+                        Based on average daily boundary collections over the past <strong>90 days</strong> — active units only
+                    </p>
                 </div>
             </div>
-            <div class="flex-1">
-                <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-1">To Date</label>
-                <div class="relative group">
-                    <i data-lucide="calendar" class="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 group-focus-within:text-yellow-600 transition-colors"></i>
-                    <input type="date" name="date_to" value="{{ $date_to ?? date('Y-m-d') }}"
-                        onchange="this.form.submit()"
-                        class="block w-full pl-11 pr-4 py-3.5 bg-gray-50 border border-gray-100 rounded-2xl text-xs font-black shadow-sm focus:ring-4 focus:ring-yellow-500/10 focus:border-yellow-400 transition-all outline-none">
-                </div>
+            <div class="flex items-center gap-2 shrink-0">
+                <span class="px-3 py-1.5 bg-amber-100 text-amber-700 text-[10px] font-black rounded-full uppercase tracking-widest border border-amber-200">
+                    📊 90-Day Average
+                </span>
             </div>
-            <div class="flex-1">
-                <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-1">Unit Selection</label>
-                <div class="relative group">
-                    <i data-lucide="car-front" class="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 group-focus-within:text-yellow-600 transition-colors"></i>
-                    <select name="unit_id" onchange="this.form.submit()"
-                        class="block w-full pl-11 pr-4 py-3.5 bg-gray-50 border border-gray-100 rounded-2xl text-xs font-black shadow-sm focus:ring-4 focus:ring-yellow-500/10 focus:border-yellow-400 transition-all outline-none appearance-none cursor-pointer">
-                        <option value="">All Units</option>
-                        @foreach($units as $unit)
-                            <option value="{{ $unit->id }}" {{ ($selected_unit ?? '') == $unit->id ? 'selected' : '' }}>
-                                {{ $unit->plate_number }}
-                            </option>
-                        @endforeach
-                    </select>
+        </div>
+
+        {{-- Unit Profitability Cards --}}
+        <div class="p-6">
+            @if(count($forecast_unit_profits) > 0)
+                {{-- Top 3 Podium --}}
+                @php $topThree = array_slice($forecast_unit_profits, 0, 3); @endphp
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                    @foreach($topThree as $idx => $unit)
+                    @php
+                        $rank = $idx + 1;
+                        $podiumColors = [
+                            1 => ['bg' => 'from-amber-400 to-yellow-500', 'border' => 'border-amber-300', 'bg_light' => 'bg-amber-50', 'text' => 'text-amber-700', 'icon' => '🥇'],
+                            2 => ['bg' => 'from-slate-300 to-slate-400', 'border' => 'border-slate-300', 'bg_light' => 'bg-slate-50', 'text' => 'text-slate-600', 'icon' => '🥈'],
+                            3 => ['bg' => 'from-orange-300 to-amber-400', 'border' => 'border-orange-200', 'bg_light' => 'bg-orange-50', 'text' => 'text-orange-700', 'icon' => '🥉'],
+                        ];
+                        $pc = $podiumColors[$rank];
+                        $monthlyProfit = $unit['monthly_profit'] ?? 0;
+                        $dailyProfit = $unit['daily_profit'] ?? 0;
+                        $avgDaily = $unit['avg_daily_boundary'] ?? 0;
+                        $opDays = $unit['operating_days_90d'] ?? 0;
+                        $avgMaint = $unit['avg_daily_maint'] ?? 0;
+                    @endphp
+                    <div class="relative rounded-2xl border-2 {{ $pc['border'] }} {{ $pc['bg_light'] }} p-5 overflow-hidden min-w-0 w-full">
+                        {{-- Rank Badge --}}
+                        <div class="absolute -top-3 -right-3 w-14 h-14 bg-gradient-to-br {{ $pc['bg'] }} rounded-2xl flex items-center justify-center shadow-lg transform rotate-12">
+                            <span class="text-2xl">{{ $pc['icon'] }}</span>
+                        </div>
+
+                        {{-- Plate Number --}}
+                        <div class="mb-4 pr-8">
+                            <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Rank #{{ $rank }}</p>
+                            <h4 class="text-2xl font-black text-slate-900 tracking-tight">{{ $unit['plate'] }}</h4>
+                        </div>
+
+                        {{-- Monthly Profit (Main Metric) --}}
+                        <div class="mb-4">
+                            <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Expected Monthly Net Profit</p>
+                            <p class="text-xl font-black {{ $monthlyProfit >= 0 ? $pc['text'] : 'text-rose-600' }}">
+                                {{ $monthlyProfit >= 0 ? '+' : '' }}₱{{ number_format($monthlyProfit) }}
+                            </p>
+                        </div>
+
+                        {{-- Stats Grid --}}
+                        <div class="grid grid-cols-2 gap-2 pt-3 border-t border-slate-200/50">
+                            <div>
+                                <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest">Avg Daily</p>
+                                <p class="text-xs font-black text-emerald-700">₱{{ number_format($avgDaily) }}</p>
+                            </div>
+                            <div>
+                                <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest">Daily Profit</p>
+                                <p class="text-xs font-black {{ $dailyProfit >= 0 ? 'text-slate-700' : 'text-rose-600' }}">{{ $dailyProfit >= 0 ? '+' : '' }}₱{{ number_format($dailyProfit) }}</p>
+                            </div>
+                            <div>
+                                <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest">Op. Days (90d)</p>
+                                <p class="text-xs font-black text-slate-700">{{ $opDays }} days</p>
+                            </div>
+                            <div>
+                                <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest">Avg Daily Maint.</p>
+                                <p class="text-xs font-black text-rose-600">₱{{ number_format($avgMaint) }}</p>
+                            </div>
+                        </div>
+
+                        {{-- Computation note --}}
+                        <div class="mt-3 p-2 bg-white/60 rounded-xl border border-white text-[9px] text-slate-500 leading-tight">
+                            <strong>Formula:</strong> (Avg Daily ₱{{ number_format($avgDaily) }} − Maint ₱{{ number_format($avgMaint) }}) × 30 days
+                        </div>
+                    </div>
+                    @endforeach
                 </div>
-            </div>
-        </form>
+
+                {{-- Ranks 4-10 Table --}}
+                @if(count($forecast_unit_profits) > 3)
+                <div class="bg-slate-50 rounded-2xl border border-slate-100 overflow-hidden w-full">
+                    <div class="px-5 py-3 border-b border-slate-100 flex items-center gap-2">
+                        <i data-lucide="list-ordered" class="w-4 h-4 text-slate-500"></i>
+                        <h4 class="text-[11px] font-black text-slate-600 uppercase tracking-widest">Ranks 4–{{ min(10, count($forecast_unit_profits)) }} — Unit Profitability Breakdown</h4>
+                    </div>
+                    <div class="overflow-x-auto w-full">
+                        <table class="min-w-full text-sm">
+                            <thead>
+                                <tr class="border-b border-slate-200">
+                                    <th class="text-left text-[10px] font-black text-slate-400 uppercase tracking-widest py-3 px-4 whitespace-nowrap">Rank</th>
+                                    <th class="text-left text-[10px] font-black text-slate-400 uppercase tracking-widest py-3 whitespace-nowrap">Unit</th>
+                                    <th class="text-right text-[10px] font-black text-slate-400 uppercase tracking-widest py-3 whitespace-nowrap">Avg Daily Boundary</th>
+                                    <th class="text-right text-[10px] font-black text-slate-400 uppercase tracking-widest py-3 whitespace-nowrap">Avg Daily Maint.</th>
+                                    <th class="text-right text-[10px] font-black text-slate-400 uppercase tracking-widest py-3 whitespace-nowrap">Daily Net Profit</th>
+                                    <th class="text-right text-[10px] font-black text-slate-400 uppercase tracking-widest py-3 whitespace-nowrap">Monthly Projection</th>
+                                    <th class="text-right text-[10px] font-black text-slate-400 uppercase tracking-widest py-3 pr-4 whitespace-nowrap">Op. Days (90d)</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-100">
+                                @foreach(array_slice($forecast_unit_profits, 3) as $idx => $unit)
+                                @php $rank = $idx + 4; @endphp
+                                <tr>
+                                    <td class="py-3 px-4 font-black text-slate-400 text-sm whitespace-nowrap">#{{ $rank }}</td>
+                                    <td class="py-3 font-black text-slate-800 whitespace-nowrap">{{ $unit['plate'] }}</td>
+                                    <td class="py-3 text-right font-semibold text-emerald-700 whitespace-nowrap">₱{{ number_format($unit['avg_daily_boundary'] ?? 0) }}</td>
+                                    <td class="py-3 text-right font-semibold text-rose-500 whitespace-nowrap">₱{{ number_format($unit['avg_daily_maint'] ?? 0) }}</td>
+                                    <td class="py-3 text-right font-black whitespace-nowrap {{ ($unit['daily_profit'] ?? 0) >= 0 ? 'text-emerald-700' : 'text-rose-600' }}">
+                                        {{ ($unit['daily_profit'] ?? 0) >= 0 ? '+' : '' }}₱{{ number_format($unit['daily_profit'] ?? 0) }}
+                                    </td>
+                                    <td class="py-3 text-right font-black whitespace-nowrap {{ ($unit['monthly_profit'] ?? 0) >= 0 ? 'text-indigo-700' : 'text-rose-600' }}">
+                                        {{ ($unit['monthly_profit'] ?? 0) >= 0 ? '+' : '' }}₱{{ number_format($unit['monthly_profit'] ?? 0) }}
+                                    </td>
+                                    <td class="py-3 text-right font-semibold text-slate-600 pr-4 whitespace-nowrap">{{ $unit['operating_days_90d'] ?? 0 }}d</td>
+                                </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                @endif
+
+                {{-- Explanation Panel --}}
+                <div class="mt-6 p-5 bg-indigo-50/60 rounded-2xl border border-indigo-100">
+                    <div class="flex items-start gap-3">
+                        <i data-lucide="info" class="w-5 h-5 text-indigo-500 flex-shrink-0 mt-0.5"></i>
+                        <div>
+                            <p class="text-[11px] font-black text-indigo-700 uppercase tracking-widest mb-2">How is the Ranking Calculated?</p>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs text-slate-600">
+                                <div class="flex items-start gap-2">
+                                    <span class="w-4 h-4 rounded-full bg-emerald-500 text-white text-[9px] font-black flex items-center justify-center shrink-0 mt-0.5">1</span>
+                                    <p><strong>Avg Daily Boundary</strong> — The average actual boundary collected for this unit in the last 90 days.</p>
+                                </div>
+                                <div class="flex items-start gap-2">
+                                    <span class="w-4 h-4 rounded-full bg-rose-500 text-white text-[9px] font-black flex items-center justify-center shrink-0 mt-0.5">2</span>
+                                    <p><strong>Avg Daily Maintenance Cost</strong> — Total repair expenses of the unit over 90 days ÷ 90.</p>
+                                </div>
+                                <div class="flex items-start gap-2">
+                                    <span class="w-4 h-4 rounded-full bg-amber-500 text-white text-[9px] font-black flex items-center justify-center shrink-0 mt-0.5">3</span>
+                                    <p><strong>Daily Net Profit</strong> = Avg Daily Boundary − Avg Daily Maint. Cost.</p>
+                                </div>
+                                <div class="flex items-start gap-2">
+                                    <span class="w-4 h-4 rounded-full bg-indigo-500 text-white text-[9px] font-black flex items-center justify-center shrink-0 mt-0.5">4</span>
+                                    <p><strong>Monthly Projection</strong> = Daily Net Profit × 30 days. This represents the unit's expected monthly profit.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            @else
+                <div class="py-16 flex flex-col items-center justify-center text-center">
+                    <div class="w-16 h-16 bg-amber-50 text-amber-400 rounded-3xl flex items-center justify-center mb-4">
+                        <i data-lucide="trophy" class="w-8 h-8"></i>
+                    </div>
+                    <h4 class="text-lg font-black text-slate-700 mb-2">No Active Unit Data</h4>
+                    <p class="text-sm text-slate-400 max-w-xs leading-relaxed">No active units with boundary records in the last 90 days.</p>
+                </div>
+            @endif
+        </div>
     </div>
+
+
 
     {{-- Unit Profitability Details Table --}}
     <div class="bg-white rounded-lg shadow overflow-hidden mb-6">
@@ -223,10 +364,10 @@
                                 }
                             }
                         @endphp
-                        <tr class="hover:bg-gray-50 cursor-pointer group transition-all" onclick="openComputationModal('{{ $item->id }}', '{{ $item->plate_number }}')">
+                        <tr class="cursor-pointer transition-all" onclick="openComputationModal('{{ $item->id }}', '{{ $item->plate_number }}')">
                             <td class="px-6 py-4 whitespace-nowrap">
                                 <div class="flex items-center gap-3">
-                                    <div class="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center text-[10px] font-black text-gray-500 group-hover:bg-yellow-100 group-hover:text-yellow-600 transition-colors">
+                                    <div class="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center text-[10px] font-black text-gray-500">
                                         {{ substr($item->plate_number, 0, 3) }}
                                     </div>
                                     <div class="text-sm font-black text-gray-900">{{ $item->plate_number }}</div>
@@ -285,87 +426,17 @@
         @endif
     </div>
 
-    {{-- Top Performers & Needs Attention --}}
-    <div class="grid grid-cols-1 xl:grid-cols-3 gap-6">
-        {{-- Top Performers (Top 10 Pinakamalaking Kita na Unit) --}}
-        <div class="xl:col-span-2 bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
-            <div class="px-6 py-4 border-b border-gray-200 bg-green-50/50 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                <div>
-                    <h3 class="text-md font-semibold text-green-800 flex items-center gap-2">
-                        <i data-lucide="trending-up" class="w-5 h-5 text-green-600"></i>
-                        Top 10 Pinakamalaking Kita na Unit (Top Performers)
-                    </h3>
-                    <p class="text-xs text-gray-500 mt-1">Mga taxi unit na may pinakamataas na inaasahang monthly profit</p>
-                </div>
-                <div class="flex items-center gap-2 px-3 py-1.5 bg-green-50 rounded-xl border border-green-100">
-                    <i data-lucide="database" class="w-3.5 h-3.5 text-green-600"></i>
-                    <span class="text-[9px] font-black text-green-700 uppercase tracking-widest">90d Records</span>
-                </div>
-            </div>
-            <div class="overflow-x-auto">
-                <table class="w-full">
-                    <thead>
-                        <tr class="border-b border-slate-100 bg-slate-50/30">
-                            <th class="px-6 py-3 text-left text-[9px] font-black text-slate-400 uppercase tracking-widest">#</th>
-                            <th class="px-4 py-3 text-left text-[9px] font-black text-slate-400 uppercase tracking-widest">Plate Number</th>
-                            <th class="px-4 py-3 text-right text-[9px] font-black text-slate-400 uppercase tracking-widest">Avg Daily Boundary</th>
-                            <th class="px-4 py-3 text-right text-[9px] font-black text-slate-400 uppercase tracking-widest">Avg Daily Gastos</th>
-                            <th class="px-4 py-3 text-right text-[9px] font-black text-slate-400 uppercase tracking-widest">Daily Profit</th>
-                            <th class="px-4 py-3 text-right text-[9px] font-black text-slate-400 uppercase tracking-widest">Monthly Prediction</th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-slate-50">
-                        @forelse($forecast_unit_profits ?? [] as $index => $unit)
-                            @php
-                                $mp = $unit['monthly_profit'] ?? 0;
-                                $rowColor = $mp >= 35000 ? 'hover:bg-emerald-50/30' : ($mp >= 20000 ? 'hover:bg-amber-50/30' : 'hover:bg-rose-50/30');
-                                $profitColor = $mp >= 35000 ? 'text-emerald-600' : ($mp >= 20000 ? 'text-amber-600' : 'text-rose-600');
-                                $badge = $mp >= 35000 ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : ($mp >= 20000 ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-rose-50 text-rose-700 border-rose-200');
-                                $badgeText = $mp >= 35000 ? 'Mataas' : ($mp >= 20000 ? 'Katamtaman' : 'Mababa');
-                            @endphp
-                            <tr class="transition-colors {{ $rowColor }}">
-                                <td class="px-6 py-3.5 text-xs font-black text-slate-300">{{ $index + 1 }}</td>
-                                <td class="px-4 py-3.5">
-                                    <div class="flex items-center gap-3">
-                                        <div class="w-7 h-7 bg-slate-100 rounded-lg flex items-center justify-center">
-                                            <i data-lucide="car" class="w-3.5 h-3.5 text-slate-500"></i>
-                                        </div>
-                                        <div>
-                                            <p class="text-xs font-black text-slate-800">{{ $unit['plate'] }}</p>
-                                            <span class="px-2 py-0.5 text-[8px] font-black rounded-full border {{ $badge }}">{{ $badgeText }}</span>
-                                        </div>
-                                    </div>
-                                </td>
-                                <td class="px-4 py-3.5 text-right text-xs font-bold text-slate-700">{{ formatCurrency($unit['avg_daily_boundary'] ?? 0) }}</td>
-                                <td class="px-4 py-3.5 text-right text-xs font-bold text-slate-500">{{ formatCurrency($unit['avg_daily_maint'] ?? 0) }}</td>
-                                <td class="px-4 py-3.5 text-right text-xs font-black {{ $profitColor }}">{{ formatCurrency($unit['daily_profit'] ?? 0) }}</td>
-                                <td class="px-4 py-3.5 text-right">
-                                    <span class="text-sm font-black {{ $profitColor }}">{{ formatCurrency($mp) }}</span>
-                                </td>
-                            </tr>
-                        @empty
-                            <tr>
-                                <td colspan="6" class="px-6 py-8 text-center text-xs text-slate-400">
-                                    <i data-lucide="inbox" class="w-6 h-6 mx-auto mb-2 text-slate-300"></i>
-                                    <p class="font-bold">No active top performers data found.</p>
-                                </td>
-                            </tr>
-                        @endforelse
-                    </tbody>
-                </table>
-            </div>
-        </div>
-
-        {{-- Needs Attention --}}
-        <div class="xl:col-span-1 bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
-            <div class="px-6 py-4 border-b border-gray-200 bg-red-50">
+    {{-- Needs Attention --}}
+    <div class="mb-8 w-full max-w-full">
+        <div class="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
+            <div class="px-6 py-4 border-b border-gray-200 bg-red-50/80">
                 <h3 class="text-md font-semibold text-red-800 flex items-center gap-2">
                     <i data-lucide="alert-triangle" class="w-5 h-5 text-red-600"></i>
                     Needs Attention
                 </h3>
-                <p class="text-xs text-red-500 mt-1">Mga unit na nangangailangan ng pansin o may mababang margin</p>
+                <p class="text-xs text-red-500 mt-1">Mga unit na nangangailangan ng pansin o may mababang margin (Top 12)</p>
             </div>
-            <div class="divide-y divide-gray-100">
+            <div class="p-5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 bg-slate-50/50">
                 @php
                     $needsAttention = collect($full_profitability)
                         ->filter(function($u) {
@@ -374,23 +445,41 @@
                             return $hasActivity && $isLowPerformer;
                         })
                         ->sortBy('profit_margin')
-                        ->take(5);
+                        ->take(12);
                 @endphp
                 @forelse($needsAttention as $unit)
-                    <div class="px-5 py-3.5 flex items-center justify-between hover:bg-red-50/20 transition-colors">
-                        <div>
-                            <p class="text-xs font-black text-slate-800">{{ $unit->plate_number }}</p>
-                            <p class="text-[9px] text-gray-500">{{ $unit->make ?? '' }} {{ $unit->model ?? '' }}</p>
-                        </div>
-                        <div class="text-right">
-                            <p class="text-xs font-bold {{ ($unit->net_income ?? 0) >= 0 ? 'text-yellow-600' : 'text-red-600' }}">
-                                {{ formatCurrency($unit->net_income ?? 0) }}
+                    <div class="p-4 bg-white rounded-2xl border border-red-100 shadow-sm flex flex-col justify-between">
+                        <div class="mb-4">
+                            <div class="flex items-center justify-between mb-1.5">
+                                <p class="text-sm font-black text-slate-800">{{ $unit->plate_number }}</p>
+                                <span class="px-2 py-0.5 bg-red-50 text-red-600 text-[9px] font-black rounded-full border border-red-100 uppercase tracking-widest">Low Margin</span>
+                            </div>
+                            <p class="text-[10px] text-slate-400 flex items-center gap-1">
+                                <i data-lucide="car" class="w-3 h-3"></i>
+                                {{ $unit->vehicle->name ?? ($unit->make . ' ' . $unit->model) ?? 'Unknown Vehicle' }}
                             </p>
-                            <p class="text-[10px] text-gray-500">{{ number_format($unit->profit_margin ?? 0, 1) }}% margin</p>
+                        </div>
+                        <div class="pt-3 border-t border-red-50 flex items-center justify-between">
+                            <div>
+                                <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Net Income</p>
+                                <p class="text-xs font-bold {{ ($unit->net_income ?? 0) >= 0 ? 'text-yellow-600' : 'text-red-600' }}">
+                                    {{ formatCurrency($unit->net_income ?? 0) }}
+                                </p>
+                            </div>
+                            <div class="text-right">
+                                <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Margin</p>
+                                <p class="text-xs font-bold text-red-600">{{ number_format($unit->profit_margin ?? 0, 1) }}%</p>
+                            </div>
                         </div>
                     </div>
                 @empty
-                    <div class="px-5 py-4 text-xs text-gray-400 text-center">All units are performing well!</div>
+                    <div class="col-span-full py-10 text-center bg-white rounded-2xl border border-slate-100 shadow-sm">
+                        <div class="w-12 h-12 bg-green-50 rounded-full flex items-center justify-center mx-auto mb-3">
+                            <i data-lucide="check-circle" class="w-6 h-6 text-green-500"></i>
+                        </div>
+                        <p class="text-sm font-bold text-slate-700">All units are performing well!</p>
+                        <p class="text-xs text-slate-500 mt-1">No units currently require attention based on their margins.</p>
+                    </div>
                 @endforelse
             </div>
         </div>
@@ -444,8 +533,10 @@
             document.getElementById('modal-loading').classList.remove('hidden');
             document.getElementById('modal-data').classList.add('hidden');
 
-            const dateFrom = document.querySelector('input[name="date_from"]').value;
-            const dateTo = document.querySelector('input[name="date_to"]').value;
+            const dateFromInput = document.querySelector('input[name="date_from"]');
+            const dateToInput = document.querySelector('input[name="date_to"]');
+            const dateFrom = dateFromInput ? dateFromInput.value : '{{ $date_from ?? date("Y-m-01") }}';
+            const dateTo = dateToInput ? dateToInput.value : '{{ $date_to ?? date("Y-m-d") }}';
 
             fetch(`/unit-profitability/details?unit_id=${unitId}&date_from=${dateFrom}&date_to=${dateTo}`)
                 .then(response => response.json())
@@ -510,7 +601,7 @@
                                 </thead>
                                 <tbody class="divide-y divide-gray-100">
                                     ${data.boundaries.map(b => `
-                                        <tr class="hover:bg-white transition-colors">
+                                        <tr>
                                             <td class="px-4 py-4 text-gray-600 font-medium">${new Date(b.date).toLocaleDateString(undefined, {month: 'long', day: 'numeric', year: 'numeric'})}</td>
                                             <td class="px-4 py-4 text-right font-black text-green-600 font-mono tracking-tighter">${formatCurr(b.actual_boundary)}</td>
                                         </tr>
@@ -540,7 +631,7 @@
                                     </thead>
                                     <tbody class="divide-y divide-gray-100">
                                         ${data.maintenances.map(m => `
-                                            <tr class="hover:bg-white transition-colors">
+                                            <tr>
                                                 <td class="px-3 py-4 text-gray-600 font-medium">${new Date(m.date_started).toLocaleDateString(undefined, {month: 'short', day: 'numeric'})}</td>
                                                 <td class="px-3 py-4 text-gray-900 font-semibold truncate max-w-[120px]" title="${m.description}">${m.description}</td>
                                                 <td class="px-3 py-4 text-right font-black text-red-600 font-mono tracking-tighter">${formatCurr(m.cost)}</td>
@@ -570,7 +661,7 @@
                                     </thead>
                                     <tbody class="divide-y divide-gray-100">
                                         ${data.expenses.map(e => `
-                                            <tr class="hover:bg-white transition-colors">
+                                            <tr>
                                                 <td class="px-3 py-4 text-gray-600 font-medium">${new Date(e.date).toLocaleDateString(undefined, {month: 'short', day: 'numeric'})}</td>
                                                 <td class="px-3 py-4 text-gray-900 font-semibold truncate max-w-[120px]" title="${e.description}">${e.description}</td>
                                                 <td class="px-3 py-4 text-right font-black text-red-600 font-mono tracking-tighter">${formatCurr(e.amount)}</td>
@@ -606,8 +697,10 @@
             loader.classList.remove('hidden');
             resultContainer.classList.add('hidden');
 
-            const dateFrom = document.querySelector('input[name="date_from"]').value;
-            const dateTo = document.querySelector('input[name="date_to"]').value;
+            const dateFromInput = document.querySelector('input[name="date_from"]');
+            const dateToInput = document.querySelector('input[name="date_to"]');
+            const dateFrom = dateFromInput ? dateFromInput.value : '{{ $date_from ?? date("Y-m-01") }}';
+            const dateTo = dateToInput ? dateToInput.value : '{{ $date_to ?? date("Y-m-d") }}';
 
             try {
                 const url = `{{ route('unit-profitability.ai-dss') }}?date_from=${encodeURIComponent(dateFrom)}&date_to=${encodeURIComponent(dateTo)}`;
@@ -623,7 +716,6 @@
                 if (data.success) {
                     resultContent.innerHTML = marked.parse(data.analysis);
                     resultContainer.classList.remove('hidden');
-                    resultContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
                 } else {
                     alert('AI Analysis failed: ' + (data.message || 'Unknown error'));
                     loader.classList.add('hidden');

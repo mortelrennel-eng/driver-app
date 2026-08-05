@@ -147,7 +147,7 @@
             </div>
 
             {{-- Form --}}
-            <form id="driverForm" method="POST" class="flex flex-col flex-1 overflow-hidden">
+            <form id="driverForm" method="POST" enctype="multipart/form-data" class="flex flex-col flex-1 overflow-hidden">
                 @csrf
                 <input type="hidden" name="_method" id="driverFormMethod" value="POST">
                 <input type="hidden" name="driver_id" id="editDriverId" value="">
@@ -308,6 +308,81 @@
                                         placeholder="Auto-synced from Unit Management">
                                 </div>
                                 <p class="text-xs text-gray-400 italic">Automatically synchronized from Unit Management.</p>
+                            </div>
+                        </div>
+
+                        {{-- Optional Documents Upload --}}
+                        <div class="mt-6 border-t border-gray-100 pt-6">
+                            <div class="flex items-center gap-2 mb-4">
+                                <div class="p-2 bg-blue-100 rounded-lg">
+                                    <i data-lucide="folder-open" class="w-5 h-5 text-blue-600"></i>
+                                </div>
+                                <div>
+                                    <h4 class="text-md font-semibold text-gray-900">Secure Document Vault</h4>
+                                    <p class="text-xs text-gray-500">Optional. Upload copies of clearances or photos. You can also upload these later.</p>
+                                </div>
+                            </div>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div class="space-y-1">
+                                    <label class="block text-xs font-bold text-gray-700">PROFILE PHOTO</label>
+                                    <div class="relative w-full">
+                                        <input type="file" name="profile_photo" id="input_profile_photo" accept="image/*,.pdf" onchange="handleCustomFilePreview(this)" class="hidden">
+                                        <div class="flex items-center w-full border border-gray-200 rounded-lg overflow-hidden bg-white hover:border-blue-300 transition-colors">
+                                            <label for="input_profile_photo" class="cursor-pointer bg-blue-50 text-blue-700 hover:bg-blue-100 font-semibold text-sm py-2 px-4 transition-colors whitespace-nowrap">
+                                                Choose File
+                                            </label>
+                                            <div class="js-file-name px-4 text-sm text-gray-500 truncate flex-1 cursor-pointer hover:text-blue-600" onclick="triggerPreview('input_profile_photo')" title="Click to preview">
+                                                No file chosen
+                                            </div>
+                                            <button type="button" class="js-clear-btn hidden px-3 text-red-400 hover:text-red-600 font-bold" onclick="clearCustomFile('input_profile_photo')" title="Remove file">&times;</button>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="space-y-1">
+                                    <label class="block text-xs font-bold text-gray-700">LICENSE PHOTO</label>
+                                    <div class="relative w-full">
+                                        <input type="file" name="license_photo" id="input_license_photo" accept="image/*,.pdf" onchange="handleCustomFilePreview(this)" class="hidden">
+                                        <div class="flex items-center w-full border border-gray-200 rounded-lg overflow-hidden bg-white hover:border-blue-300 transition-colors">
+                                            <label for="input_license_photo" class="cursor-pointer bg-blue-50 text-blue-700 hover:bg-blue-100 font-semibold text-sm py-2 px-4 transition-colors whitespace-nowrap">
+                                                Choose File
+                                            </label>
+                                            <div class="js-file-name px-4 text-sm text-gray-500 truncate flex-1 cursor-pointer hover:text-blue-600" onclick="triggerPreview('input_license_photo')" title="Click to preview">
+                                                No file chosen
+                                            </div>
+                                            <button type="button" class="js-clear-btn hidden px-3 text-red-400 hover:text-red-600 font-bold" onclick="clearCustomFile('input_license_photo')" title="Remove file">&times;</button>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="space-y-1">
+                                    <label class="block text-xs font-bold text-gray-700">NBI CLEARANCE</label>
+                                    <div class="relative w-full">
+                                        <input type="file" name="nbi_clearance_photo" id="input_nbi_clearance_photo" accept="image/*,.pdf" onchange="handleCustomFilePreview(this)" class="hidden">
+                                        <div class="flex items-center w-full border border-gray-200 rounded-lg overflow-hidden bg-white hover:border-blue-300 transition-colors">
+                                            <label for="input_nbi_clearance_photo" class="cursor-pointer bg-blue-50 text-blue-700 hover:bg-blue-100 font-semibold text-sm py-2 px-4 transition-colors whitespace-nowrap">
+                                                Choose File
+                                            </label>
+                                            <div class="js-file-name px-4 text-sm text-gray-500 truncate flex-1 cursor-pointer hover:text-blue-600" onclick="triggerPreview('input_nbi_clearance_photo')" title="Click to preview">
+                                                No file chosen
+                                            </div>
+                                            <button type="button" class="js-clear-btn hidden px-3 text-red-400 hover:text-red-600 font-bold" onclick="clearCustomFile('input_nbi_clearance_photo')" title="Remove file">&times;</button>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="space-y-1">
+                                    <label class="block text-xs font-bold text-gray-700">PNP/BARANGAY CLEARANCE</label>
+                                    <div class="relative w-full">
+                                        <input type="file" name="pnp_clearance_photo" id="input_pnp_clearance_photo" accept="image/*,.pdf" onchange="handleCustomFilePreview(this)" class="hidden">
+                                        <div class="flex items-center w-full border border-gray-200 rounded-lg overflow-hidden bg-white hover:border-blue-300 transition-colors">
+                                            <label for="input_pnp_clearance_photo" class="cursor-pointer bg-blue-50 text-blue-700 hover:bg-blue-100 font-semibold text-sm py-2 px-4 transition-colors whitespace-nowrap">
+                                                Choose File
+                                            </label>
+                                            <div class="js-file-name px-4 text-sm text-gray-500 truncate flex-1 cursor-pointer hover:text-blue-600" onclick="triggerPreview('input_pnp_clearance_photo')" title="Click to preview">
+                                                No file chosen
+                                            </div>
+                                            <button type="button" class="js-clear-btn hidden px-3 text-red-400 hover:text-red-600 font-bold" onclick="clearCustomFile('input_pnp_clearance_photo')" title="Remove file">&times;</button>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -476,11 +551,82 @@
     });
 
     window.boundaryRules = @json($boundary_rules ?? []);
+
+    function handleCustomFilePreview(input) {
+        const container = input.parentElement;
+        const nameDiv = container.querySelector('.js-file-name');
+        const clearBtn = container.querySelector('.js-clear-btn');
+        
+        if (input.files && input.files[0]) {
+            const file = input.files[0];
+            nameDiv.textContent = file.name;
+            clearBtn.classList.remove('hidden');
+            if (file.type.startsWith('image/')) {
+                nameDiv.classList.add('hover:underline', 'text-blue-600');
+            } else {
+                nameDiv.classList.remove('hover:underline', 'text-blue-600');
+            }
+        } else {
+            // Only reset if there's no existing URL
+            if (!nameDiv.dataset.existingUrl) {
+                nameDiv.textContent = 'No file chosen';
+                clearBtn.classList.add('hidden');
+                nameDiv.classList.remove('hover:underline', 'text-blue-600');
+            } else {
+                nameDiv.textContent = 'View Current Document';
+                nameDiv.classList.add('hover:underline', 'text-blue-600');
+                clearBtn.classList.remove('hidden');
+            }
+        }
+    }
+
+    function triggerPreview(inputId) {
+        const input = document.getElementById(inputId);
+        const nameDiv = input.parentElement.querySelector('.js-file-name');
+
+        if (input && input.files && input.files[0]) {
+            const file = input.files[0];
+            if (file.type.startsWith('image/')) {
+                const url = URL.createObjectURL(file);
+                document.getElementById('previewModalImage').src = url;
+                document.getElementById('imagePreviewModal').classList.remove('hidden');
+                document.getElementById('imagePreviewModal').classList.add('flex');
+            }
+        } else if (nameDiv && nameDiv.dataset.existingUrl) {
+            window.open(nameDiv.dataset.existingUrl, '_blank');
+        } else {
+            if(input) input.click();
+        }
+    }
+
+    function clearCustomFile(inputId) {
+        const input = document.getElementById(inputId);
+        const nameDiv = input ? input.parentElement.querySelector('.js-file-name') : null;
+        if (input) {
+            input.value = '';
+            if (nameDiv) nameDiv.dataset.existingUrl = '';
+            handleCustomFilePreview(input);
+        }
+    }
+
+    function closeImagePreview() {
+        document.getElementById('imagePreviewModal').classList.add('hidden');
+        document.getElementById('imagePreviewModal').classList.remove('flex');
+        document.getElementById('previewModalImage').src = '';
+    }
+
     function openAddDriverModal() {
-        document.getElementById('driverModalTitle').textContent = 'Add Driver';
+        document.getElementById('driverForm').reset();
         document.getElementById('driverFormMethod').value = 'POST';
         document.getElementById('driverForm').action = '{{ route('driver-management.store') }}';
         document.getElementById('editDriverId').value = '';
+        document.getElementById('driverModalTitle').textContent = 'Add Driver';
+        
+        // Reset custom file inputs
+        ['input_profile_photo', 'input_license_photo', 'input_nbi_clearance_photo', 'input_pnp_clearance_photo'].forEach(id => {
+            clearCustomFile(id);
+        });
+
         document.getElementById('driverFirstName').value = '';
         document.getElementById('driverLastName').value = '';
 
@@ -526,6 +672,30 @@
             document.getElementById('driverFormMethod').value = 'PUT';
             document.getElementById('driverForm').action = '{{ url('driver-management') }}/' + id;
             document.getElementById('editDriverId').value = id;
+            
+            // Populate file inputs
+            ['profile_photo', 'license_photo', 'nbi_clearance_photo', 'pnp_clearance_photo'].forEach(field => {
+                const inputId = 'input_' + field;
+                const container = document.getElementById(inputId).parentElement;
+                const nameDiv = container.querySelector('.js-file-name');
+                const clearBtn = container.querySelector('.js-clear-btn');
+                
+                // clear native input first
+                document.getElementById(inputId).value = '';
+                
+                if (data[field]) {
+                    nameDiv.dataset.existingUrl = '/' + data[field];
+                    nameDiv.textContent = 'View Current Document';
+                    nameDiv.classList.add('hover:underline', 'text-blue-600');
+                    clearBtn.classList.remove('hidden');
+                } else {
+                    nameDiv.dataset.existingUrl = '';
+                    nameDiv.textContent = 'No file chosen';
+                    nameDiv.classList.remove('hover:underline', 'text-blue-600');
+                    clearBtn.classList.add('hidden');
+                }
+            });
+
             document.getElementById('driverFirstName').value = data.first_name || '';
             document.getElementById('driverLastName').value = data.last_name || '';
 
@@ -646,4 +816,14 @@
     };
 
     </script>
+
+    <!-- Image Preview Modal -->
+    <div id="imagePreviewModal" class="fixed inset-0 z-[100] hidden items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+        <div class="relative max-w-4xl w-full flex flex-col items-center justify-center">
+            <button type="button" onclick="closeImagePreview()" class="absolute -top-12 right-0 md:-right-10 text-white hover:text-gray-300 bg-black/50 hover:bg-black/80 rounded-full p-2 transition-colors">
+                <i data-lucide="x" class="w-6 h-6"></i>
+            </button>
+            <img id="previewModalImage" src="" class="max-w-full max-h-[85vh] object-contain rounded-lg shadow-2xl">
+        </div>
+    </div>
 @endsection

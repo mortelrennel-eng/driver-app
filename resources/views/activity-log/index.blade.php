@@ -147,7 +147,15 @@
                 <label class="block text-[10px] uppercase font-bold text-gray-400 mb-1 px-1">Search Keywords</label>
                 <div class="relative">
                     <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400"></i>
-                    <input type="text" name="search" value="{{ request('search') }}" class="log-input pl-10" placeholder="Names, emails, actions, notes...">
+                    <input type="text" name="search" id="logSearchInput" value="{{ request('search') }}" 
+                        class="log-input pl-10 pr-10" 
+                        placeholder="Names, emails, actions, notes..."
+                        autocomplete="new-password"
+                        spellcheck="false" autocorrect="off"
+                        readonly onfocus="this.removeAttribute('readonly');">
+                    <button type="button" id="clearSearchBtn" class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 hidden">
+                        <i data-lucide="x" class="w-4 h-4"></i>
+                    </button>
                 </div>
             </div>
 
@@ -195,7 +203,7 @@
             </thead>
             <tbody>
                 @forelse($logs as $log)
-                <tr class="log-row">
+                <tr class="log-row" data-search-terms="{{ strtolower(($log->user_name ?? '') . ' ' . ($log->user_email ?? '') . ' ' . ($log->action ?? '') . ' ' . ($log->notes ?? '')) }}">
                     <td class="pl-6">
                         <div class="flex flex-col">
                             <span class="font-bold text-slate-800">{{ $log->created_at->format('M d, Y') }}</span>
@@ -226,7 +234,7 @@
                             $icon = 'activity';
                             
                             // Category: Creation/Addition
-                            if (str_contains($action, 'create') || str_contains($action, 'add') || str_contains($action, 'recorded')) { 
+                            if (str_contains($action, 'create') || str_contains($action, 'add') || str_contains($action, 'recorded') || str_contains($action, 'register')) { 
                                 $class = 'badge-create'; 
                                 $icon = 'plus-circle'; 
                             }
@@ -236,7 +244,7 @@
                                 $icon = 'edit-3'; 
                             }
                             // Category: Deletion/Archive/Rejection
-                            elseif (str_contains($action, 'delete') || str_contains($action, 'reject') || str_contains($action, 'archive') || str_contains($action, 'dismissed')) { 
+                            elseif (str_contains($action, 'delete') || str_contains($action, 'reject') || str_contains($action, 'archive') || str_contains($action, 'dismissed') || str_contains($action, 'banned') || str_contains($action, 'suspend')) { 
                                 $class = 'badge-delete'; 
                                 $icon = 'trash-2'; 
                             }
@@ -246,14 +254,9 @@
                                 $icon = 'philippine-peso'; 
                             }
                             // Category: Restoration
-                            elseif (str_contains($action, 'restore')) { 
+                            elseif (str_contains($action, 'restore') || str_contains($action, 'unbanned') || str_contains($action, 'recover') || str_contains($action, 'approve')) { 
                                 $class = 'badge-create'; 
                                 $icon = 'rotate-ccw'; 
-                            }
-                            // Category: Approval
-                            elseif (str_contains($action, 'approve')) { 
-                                $class = 'badge-create'; 
-                                $icon = 'check-circle'; 
                             }
                             // Category: Security/Auth (if visible)
                             elseif (str_contains($action, 'login') || str_contains($action, 'logout')) { 
@@ -307,6 +310,17 @@
                     </td>
                 </tr>
                 @endforelse
+
+                <!-- Live Search Empty State (Hidden by default) -->
+                <tr id="liveSearchEmptyState" class="hidden">
+                    <td colspan="5" class="py-20 text-center">
+                        <div class="flex flex-col items-center opacity-40">
+                            <i data-lucide="search-x" class="w-16 h-16 mb-4 text-slate-300"></i>
+                            <h3 class="text-xl font-bold text-slate-400">No logs match your search</h3>
+                            <p class="text-sm text-slate-400">Try a different keyword.</p>
+                        </div>
+                    </td>
+                </tr>
             </tbody>
         </table>
 
@@ -316,4 +330,62 @@
         </div>
     </div>
 </div>
+
+@push('scripts')
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const searchInput = document.getElementById('logSearchInput');
+    const clearBtn = document.getElementById('clearSearchBtn');
+    const rows = document.querySelectorAll('.log-row');
+    const emptyState = document.getElementById('liveSearchEmptyState');
+    
+    // Live Search Functionality
+    if (searchInput) {
+        searchInput.addEventListener('input', function(e) {
+            const searchTerm = e.target.value.toLowerCase().trim();
+            let visibleCount = 0;
+            
+            // Toggle clear button
+            if (searchTerm.length > 0) {
+                clearBtn.classList.remove('hidden');
+            } else {
+                clearBtn.classList.add('hidden');
+            }
+
+            rows.forEach(row => {
+                const terms = row.getAttribute('data-search-terms') || '';
+                
+                if (terms.includes(searchTerm)) {
+                    row.style.display = '';
+                    visibleCount++;
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+
+            // Toggle empty state
+            if (visibleCount === 0 && rows.length > 0) {
+                emptyState.classList.remove('hidden');
+            } else {
+                emptyState.classList.add('hidden');
+            }
+        });
+
+        // Clear search
+        if (clearBtn) {
+            clearBtn.addEventListener('click', () => {
+                searchInput.value = '';
+                searchInput.dispatchEvent(new Event('input'));
+                searchInput.focus();
+            });
+        }
+        
+        // Ensure input triggers correctly if browser auto-fills despite precautions
+        setTimeout(() => {
+            if (searchInput.value) searchInput.dispatchEvent(new Event('input'));
+        }, 100);
+    }
+});
+</script>
+@endpush
 @endsection

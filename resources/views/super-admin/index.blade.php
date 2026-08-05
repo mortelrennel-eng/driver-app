@@ -136,6 +136,24 @@
         width: 100%;
     }
     .sa-input:focus { border-color: var(--sa-gold); }
+    .sa-input.is-invalid {
+        border-color: #ef4444 !important;
+        background-color: #fef2f2 !important;
+    }
+    .sa-input.is-valid {
+        border-color: #10b981 !important;
+        background-color: #ecfdf5 !important;
+    }
+    @keyframes shake {
+        0%,100% { transform: translateX(0); }
+        15%      { transform: translateX(-6px); }
+        30%      { transform: translateX(6px); }
+        45%      { transform: translateX(-5px); }
+        60%      { transform: translateX(5px); }
+        75%      { transform: translateX(-3px); }
+        90%      { transform: translateX(3px); }
+    }
+    .shake { animation: shake 0.45s ease; }
 
     /* ── Page access toggle chips ── */
     .page-chip {
@@ -164,14 +182,15 @@
 
     /* ── Toast notification ── */
     #sa-toast {
-        position: fixed; bottom: 1.5rem; left: 50%; transform: translateX(-50%) translateY(4rem);
+        position: fixed; bottom: 4rem; left: 50%; transform: translateX(-50%) translateY(10rem);
+        opacity: 0; visibility: hidden;
         background: #1e293b; border: 1px solid var(--sa-gold); color: #ffffff;
         padding: .85rem 1.75rem; border-radius: 999px; font-size: .85rem; font-weight: 600;
         box-shadow: 0 12px 40px rgba(0,0,0,.6);
         z-index: 9999; transition: transform .4s cubic-bezier(.34,1.56,.64,1);
         max-width: 90vw; display: flex; align-items: center; gap: .75rem;
     }
-    #sa-toast.show { transform: translateX(-50%) translateY(0); }
+    #sa-toast.show { transform: translateX(-50%) translateY(0); opacity: 1; visibility: visible; }
     #sa-toast.error { border-color: #ef4444; }
 
     /* ── Modal ── */
@@ -381,31 +400,47 @@
                 <div class="lg:col-span-8">
                     <div style="background:var(--sa-card); border:1px solid var(--sa-border); border-radius:1.5rem; padding:2.5rem;">
                         <form id="staffForm" onsubmit="submitStaff(event)">
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                                <div>
+                            <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                                <div class="md:col-span-1">
                                     <label style="font-size:.75rem; font-weight:800; text-transform:uppercase; letter-spacing:.06em; color:#475569; display:block; margin-bottom:.6rem;">First Name <span style="color:#ef4444;">*</span></label>
-                                    <input type="text" id="staff-first" class="sa-input" required maxlength="16" pattern="^[a-zA-Z\s]+$" title="Only letters and spaces allowed, max 16 characters" placeholder="Enter first name" oninput="this.value = this.value.replace(/[^a-zA-Z\s]/g, '');">
+                                    <input type="text" id="staff-first" class="sa-input" maxlength="50" placeholder="Enter first name" oninput="this.value = this.value.replace(/[^a-zA-Z\s]/g, '').replace(/^\s+/, '').replace(/\s+/g, ' ');">
                                 </div>
-                                <div>
+                                <div class="md:col-span-1">
+                                    <label style="font-size:.75rem; font-weight:800; text-transform:uppercase; letter-spacing:.06em; color:#475569; display:block; margin-bottom:.6rem;">Middle Name</label>
+                                    <input type="text" id="staff-middle" class="sa-input" maxlength="50" placeholder="Middle name" oninput="this.value = this.value.replace(/[^a-zA-Z\s]/g, '').replace(/^\s+/, '').replace(/\s+/g, ' ');">
+                                </div>
+                                <div class="md:col-span-1">
                                     <label style="font-size:.75rem; font-weight:800; text-transform:uppercase; letter-spacing:.06em; color:#475569; display:block; margin-bottom:.6rem;">Last Name <span style="color:#ef4444;">*</span></label>
-                                    <input type="text" id="staff-last" class="sa-input" required maxlength="16" pattern="^[a-zA-Z\s]+$" title="Only letters and spaces allowed, max 16 characters" placeholder="Enter last name" oninput="this.value = this.value.replace(/[^a-zA-Z\s]/g, '');">
+                                    <input type="text" id="staff-last" class="sa-input" maxlength="50" placeholder="Enter last name" oninput="this.value = this.value.replace(/[^a-zA-Z\s]/g, '').replace(/^\s+/, '').replace(/\s+/g, ' ');">
+                                </div>
+                                <div class="md:col-span-1">
+                                    <label style="font-size:.75rem; font-weight:800; text-transform:uppercase; letter-spacing:.06em; color:#475569; display:block; margin-bottom:.6rem;">Suffix</label>
+                                    <select id="staff-suffix" class="sa-input">
+                                        <option value="">None</option>
+                                        <option value="Jr.">Jr.</option>
+                                        <option value="Sr.">Sr.</option>
+                                        <option value="II">II</option>
+                                        <option value="III">III</option>
+                                        <option value="IV">IV</option>
+                                        <option value="V">V</option>
+                                    </select>
                                 </div>
                             </div>
                             
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
                                 <div>
                                     <label style="font-size:.75rem; font-weight:800; text-transform:uppercase; letter-spacing:.06em; color:#475569; display:block; margin-bottom:.6rem;">Email Address <span style="color:#ef4444;">*</span></label>
-                                    <input type="email" id="staff-email" class="sa-input" required placeholder="name@eurotaxi.com">
+                                    <input type="text" id="staff-email" class="sa-input" placeholder="name@gmail.com" oninput="let val = this.value.replace(/[^a-zA-Z0-9@._\-+]/g, ''); if (val.length > 0 && (val[0] === '.' || val[0] === '@')) val = val.substring(1); const atIdx = val.indexOf('@'); if (atIdx !== -1) { val = val.substring(0, atIdx + 1) + val.substring(atIdx + 1).replace(/@/g, ''); } this.value = val;">
                                 </div>
                                 <div>
-                                    <label style="font-size:.75rem; font-weight:800; text-transform:uppercase; letter-spacing:.06em; color:#475569; display:block; margin-bottom:.6rem;">Phone Number</label>
-                                    <input type="text" id="staff-phone" class="sa-input" maxlength="11" pattern="^[0-9]+$" title="Only up to 11 numbers allowed" placeholder="09XX XXX XXXX" oninput="this.value = this.value.replace(/[^0-9]/g, '');">
+                                    <label style="font-size:.75rem; font-weight:800; text-transform:uppercase; letter-spacing:.06em; color:#475569; display:block; margin-bottom:.6rem;">Phone Number <span style="color:#ef4444;">*</span></label>
+                                    <input type="text" id="staff-phone" class="sa-input" maxlength="11" placeholder="09XX XXX XXXX">
                                 </div>
                             </div>
 
                             <div class="mb-6">
-                                <label style="font-size:.75rem; font-weight:800; text-transform:uppercase; letter-spacing:.06em; color:#475569; display:block; margin-bottom:.6rem;">Home Address</label>
-                                <input type="text" id="staff-address" class="sa-input" maxlength="255" pattern="^[a-zA-Z0-9\s.,'-]+$" title="Only letters, numbers, spaces, dots, commas, dashes, and single quotes allowed" placeholder="Enter complete home address" oninput="this.value = this.value.replace(/[^a-zA-Z0-9\s.,'-]/g, '');">
+                                <label style="font-size:.75rem; font-weight:800; text-transform:uppercase; letter-spacing:.06em; color:#475569; display:block; margin-bottom:.6rem;">Home Address <span style="color:#ef4444;">*</span></label>
+                                <input type="text" id="staff-address" class="sa-input" maxlength="250" placeholder="Enter complete home address" oninput="this.value = this.value.replace(/^\s+/, '').replace(/\s+/g, ' ');">
                             </div>
 
                             <div class="mb-8">
@@ -415,7 +450,7 @@
                                         <i data-lucide="settings-2" class="w-3 h-3"></i> Manage System Roles
                                     </button>
                                 </div>
-                                <select id="staff-role" class="sa-input" required>
+                                <select id="staff-role" class="sa-input">
                                     <option value="" disabled selected>Select a role...</option>
                                     @foreach($roles as $role)
                                         <option value="{{ $role->name }}">{{ $role->label }}</option>
@@ -457,11 +492,11 @@
         <div id="tab-users" class="sa-tab-content {{ $tab === 'users' ? '' : 'hidden' }}">
             <div class="flex items-center justify-between mb-6">
                 <div class="flex items-center gap-3 flex-wrap">
-                    <div class="relative">
+                    <div class="relative w-full sm:w-[280px]">
                         <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400"></i>
-                        <input type="search" id="userSearch" class="sa-input pl-10" style="max-width:280px;" placeholder="Search users..." oninput="filterUserTable(this.value)" autocomplete="new-password" spellcheck="false" autocorrect="off" autocapitalize="off" readonly onfocus="this.removeAttribute('readonly');">
+                        <input type="search" id="userSearch" class="sa-input !pl-10 w-full" placeholder="Search name, email, or role..." oninput="filterUserTable(this.value)" autocomplete="new-password" spellcheck="false" autocorrect="off" autocapitalize="off" readonly onfocus="this.removeAttribute('readonly');">
                     </div>
-                    <select id="statusFilter" class="sa-input" style="max-width:180px;" onchange="filterUserTable()">
+                    <select id="statusFilter" class="sa-input w-full sm:w-[180px]" onchange="filterUserTable()">
                         <option value="">All Statuses</option>
                         <option value="activated">Activated</option>
                         <option value="pending">Pending Activation</option>
@@ -492,10 +527,18 @@
                             $editData = $u->only(['id','first_name','last_name','email','role','phone_number','address']);
                         @endphp
                         <tr class="user-row transition-colors" data-name="{{ strtolower($u->full_name) }}" data-email="{{ strtolower($u->email) }}" data-role="{{ strtolower($u->role) }}" data-status="{{ $statusSlug }}">
-                            <td onclick="openUserDetailsModal({{ $u->id }})" style="cursor:pointer;">
+                            <td onclick="openUserDetailsModal({{ $u->uuid }})" style="cursor:pointer;">
                                 <div class="flex items-center gap-2.5">
                                     @if($u->profile_image)
-                                        <img src="{{ asset('storage/' . $u->profile_image) }}" style="width:34px;height:34px;border-radius:50%;object-fit:cover;border:2px solid #e5e7eb;" alt="">
+                                        @php
+                                            $imagePath = str_replace('resources/', '', $u->profile_image);
+                                            $isIcon = str_starts_with($imagePath, 'image/') || str_contains($imagePath, 'resources/assets/');
+                                        @endphp
+                                        @if($isIcon)
+                                            <img src="{{ asset($imagePath) }}" style="width:34px;height:34px;border-radius:50%;object-fit:cover;border:2px solid #e5e7eb;" alt="">
+                                        @else
+                                            <img src="{{ asset('storage/' . $u->profile_image) }}" style="width:34px;height:34px;border-radius:50%;object-fit:cover;border:2px solid #e5e7eb;" alt="">
+                                        @endif
                                     @else
                                         <div style="width:34px;height:34px;background:#e2e8f0;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:.8rem;color:#64748b;flex-shrink:0;">
                                             {{ strtoupper(substr($u->full_name ?? 'U', 0, 1)) }}
@@ -517,11 +560,11 @@
                             </td>
                             <td>
                                 @if($u->is_disabled)
-                                    <button onclick="confirmEnable({{ $u->id }}, '{{ addslashes($u->full_name) }}')" style="background:#fef2f2; border:1px solid #ef4444; color:#b91c1c; border-radius:999px; padding:.2rem .75rem; font-size:.68rem; font-weight:800; cursor:pointer;" title="Click to enable account">
+                                    <button onclick="confirmEnable({{ $u->uuid }}, '{{ addslashes($u->full_name) }}')" style="background:#fef2f2; border:1px solid #ef4444; color:#b91c1c; border-radius:999px; padding:.2rem .75rem; font-size:.68rem; font-weight:800; cursor:pointer;" title="Click to enable account">
                                         ● Disabled
                                     </button>
                                 @else
-                                    <button onclick="openDisableModal({{ $u->id }}, '{{ addslashes($u->full_name) }}')" style="background:#f0fdf4; border:1px solid #22c55e; color:#15803d; border-radius:999px; padding:.2rem .75rem; font-size:.68rem; font-weight:800; cursor:pointer;" title="Click to disable account">
+                                    <button onclick="openDisableModal({{ $u->uuid }}, '{{ addslashes($u->full_name) }}')" style="background:#f0fdf4; border:1px solid #22c55e; color:#15803d; border-radius:999px; padding:.2rem .75rem; font-size:.68rem; font-weight:800; cursor:pointer;" title="Click to disable account">
                                         ● Active
                                     </button>
                                 @endif
@@ -534,7 +577,7 @@
                                     <button class="p-2 text-slate-400 hover:text-amber-600 transition-colors" title="Edit User" onclick="openEditUserModal({{ json_encode($editData) }})">
                                         <i data-lucide="edit-3" class="w-4 h-4"></i>
                                     </button>
-                                    <button class="p-2 text-slate-400 hover:text-rose-600 transition-colors" title="Archive User" onclick="archiveUser({{ $u->id }}, '{{ addslashes($u->full_name) }}')">
+                                    <button class="p-2 text-slate-400 hover:text-rose-600 transition-colors" title="Archive User" onclick="archiveUser({{ $u->uuid }}, '{{ addslashes($u->full_name) }}')">
                                         <i data-lucide="archive" class="w-4 h-4"></i>
                                     </button>
                                 </div>
@@ -561,8 +604,8 @@
                         Select User
                     </div>
                     <div style="max-height:460px; overflow-y:auto;">
-                        @foreach($allUsers->where('approval_status', 'approved') as $u)
-                        <div class="access-user-item" data-id="{{ $u->id }}" data-allowed="{{ json_encode($u->allowed_pages ?? null) }}"
+                        @foreach($allUsers->where('approval_status', 'approved')->whereNull('deleted_at') as $u)
+                        <div class="access-user-item" data-id="{{ $u->uuid }}" data-allowed="{{ json_encode($u->allowed_pages ?? null) }}"
                              onclick="selectAccessUser(this)"
                              style="padding:.85rem 1rem; cursor:pointer; border-bottom:1px solid #f1f5f9; display:flex; align-items:center; gap:.75rem; transition:background .15s; margin: .25rem; border-radius: .75rem;">
                             <div style="width:32px;height:32px;background:#e2e8f0;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:.75rem;color:#64748b;flex-shrink:0;">
@@ -627,17 +670,12 @@
             <div class="flex flex-wrap gap-3 mb-5">
                 <div class="relative flex-1" style="max-width: 320px;">
                     <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400"></i>
-                    <input type="search" id="auditSearch" class="sa-input pl-10" placeholder="Search logs by name, email, or notes..." oninput="debouncedAuditLog()" autocomplete="new-password" spellcheck="false" autocorrect="off" autocapitalize="off" readonly onfocus="this.removeAttribute('readonly');">
+                    <input type="search" id="auditSearch" class="sa-input !pl-10" placeholder="Search logs by name, email, or notes..." oninput="debouncedAuditLog()" autocomplete="new-password" spellcheck="false" autocorrect="off" autocapitalize="off" readonly onfocus="this.removeAttribute('readonly');">
                 </div>
                 <select id="auditActionFilter" class="sa-input" style="max-width:160px;" onchange="loadAuditLog(1)">
                     <option value="">All Actions</option>
                     <option value="login">Login</option>
                     <option value="logout">Logout</option>
-                    <option value="failed_login">Failed Login</option>
-                    <option value="approved">Approved</option>
-                    <option value="rejected">Rejected</option>
-                    <option value="password_changed">Password Changed</option>
-                    <option value="created">Account Created</option>
                 </select>
                 <select id="auditRoleFilter" class="sa-input" style="max-width:160px;" onchange="loadAuditLog(1)">
                     <option value="">All Roles</option>
@@ -1002,7 +1040,7 @@
                                         <button class="p-2 hover:text-amber-600 transition-colors" title="Edit Role" onclick="editRole({{ json_encode($r) }})">
                                             <i data-lucide="edit-3" class="w-4 h-4"></i>
                                         </button>
-                                        <button class="p-2 hover:text-rose-600 transition-colors" title="Archive Role" onclick="archiveRole({{ $r->id }})">
+                                        <button class="p-2 hover:text-rose-600 transition-colors" title="Archive Role" onclick="archiveRole({{ $r->uuid }})">
                                             <i data-lucide="archive" class="w-4 h-4"></i>
                                         </button>
                                     </div>
@@ -1037,10 +1075,10 @@
                                             </div>
                                         </div>
                                         <div class="flex items-center gap-1">
-                                            <button class="p-2 hover:text-emerald-600 transition-colors" title="Restore Role" onclick="restoreRole({{ $r->id }})">
+                                            <button class="p-2 hover:text-emerald-600 transition-colors" title="Restore Role" onclick="restoreRole({{ $r->uuid }})">
                                                 <i data-lucide="rotate-ccw" class="w-4 h-4"></i>
                                             </button>
-                                            <button class="p-2 hover:text-rose-600 transition-colors" title="Delete Permanently" onclick="deleteRole({{ $r->id }})">
+                                            <button class="p-2 hover:text-rose-600 transition-colors" title="Delete Permanently" onclick="deleteRole({{ $r->uuid }})">
                                                 <i data-lucide="trash-2" class="w-4 h-4"></i>
                                             </button>
                                         </div>
@@ -1106,19 +1144,35 @@
         </div>
         <form id="edit-user-form" onsubmit="submitUserEdit(event)">
             <input type="hidden" id="edit-user-id">
-            <div class="grid grid-cols-2 gap-4 mb-4">
-                <div>
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-3 mb-4">
+                <div class="md:col-span-1">
                     <label class="sa-label">First Name</label>
-                    <input type="text" id="edit-first-name" class="sa-input" required>
+                    <input type="text" id="edit-first-name" class="sa-input" required minlength="3" maxlength="50" pattern="^[a-zA-Z]+(?:\s[a-zA-Z]+)*$" title="Letters and single spaces only, min 3 characters" placeholder="e.g., Juan" oninput="this.value = this.value.replace(/[^a-zA-Z\s]/g, '').replace(/^\s+/, '').replace(/\s+/g, ' ');">
                 </div>
-                <div>
+                <div class="md:col-span-1">
+                    <label class="sa-label">Middle Name</label>
+                    <input type="text" id="edit-middle-name" class="sa-input" minlength="3" maxlength="50" pattern="^[a-zA-Z]+(?:\s[a-zA-Z]+)*$" title="Letters and single spaces only, min 3 characters" placeholder="e.g., Dela" oninput="this.value = this.value.replace(/[^a-zA-Z\s]/g, '').replace(/^\s+/, '').replace(/\s+/g, ' ');">
+                </div>
+                <div class="md:col-span-1">
                     <label class="sa-label">Last Name</label>
-                    <input type="text" id="edit-last-name" class="sa-input" required>
+                    <input type="text" id="edit-last-name" class="sa-input" required minlength="3" maxlength="50" pattern="^[a-zA-Z]+(?:\s[a-zA-Z]+)*$" title="Letters and single spaces only, min 3 characters" placeholder="e.g., Cruz" oninput="this.value = this.value.replace(/[^a-zA-Z\s]/g, '').replace(/^\s+/, '').replace(/\s+/g, ' ');">
+                </div>
+                <div class="md:col-span-1">
+                    <label class="sa-label">Suffix</label>
+                    <select id="edit-suffix" class="sa-input">
+                        <option value="">None</option>
+                        <option value="Jr.">Jr.</option>
+                        <option value="Sr.">Sr.</option>
+                        <option value="II">II</option>
+                        <option value="III">III</option>
+                        <option value="IV">IV</option>
+                        <option value="V">V</option>
+                    </select>
                 </div>
             </div>
             <div class="mb-4">
                 <label class="sa-label">Email Address</label>
-                <input type="email" id="edit-email" class="sa-input" required>
+                <input type="email" id="edit-email" class="sa-input" required placeholder="e.g., juan.cruz@gmail.com" oninput="let val = this.value.replace(/[^a-zA-Z0-9@._\-+]/g, ''); if (val.length > 0 && (val[0] === '.' || val[0] === '@')) val = val.substring(1); const atIdx = val.indexOf('@'); if (atIdx !== -1) { val = val.substring(0, atIdx + 1) + val.substring(atIdx + 1).replace(/@/g, ''); } this.value = val;">
             </div>
             <div class="mb-4">
                 <label class="sa-label">Assign Role</label>
@@ -1130,11 +1184,11 @@
             </div>
             <div class="mb-4">
                 <label class="sa-label">Phone Number</label>
-                <input type="text" id="edit-phone" class="sa-input">
+                <input type="text" id="edit-phone" class="sa-input" maxlength="11" pattern="^09\d{9}$" title="Philippine mobile number starting with 09, exactly 11 digits" placeholder="e.g., 09123456789">
             </div>
             <div class="mb-6">
                 <label class="sa-label">Home Address</label>
-                <textarea id="edit-address" class="sa-input" rows="2"></textarea>
+                <textarea id="edit-address" class="sa-input" rows="2" maxlength="250" placeholder="e.g., 123 Main St, Brgy. San Jose, Manila" oninput="this.value = this.value.replace(/^\s+/, '').replace(/\s+/g, ' ');"></textarea>
             </div>
             <div class="flex gap-3">
                 <button type="submit" class="btn-gold flex-1 py-3">Update Account</button>
@@ -1178,10 +1232,10 @@
                             <td style="color:#64748b; font-size:.75rem;">{{ $u->deleted_at->format('M d, Y h:i A') }}</td>
                             <td style="text-align:right;">
                                 <div class="flex gap-2 justify-end">
-                                    <button class="btn-approve px-4 py-1.5" onclick="restoreUser({{ $u->id }}, '{{ $u->full_name }}')">
+                                    <button class="btn-approve px-4 py-1.5" onclick="restoreUser({{ $u->uuid }}, '{{ $u->full_name }}')">
                                         <i data-lucide="rotate-ccw" class="inline w-3 h-3 mr-1"></i> Restore
                                     </button>
-                                    <button class="btn-reject px-4 py-1.5" onclick="deleteUserPermanently({{ $u->id }}, '{{ $u->full_name }}')">
+                                    <button class="btn-reject px-4 py-1.5" onclick="deleteUserPermanently({{ $u->uuid }}, '{{ $u->full_name }}')">
                                         <i data-lucide="trash-2" class="inline w-3 h-3 mr-1"></i> Delete
                                     </button>
                                 </div>
@@ -1402,6 +1456,12 @@ function switchTab(tab) {
     const tabBtn = document.querySelector(`.sa-tab[onclick*="switchTab('${tab}')"]`);
     if (tabBtn) tabBtn.classList.add('active');
     
+    if (typeof window.history.replaceState === 'function') {
+        const url = new URL(window.location);
+        url.searchParams.set('tab', tab);
+        window.history.replaceState(null, '', url.toString());
+    }
+    
     if (typeof lucide !== 'undefined') lucide.createIcons();
 }
 
@@ -1541,11 +1601,21 @@ function openArchivesModal() {
 function openEditUserModal(user) {
     document.getElementById('edit-user-id').value = user.id;
     document.getElementById('edit-first-name').value = user.first_name || '';
+    document.getElementById('edit-middle-name').value = user.middle_name || '';
     document.getElementById('edit-last-name').value = user.last_name || '';
+    document.getElementById('edit-suffix').value = user.suffix || '';
     document.getElementById('edit-email').value = user.email || '';
     document.getElementById('edit-role').value = user.role || '';
     document.getElementById('edit-phone').value = user.phone_number || '';
     document.getElementById('edit-address').value = user.address || '';
+    
+    // Validate states immediately
+    validateFieldState(document.getElementById('edit-first-name'), true);
+    validateFieldState(document.getElementById('edit-middle-name'), false);
+    validateFieldState(document.getElementById('edit-last-name'), true);
+    validatePhoneFieldState(document.getElementById('edit-phone'));
+    validateEmailFieldState(document.getElementById('edit-email'));
+    validateAddressFieldState(document.getElementById('edit-address'));
     
     document.getElementById('editUserModal').classList.add('open');
 }
@@ -1553,13 +1623,41 @@ function openEditUserModal(user) {
 async function submitUserEdit(e) {
     e.preventDefault();
     const id = document.getElementById('edit-user-id').value;
+    
+    const editFirst = document.getElementById('edit-first-name');
+    const editMiddle = document.getElementById('edit-middle-name');
+    const editLast = document.getElementById('edit-last-name');
+    const editPhone = document.getElementById('edit-phone');
+    const editEmail = document.getElementById('edit-email');
+    const editAddress = document.getElementById('edit-address');
+    
+    validateFieldState(editFirst, true);
+    validateFieldState(editMiddle, false);
+    validateFieldState(editLast, true);
+    validatePhoneFieldState(editPhone);
+    validateEmailFieldState(editEmail);
+    validateAddressFieldState(editAddress);
+    
+    if (editFirst.classList.contains('is-invalid') || 
+        editMiddle.classList.contains('is-invalid') || 
+        editLast.classList.contains('is-invalid') ||
+        editPhone.classList.contains('is-invalid') ||
+        editEmail.classList.contains('is-invalid') ||
+        editAddress.classList.contains('is-invalid')) {
+        
+        toast('Please correct the invalid fields. Verify names, email, phone format, and address (min 5 chars if filled).', true);
+        return;
+    }
+
     const formData = {
-        first_name: document.getElementById('edit-first-name').value,
-        last_name: document.getElementById('edit-last-name').value,
-        email: document.getElementById('edit-email').value,
-        role: document.getElementById('edit-role').value,
-        phone_number: document.getElementById('edit-phone').value,
-        address: document.getElementById('edit-address').value,
+        first_name: firstName,
+        middle_name: middleName,
+        last_name: lastName,
+        suffix: suffix,
+        email: email,
+        role: role,
+        phone_number: phone,
+        address: address,
     };
 
     try {
@@ -1584,10 +1682,15 @@ async function submitUserEdit(e) {
 
 // ─── User Search ──────────────────────────────────────────────────────────────
 function filterUserTable(val) {
-    val = (val || document.getElementById('userSearch').value || '').toLowerCase();
+    if (typeof val === 'object') val = null; // Ignore event objects
+    val = (val !== null && val !== undefined ? val : document.getElementById('userSearch').value).toLowerCase().trim();
+    const cleanVal = val.replace(/\s+/g, '_'); // So "super admin" matches "super_admin"
     const statusVal = document.getElementById('statusFilter').value.toLowerCase();
     document.querySelectorAll('#userTable .user-row').forEach(row => {
-        const matchText = row.dataset.name.includes(val) || row.dataset.email.includes(val) || row.dataset.role.includes(val);
+        const name = (row.dataset.name || '').toLowerCase();
+        const email = (row.dataset.email || '').toLowerCase();
+        const role = (row.dataset.role || '').toLowerCase();
+        const matchText = name.includes(val) || email.includes(val) || role.includes(val) || role.includes(cleanVal);
         const matchStatus = !statusVal || row.dataset.status === statusVal;
         row.style.display = (matchText && matchStatus) ? '' : 'none';
     });
@@ -2039,6 +2142,10 @@ async function submitClassification(e) {
 // ─── Create Staff ───────────────────────────────────────────────────────────────
 function resetStaffForm() {
     document.getElementById('staffForm').reset();
+    ['staff-first', 'staff-middle', 'staff-last', 'staff-phone', 'staff-email', 'staff-address', 'staff-role'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.classList.remove('is-valid', 'is-invalid');
+    });
     document.getElementById('staffForm').classList.remove('hidden');
     document.getElementById('staffSuccessMsg').classList.add('hidden');
 }
@@ -2048,42 +2155,59 @@ async function submitStaff(e) {
     
     const btn = document.getElementById('btn-save-staff');
     const originalText = btn.innerHTML;
-    btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i> Saving...';
-    btn.disabled = true;
 
     try {
-        const firstName = document.getElementById('staff-first').value.trim();
-        const lastName = document.getElementById('staff-last').value.trim();
-        const phone = document.getElementById('staff-phone').value.trim();
-        const address = document.getElementById('staff-address').value.trim();
-        const email = document.getElementById('staff-email').value.trim();
-        const role = document.getElementById('staff-role').value;
+        const staffFirst   = document.getElementById('staff-first');
+        const staffMiddle  = document.getElementById('staff-middle');
+        const staffLast    = document.getElementById('staff-last');
+        const staffPhone   = document.getElementById('staff-phone');
+        const staffEmail   = document.getElementById('staff-email');
+        const staffAddress = document.getElementById('staff-address');
+        const staffRole    = document.getElementById('staff-role');
 
-        const nameRegex = /^[A-Za-z\s]+$/;
-        if (!nameRegex.test(firstName) || firstName.length > 16) {
-            toast('First Name must only contain letters and max 16 chars.', true);
-            btn.innerHTML = originalText; btn.disabled = false; return;
-        }
-        if (!nameRegex.test(lastName) || lastName.length > 16) {
-            toast('Last Name must only contain letters and max 16 chars.', true);
-            btn.innerHTML = originalText; btn.disabled = false; return;
-        }
-        
-        const phoneRegex = /^[0-9]+$/;
-        if (phone && (!phoneRegex.test(phone) || phone.length > 11)) {
-            toast('Phone Number must be up to 11 digits only.', true);
-            btn.innerHTML = originalText; btn.disabled = false; return;
+        // Run all validations at once
+        validateFieldState(staffFirst, true);
+        validateFieldState(staffMiddle, false);
+        validateFieldState(staffLast, true);
+        validatePhoneFieldState(staffPhone);
+        validateEmailFieldState(staffEmail);
+        validateAddressFieldState(staffAddress);
+        validateRoleFieldState(staffRole);
+
+        // Collect all invalid fields
+        const invalidFields = [staffFirst, staffMiddle, staffLast, staffPhone, staffEmail, staffAddress, staffRole]
+            .filter(el => el.classList.contains('is-invalid'));
+
+        if (invalidFields.length > 0) {
+            // Shake all invalid fields simultaneously
+            invalidFields.forEach(el => {
+                el.classList.remove('shake');
+                void el.offsetWidth; // force reflow to restart animation
+                el.classList.add('shake');
+                el.addEventListener('animationend', () => el.classList.remove('shake'), { once: true });
+            });
+            toast('Please fill in all required fields correctly before submitting.', true);
+            return;
         }
 
-        const addressRegex = /^[A-Za-z0-9\s.,'-]+$/;
-        if (address && !addressRegex.test(address)) {
-            toast('Home Address contains invalid special characters.', true);
-            btn.innerHTML = originalText; btn.disabled = false; return;
-        }
+        const firstName  = staffFirst.value.trim();
+        const middleName = staffMiddle.value.trim();
+        const lastName   = staffLast.value.trim();
+        const suffix     = document.getElementById('staff-suffix').value;
+        const phone      = staffPhone.value.trim();
+        const address    = staffAddress.value.trim();
+        const email      = staffEmail.value.trim();
+        const role       = staffRole.value;
+
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i> Saving...';
+        btn.disabled = true;
+        // Validations are fully verified via state class check above
 
         const payload = {
             first_name: firstName,
+            middle_name: middleName,
             last_name: lastName,
+            suffix: suffix,
             email: email,
             phone_number: phone,
             role: role,
@@ -2136,9 +2260,217 @@ document.getElementById('manageRolesModal').addEventListener('click', function(e
 });
 
 
+// Strict Name & Phone Fields Real-Time Validation
+function setupStrictFormValidation() {
+    // 1. Name validation
+    const nameFields = [
+        { id: 'staff-first', required: true },
+        { id: 'staff-middle', required: false },
+        { id: 'staff-last', required: true },
+        { id: 'edit-first-name', required: true },
+        { id: 'edit-middle-name', required: false },
+        { id: 'edit-last-name', required: true }
+    ];
+
+    nameFields.forEach(field => {
+        const el = document.getElementById(field.id);
+        if (el) {
+            // Remove previous listeners if any (cleanup)
+            const newEl = el.cloneNode(true);
+            el.parentNode.replaceChild(newEl, el);
+
+            newEl.addEventListener('input', () => {
+                newEl.value = newEl.value.replace(/[^a-zA-Z\s]/g, '').replace(/^\s+/, '').replace(/\s+/g, ' ');
+                validateFieldState(newEl, field.required);
+            });
+            newEl.addEventListener('blur', () => {
+                validateFieldState(newEl, field.required);
+            });
+        }
+    });
+
+    // 2. Phone validation (starts with 09, 11 digits)
+    const phoneFields = ['staff-phone', 'edit-phone'];
+    phoneFields.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+            const newEl = el.cloneNode(true);
+            el.parentNode.replaceChild(newEl, el);
+
+            newEl.addEventListener('input', () => {
+                let val = newEl.value.replace(/[^0-9]/g, '');
+                
+                // Enforce starting with "09"
+                if (val.length > 0 && val[0] !== '0') {
+                    val = '';
+                }
+                if (val.length > 1 && val[1] !== '9') {
+                    val = '0';
+                }
+                newEl.value = val;
+                validatePhoneFieldState(newEl);
+            });
+            newEl.addEventListener('blur', () => {
+                validatePhoneFieldState(newEl);
+            });
+        }
+    });
+
+    // 3. Email validation (no spaces, valid email characters only, no leading . or @, only one @)
+    const emailFields = ['staff-email', 'edit-email'];
+    emailFields.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+            const newEl = el.cloneNode(true);
+            el.parentNode.replaceChild(newEl, el);
+
+            newEl.addEventListener('input', () => {
+                let val = newEl.value.replace(/[^a-zA-Z0-9@._\-+]/g, '');
+                
+                // Prevent leading '.' or '@'
+                if (val.length > 0 && (val[0] === '.' || val[0] === '@')) {
+                    val = val.substring(1);
+                }
+                
+                // Prevent multiple '@'
+                const atIdx = val.indexOf('@');
+                if (atIdx !== -1) {
+                    val = val.substring(0, atIdx + 1) + val.substring(atIdx + 1).replace(/@/g, '');
+                }
+                
+                newEl.value = val;
+                validateEmailFieldState(newEl);
+            });
+            newEl.addEventListener('blur', () => {
+                validateEmailFieldState(newEl);
+            });
+        }
+    });
+
+    // 4. Address validation (max 250 chars, no leading spaces, optional but min 5 chars if filled)
+    const addressFields = ['staff-address', 'edit-address'];
+    addressFields.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+            const newEl = el.cloneNode(true);
+            el.parentNode.replaceChild(newEl, el);
+
+            newEl.addEventListener('input', () => {
+                newEl.value = newEl.value.replace(/^\s+/, '').replace(/\s+/g, ' ');
+                validateAddressFieldState(newEl);
+            });
+            newEl.addEventListener('blur', () => {
+                validateAddressFieldState(newEl);
+            });
+        }
+    });
+}
+
+function validateAddressFieldState(el) {
+    const val = el.value.trim();
+    // Now REQUIRED — empty is invalid
+    if (val.length === 0) {
+        el.classList.remove('is-valid');
+        el.classList.add('is-invalid');
+        return false;
+    }
+    if (val.length >= 5 && val.length <= 250) {
+        el.classList.remove('is-invalid');
+        el.classList.add('is-valid');
+        return true;
+    } else {
+        el.classList.remove('is-valid');
+        el.classList.add('is-invalid');
+        return false;
+    }
+}
+
+function validateRoleFieldState(el) {
+    const val = el.value.trim();
+    if (val === '' || val === null) {
+        el.classList.remove('is-valid');
+        el.classList.add('is-invalid');
+        return false;
+    } else {
+        el.classList.remove('is-invalid');
+        el.classList.add('is-valid');
+        return true;
+    }
+}
+
+function validateEmailFieldState(el) {
+    const val = el.value.trim();
+    // Strictly accept only @gmail.com addresses
+    const emailRegex = /^[a-zA-Z0-9._\-+]{2,}@gmail\.com$/i;
+    
+    if (val.length === 0) {
+        el.classList.remove('is-valid');
+        el.classList.add('is-invalid');
+        return false;
+    }
+
+    if (emailRegex.test(val)) {
+        el.classList.remove('is-invalid');
+        el.classList.add('is-valid');
+        return true;
+    } else {
+        el.classList.remove('is-valid');
+        el.classList.add('is-invalid');
+        return false;
+    }
+}
+
+function validatePhoneFieldState(el) {
+    const val = el.value.trim();
+    const phoneRegex = /^09\d{9}$/;
+    // Now REQUIRED — empty is invalid
+    if (val.length === 0) {
+        el.classList.remove('is-valid');
+        el.classList.add('is-invalid');
+        return false;
+    }
+
+    if (phoneRegex.test(val)) {
+        el.classList.remove('is-invalid');
+        el.classList.add('is-valid');
+        return true;
+    } else {
+        el.classList.remove('is-valid');
+        el.classList.add('is-invalid');
+        return false;
+    }
+}
+
+function validateFieldState(el, required) {
+    const val = el.value.trim();
+    const nameRegex = /^[A-Za-z]+(?:\s[A-Za-z]+)*$/;
+    let isValid = true;
+    
+    if (required && val.length === 0) {
+        isValid = false;
+    } else if (val.length > 0) {
+        if (val.length < 3 || val.length > 50 || !nameRegex.test(val)) {
+            isValid = false;
+        }
+    }
+
+    if (isValid) {
+        el.classList.remove('is-invalid');
+        if (val.length >= 3) {
+            el.classList.add('is-valid');
+        } else {
+            el.classList.remove('is-valid');
+        }
+    } else {
+        el.classList.remove('is-valid');
+        el.classList.add('is-invalid');
+    }
+}
+
 // Init icons and logic on load or AJAX load
 function initSuperAdmin() {
     if (typeof lucide !== 'undefined') lucide.createIcons();
+    setupStrictFormValidation();
     
     // Clear existing interval if any to prevent duplicates
     if (window.auditLogInterval) clearInterval(window.auditLogInterval);
@@ -2159,3 +2491,4 @@ document.addEventListener('page:loaded', initSuperAdmin);
 initSuperAdmin();
 </script>
 @endsection
+

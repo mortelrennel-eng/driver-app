@@ -42,6 +42,7 @@ class User extends Authenticatable
         'approval_status',
         'approved_by',
         'approved_at',
+        'tutorial_completed',
         'allowed_pages',
         'must_change_password',
         'temp_password',
