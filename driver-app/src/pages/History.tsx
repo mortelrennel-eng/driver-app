@@ -118,7 +118,6 @@ const History: React.FC = () => {
 
   // Calculate totals based ONLY on the selected month (before status filtering)
   const totalCollected = monthFilteredRecords.reduce((a, r) => a + Number(r.actual_boundary || 0), 0);
-  const totalTarget = monthFilteredRecords.reduce((a, r) => a + Number(r.boundary_amount || 0), 0);
   const totalShortage = monthFilteredRecords.reduce((a, r) => a + Number(r.shortage || 0), 0);
   const paidCount = monthFilteredRecords.filter(r => ['paid', 'excess'].includes(r.status?.toLowerCase())).length;
   const shortCount = monthFilteredRecords.filter(r => r.status?.toLowerCase() === 'shortage').length;
@@ -144,6 +143,7 @@ const History: React.FC = () => {
 
   // Total debt payments for this month
   const totalDebtPaid = monthFilteredDebts.reduce((a, d) => a + Number(d.actual_boundary || 0), 0);
+  const totalOverallDebtPaid = debtPayments.reduce((a, d) => a + Number(d.actual_boundary || 0), 0);
 
   return (
     <IonPage>
@@ -241,13 +241,12 @@ const History: React.FC = () => {
                 
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '20px' }}>
                   <div>
-                    <div style={{ fontSize: '11px', fontWeight: '800', color: t.textMuted, textTransform: 'uppercase', letterSpacing: '2px', marginBottom: '8px' }}>Total Collected</div>
-                    <div style={{ fontSize: '32px', fontWeight: '900', color: t.textPrimary, lineHeight: 1, marginBottom: '4px' }}>₱{totalCollected.toLocaleString()}</div>
-                    <div style={{ fontSize: '12px', color: t.textMuted }}>of ₱{totalTarget.toLocaleString()} target</div>
+                    <div style={{ fontSize: '11px', fontWeight: '800', color: t.textMuted, textTransform: 'uppercase', letterSpacing: '2px', marginBottom: '8px' }}>Collected This Month</div>
+                    <div style={{ fontSize: '32px', fontWeight: '900', color: t.textPrimary, lineHeight: 1 }}>₱{totalCollected.toLocaleString()}</div>
                   </div>
                   <div style={{ textAlign: 'right' }}>
-                    <div style={{ fontSize: '11px', fontWeight: '800', color: '#ef4444', textTransform: 'uppercase', letterSpacing: '2px', marginBottom: '8px' }}>Total Shortage</div>
-                    <div style={{ fontSize: '24px', fontWeight: '900', color: '#ef4444', lineHeight: 1, marginBottom: '4px' }}>₱{totalShortage.toLocaleString()}</div>
+                    <div style={{ fontSize: '11px', fontWeight: '800', color: '#ef4444', textTransform: 'uppercase', letterSpacing: '2px', marginBottom: '8px' }}>Shortage This Month</div>
+                    <div style={{ fontSize: '24px', fontWeight: '900', color: '#ef4444', lineHeight: 1 }}>₱{totalShortage.toLocaleString()}</div>
                   </div>
                 </div>
 
@@ -351,16 +350,16 @@ const History: React.FC = () => {
           ) : (
             <>
               {/* Debt Payments Summary */}
-              <div style={{ margin: '4px 20px 20px', padding: '24px', background: t.card, ...t.glass, border: t.border, borderRadius: '20px', boxShadow: t.shadow }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                  <div>
-                    <div style={{ fontSize: '11px', fontWeight: '800', color: t.textMuted, textTransform: 'uppercase', letterSpacing: '2px', marginBottom: '8px' }}>Debt Payments</div>
-                    <div style={{ fontSize: '32px', fontWeight: '900', color: '#22c55e', lineHeight: 1, marginBottom: '4px' }}>₱{totalDebtPaid.toLocaleString()}</div>
-                    <div style={{ fontSize: '12px', color: t.textMuted }}>{monthFilteredDebts.length} settled payment(s)</div>
-                  </div>
-                  <div style={{ width: '52px', height: '52px', borderRadius: '16px', background: 'rgba(34,197,94,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <IonIcon icon={shieldCheckmarkOutline} style={{ fontSize: '28px', color: '#22c55e' }} />
-                  </div>
+              <div style={{ display: 'flex', gap: '12px', margin: '4px 20px 20px' }}>
+                <div style={{ flex: 1, padding: '16px', background: t.card, ...t.glass, border: t.border, borderRadius: '16px', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+                  <div style={{ fontSize: '10px', fontWeight: '800', color: t.textMuted, textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '4px' }}>This Month</div>
+                  <div style={{ fontSize: '24px', fontWeight: '900', color: '#22c55e' }}>₱{totalDebtPaid.toLocaleString()}</div>
+                  <div style={{ fontSize: '11px', color: t.textMuted, marginTop: '2px' }}>{monthFilteredDebts.length} payment(s)</div>
+                </div>
+                <div style={{ flex: 1, padding: '16px', background: t.card, ...t.glass, border: t.border, borderRadius: '16px', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+                  <div style={{ fontSize: '10px', fontWeight: '800', color: t.textMuted, textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '4px' }}>Total Overall</div>
+                  <div style={{ fontSize: '24px', fontWeight: '900', color: '#16a34a' }}>₱{totalOverallDebtPaid.toLocaleString()}</div>
+                  <div style={{ fontSize: '11px', color: t.textMuted, marginTop: '2px' }}>{debtPayments.length} payment(s)</div>
                 </div>
               </div>
 
