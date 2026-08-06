@@ -219,58 +219,75 @@ const Violations: React.FC = () => {
             </div>
           ) : (
             <>
-              {/* ── Summary: Critical (clickable filter) + Total Charges ── */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '20px' }}>
+              {/* ── Summary: 3 Equal-Sized Cards (Filter, This Month, Total Overall) ── */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px', marginBottom: '20px' }}>
                 {/* Critical - clickable to cycle severity filter */}
                 <div
                   onClick={cycleSeverityFilter}
                   style={{
-                    padding: '14px 16px', background: t.card, ...t.glass, border: t.border, borderRadius: '18px',
+                    padding: '12px 10px', background: t.card, ...t.glass, border: t.border, borderRadius: '16px',
                     boxShadow: severityFilter !== 'all' ? `0 0 0 2px ${getSeverityStyles(severityFilter).color}` : t.cardShadow,
-                    cursor: 'pointer', transition: 'all 0.25s ease', position: 'relative',
+                    cursor: 'pointer', transition: 'all 0.25s ease', display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
+                    minHeight: '105px'
                   }}
                 >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-                    <div style={{ width: '32px', height: '32px', borderRadius: '10px', background: severityFilter !== 'all' ? getSeverityStyles(severityFilter).bg : 'rgba(239,68,68,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <IonIcon icon={filterOutline} style={{ fontSize: '16px', color: severityFilter !== 'all' ? getSeverityStyles(severityFilter).color : danger }} />
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
+                    <div style={{ width: '28px', height: '28px', borderRadius: '8px', background: severityFilter !== 'all' ? getSeverityStyles(severityFilter).bg : 'rgba(239,68,68,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <IonIcon icon={filterOutline} style={{ fontSize: '14px', color: severityFilter !== 'all' ? getSeverityStyles(severityFilter).color : danger }} />
                     </div>
                   </div>
-                  <div style={{ fontSize: '24px', fontWeight: '900', color: severityFilter !== 'all' ? getSeverityStyles(severityFilter).color : (criticalCount > 0 ? danger : t.textPrimary), lineHeight: 1 }}>
-                    {severityFilter === 'all' ? criticalCount : filtered.length}
+                  <div>
+                    <div style={{ fontSize: '18px', fontWeight: '900', color: severityFilter !== 'all' ? getSeverityStyles(severityFilter).color : (criticalCount > 0 ? danger : t.textPrimary), lineHeight: 1.1 }}>
+                      {severityFilter === 'all' ? criticalCount : filtered.length}
+                    </div>
+                    <div style={{ fontSize: '10px', color: t.textMuted, fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.5px', marginTop: '2px' }}>
+                      {severityFilter === 'all' ? 'Critical' : severityFilter}
+                    </div>
                   </div>
-                  <div style={{ fontSize: '10px', color: t.textMuted, fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.5px', marginTop: '4px' }}>
-                    {severityFilter === 'all' ? 'Critical' : severityFilter}
-                  </div>
-                  {/* Filter indicator */}
                   <div style={{
-                    position: 'absolute', top: '16px', right: '16px',
-                    padding: '4px 8px', borderRadius: '6px', fontSize: '9px', fontWeight: '900',
-                    background: severityFilter !== 'all' ? getSeverityStyles(severityFilter).bg : 'rgba(148,163,184,0.12)', 
+                    fontSize: '8px', fontWeight: '900',
                     color: severityFilter !== 'all' ? getSeverityStyles(severityFilter).color : '#64748b',
-                    textTransform: 'uppercase', letterSpacing: '0.5px',
+                    textTransform: 'uppercase', letterSpacing: '0.5px', marginTop: '4px'
                   }}>TAP TO CHANGE</div>
                 </div>
 
-                {/* Debts Balance */}
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                  <div style={{ padding: '14px 16px', background: t.card, ...t.glass, border: t.border, borderRadius: '18px', boxShadow: t.cardShadow }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-                      <div style={{ width: '32px', height: '32px', borderRadius: '10px', background: 'rgba(234,179,8,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        <IonIcon icon={cashOutline} style={{ fontSize: '16px', color: gold }} />
-                      </div>
+                {/* This Month */}
+                <div style={{ padding: '12px 10px', background: t.card, ...t.glass, border: t.border, borderRadius: '16px', boxShadow: t.cardShadow, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', minHeight: '105px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
+                    <div style={{ width: '28px', height: '28px', borderRadius: '8px', background: 'rgba(234,179,8,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <IonIcon icon={cashOutline} style={{ fontSize: '14px', color: gold }} />
                     </div>
-                    <div style={{ fontSize: '18px', fontWeight: '900', color: t.textPrimary, lineHeight: 1 }}>₱{totalCharge.toLocaleString()}</div>
-                    <div style={{ fontSize: '10px', color: t.textMuted, fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.5px', marginTop: '4px' }}>This Month</div>
                   </div>
-
-                  <div style={{ padding: '14px 16px', background: t.card, ...t.glass, border: t.border, borderRadius: '18px', boxShadow: t.cardShadow }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-                      <div style={{ width: '32px', height: '32px', borderRadius: '10px', background: 'rgba(239,68,68,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        <IonIcon icon={cashOutline} style={{ fontSize: '16px', color: danger }} />
-                      </div>
+                  <div>
+                    <div style={{ fontSize: '15px', fontWeight: '900', color: t.textPrimary, lineHeight: 1.1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      ₱{totalCharge.toLocaleString()}
                     </div>
-                    <div style={{ fontSize: '18px', fontWeight: '900', color: danger, lineHeight: 1 }}>₱{totalOverallCharge.toLocaleString()}</div>
-                    <div style={{ fontSize: '10px', color: t.textMuted, fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.5px', marginTop: '4px' }}>Total Overall</div>
+                    <div style={{ fontSize: '10px', color: t.textMuted, fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.5px', marginTop: '2px' }}>
+                      This Month
+                    </div>
+                  </div>
+                  <div style={{ fontSize: '8px', fontWeight: '800', color: t.textMuted, textTransform: 'uppercase', letterSpacing: '0.5px', marginTop: '4px' }}>
+                    DEB BALANCE
+                  </div>
+                </div>
+
+                {/* Total Overall */}
+                <div style={{ padding: '12px 10px', background: t.card, ...t.glass, border: t.border, borderRadius: '16px', boxShadow: t.cardShadow, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', minHeight: '105px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
+                    <div style={{ width: '28px', height: '28px', borderRadius: '8px', background: 'rgba(239,68,68,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <IonIcon icon={cashOutline} style={{ fontSize: '14px', color: danger }} />
+                    </div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '15px', fontWeight: '900', color: danger, lineHeight: 1.1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      ₱{totalOverallCharge.toLocaleString()}
+                    </div>
+                    <div style={{ fontSize: '10px', color: t.textMuted, fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.5px', marginTop: '2px' }}>
+                      Total Overall
+                    </div>
+                  </div>
+                  <div style={{ fontSize: '8px', fontWeight: '800', color: t.textMuted, textTransform: 'uppercase', letterSpacing: '0.5px', marginTop: '4px' }}>
+                    DEB BALANCE
                   </div>
                 </div>
               </div>
