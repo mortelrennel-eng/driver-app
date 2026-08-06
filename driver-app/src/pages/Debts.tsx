@@ -70,6 +70,7 @@ const Debts: React.FC = () => {
   const paginatedList = filteredCharges.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
 
   const totalCharges = filteredCharges.reduce((a, c) => a + Number(c.remaining_balance), 0);
+  const totalOverallCharges = charges.reduce((a, c) => a + Number(c.remaining_balance), 0);
 
   const severityConfig = (s: string) =>
     s === 'high' ? { color: '#ef4444', bg: 'rgba(239,68,68,0.12)', icon: alertCircleOutline } :
@@ -129,13 +130,19 @@ const Debts: React.FC = () => {
           </div>
 
           {/* Summary Banner */}
-          {filteredCharges.length > 0 && (
-            <div style={{ margin: '16px 20px 16px', padding: '20px', background: t.card, ...t.glass, border: t.border, borderRadius: '16px' }}>
-              <div style={{ fontSize: '10px', fontWeight: '800', color: t.textMuted, textTransform: 'uppercase', letterSpacing: '2px', marginBottom: '4px' }}>Debts Balance</div>
-              <div style={{ fontSize: '32px', fontWeight: '900', color: '#ef4444' }}>₱{totalCharges.toLocaleString()}</div>
-              <div style={{ fontSize: '12px', color: t.textMuted, marginTop: '2px' }}>{filteredCharges.length} debt(s) remaining</div>
+          <div style={{ display: 'flex', gap: '12px', margin: '16px 20px 16px' }}>
+            <div style={{ flex: 1, padding: '16px', background: t.card, ...t.glass, border: t.border, borderRadius: '16px', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+              <div style={{ fontSize: '10px', fontWeight: '800', color: t.textMuted, textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '4px' }}>This Month</div>
+              <div style={{ fontSize: '24px', fontWeight: '900', color: '#ef4444' }}>₱{totalCharges.toLocaleString()}</div>
+              <div style={{ fontSize: '11px', color: t.textMuted, marginTop: '2px' }}>{filteredCharges.length} debt(s)</div>
             </div>
-          )}
+            
+            <div style={{ flex: 1, padding: '16px', background: t.card, ...t.glass, border: t.border, borderRadius: '16px', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+              <div style={{ fontSize: '10px', fontWeight: '800', color: t.textMuted, textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '4px' }}>Total Overall</div>
+              <div style={{ fontSize: '24px', fontWeight: '900', color: '#f43f5e' }}>₱{totalOverallCharges.toLocaleString()}</div>
+              <div style={{ fontSize: '11px', color: t.textMuted, marginTop: '2px' }}>{charges.length} debt(s)</div>
+            </div>
+          </div>
 
           {/* Content */}
           <div style={{ padding: '0 20px' }}>
