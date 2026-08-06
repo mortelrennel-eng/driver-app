@@ -96,6 +96,7 @@ const Violations: React.FC = () => {
 
   // ── Stats ──
   const totalCharge   = monthFiltered.reduce((s, i) => s + Number(i.remaining_balance || 0), 0);
+  const totalOverallCharge = incidents.reduce((s, i) => s + Number(i.remaining_balance || 0), 0);
   const criticalCount = monthFiltered.filter(i => i.severity.toLowerCase() === 'critical').length;
 
   const gold   = '#eab308';
@@ -219,7 +220,7 @@ const Violations: React.FC = () => {
           ) : (
             <>
               {/* ── Summary: Critical (clickable filter) + Total Charges ── */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '20px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '20px' }}>
                 {/* Critical - clickable to cycle severity filter */}
                 <div
                   onClick={cycleSeverityFilter}
@@ -241,25 +242,36 @@ const Violations: React.FC = () => {
                     {severityFilter === 'all' ? 'Critical' : severityFilter}
                   </div>
                   {/* Filter indicator */}
-                  {severityFilter !== 'all' && (
-                    <div style={{
-                      position: 'absolute', top: '8px', right: '8px',
-                      padding: '2px 6px', borderRadius: '6px', fontSize: '8px', fontWeight: '900',
-                      background: getSeverityStyles(severityFilter).bg, color: getSeverityStyles(severityFilter).color,
-                      textTransform: 'uppercase', letterSpacing: '0.5px',
-                    }}>TAP TO CHANGE</div>
-                  )}
+                  <div style={{
+                    position: 'absolute', top: '16px', right: '16px',
+                    padding: '4px 8px', borderRadius: '6px', fontSize: '9px', fontWeight: '900',
+                    background: severityFilter !== 'all' ? getSeverityStyles(severityFilter).bg : 'rgba(148,163,184,0.12)', 
+                    color: severityFilter !== 'all' ? getSeverityStyles(severityFilter).color : '#64748b',
+                    textTransform: 'uppercase', letterSpacing: '0.5px',
+                  }}>TAP TO CHANGE</div>
                 </div>
 
                 {/* Debts Balance */}
-                <div style={{ padding: '14px 16px', background: t.card, ...t.glass, border: t.border, borderRadius: '18px', boxShadow: t.cardShadow }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-                    <div style={{ width: '32px', height: '32px', borderRadius: '10px', background: 'rgba(234,179,8,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <IonIcon icon={cashOutline} style={{ fontSize: '16px', color: gold }} />
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                  <div style={{ padding: '14px 16px', background: t.card, ...t.glass, border: t.border, borderRadius: '18px', boxShadow: t.cardShadow }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                      <div style={{ width: '32px', height: '32px', borderRadius: '10px', background: 'rgba(234,179,8,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <IonIcon icon={cashOutline} style={{ fontSize: '16px', color: gold }} />
+                      </div>
                     </div>
+                    <div style={{ fontSize: '18px', fontWeight: '900', color: t.textPrimary, lineHeight: 1 }}>₱{totalCharge.toLocaleString()}</div>
+                    <div style={{ fontSize: '10px', color: t.textMuted, fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.5px', marginTop: '4px' }}>This Month</div>
                   </div>
-                  <div style={{ fontSize: '18px', fontWeight: '900', color: t.textPrimary, lineHeight: 1 }}>₱{totalCharge.toLocaleString()}</div>
-                  <div style={{ fontSize: '10px', color: t.textMuted, fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.5px', marginTop: '4px' }}>Debts Balance</div>
+
+                  <div style={{ padding: '14px 16px', background: t.card, ...t.glass, border: t.border, borderRadius: '18px', boxShadow: t.cardShadow }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                      <div style={{ width: '32px', height: '32px', borderRadius: '10px', background: 'rgba(239,68,68,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <IonIcon icon={cashOutline} style={{ fontSize: '16px', color: danger }} />
+                      </div>
+                    </div>
+                    <div style={{ fontSize: '18px', fontWeight: '900', color: danger, lineHeight: 1 }}>₱{totalOverallCharge.toLocaleString()}</div>
+                    <div style={{ fontSize: '10px', color: t.textMuted, fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.5px', marginTop: '4px' }}>Total Overall</div>
+                  </div>
                 </div>
               </div>
 
